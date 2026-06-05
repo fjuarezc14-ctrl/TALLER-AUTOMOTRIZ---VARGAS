@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SISTEMA ERP - ARCHIVOS Y DOCUMENTOS</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
+        :root { --brand-primary: #10b981; --brand-dark: #111827; }
+        body { font-family: 'Inter', sans-serif; background-color: #f1f5f9; }
+        
+        .sidebar-item { transition: all 0.2s; border-radius: 12px; margin: 4px 12px; }
+        .sidebar-item:hover { background-color: rgba(255, 255, 255, 0.1); color: white; }
+        .sidebar-active { background-color: var(--brand-primary); color: var(--brand-dark) !important; font-weight: 700; }
+        
+        .modal-active { display: flex !important; animation: fadeIn 0.2s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    </style>
+</head>
+<body class="flex h-screen overflow-hidden relative">
+
+    <div id="sidebar-backdrop" onclick="toggleSidebar()" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-40 hidden md:hidden"></div>
+
+    <aside id="sidebar-menu" class="fixed md:relative inset-y-0 left-0 w-64 bg-slate-900 text-slate-400 flex flex-col shadow-2xl z-50 transform -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out">
+        <div class="p-6 flex items-center justify-between md:justify-start gap-3">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center text-slate-900 shadow-lg shadow-emerald-500/20">
+                    <i data-lucide="wrench"></i>
+                </div>
+                <span class="text-white font-black text-xl tracking-tighter">AUTO<span class="text-emerald-400">ERP</span></span>
+            </div>
+            <button onclick="toggleSidebar()" class="text-slate-400 hover:text-white md:hidden">
+                <i data-lucide="x" class="w-6 h-6"></i>
+            </button>
+        </div>
+
+        <nav class="flex-1 mt-4 space-y-1">
+            <a href="#" class="sidebar-item flex items-center gap-3 p-3 text-sm">
+                <i data-lucide="layout-dashboard" class="w-5 h-5"></i> Dashboard
+            </a>
+            <a href="ordenservicio.html" class="sidebar-item flex items-center gap-3 p-3 text-sm">
+                <i data-lucide="clipboard-list" class="w-5 h-5"></i> Órdenes de Servicio
+            </a>
+            <a href="clientes.html" class="sidebar-item flex items-center gap-3 p-3 text-sm">
+                <i data-lucide="users" class="w-5 h-5"></i> Clientes
+            </a>
+            <a href="#" class="sidebar-item flex items-center gap-3 p-3 text-sm">
+                <i data-lucide="car" class="w-5 h-5"></i> Vehículos
+            </a>
+            <a href="almacen.html" class="sidebar-item flex items-center gap-3 p-3 text-sm">
+                <i data-lucide="package" class="w-5 h-5"></i> Almacén / Repuestos
+            </a>
+            <a href="facturacion.html" class="sidebar-item flex items-center gap-3 p-3 text-sm">
+                <i data-lucide="banknote" class="w-5 h-5"></i> Facturación
+            </a>
+            <a href="archivos.html" class="sidebar-item sidebar-active flex items-center gap-3 p-3 text-sm">
+                <i data-lucide="folder-open" class="w-5 h-5"></i> Archivos Compartidos
+            </a>
+        </nav>
+
+        <div class="p-4 border-t border-slate-800">
+            <div class="flex items-center gap-3 p-2 bg-slate-800/50 rounded-xl">
+                <div class="w-8 h-8 bg-slate-700 rounded-full flex items-center justify-center text-xs font-bold text-white">AD</div>
+                <div class="text-xs">
+                    <p class="text-white font-bold">Administrador</p>
+                    <p class="text-slate-500">Taller Central</p>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <main class="flex-1 flex flex-col overflow-hidden w-full">
+        <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 md:px-8 z-10 shrink-0">
+            <div class="flex items-center gap-3">
+                <button onclick="toggleSidebar()" class="p-2 text-slate-600 hover:bg-slate-100 rounded-xl md:hidden">
+                    <i data-lucide="menu" class="w-6 h-6"></i>
+                </button>
+                <div class="hidden sm:flex items-center gap-2 text-slate-500 text-sm font-medium">
+                    <span>Documentos</span>
+                    <i data-lucide="chevron-right" class="w-4 h-4"></i>
+                    <span class="text-slate-900 font-bold">Repositorio General</span>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-2 md:gap-4">
+                <button class="p-2 text-slate-400 hover:text-slate-600 relative">
+                    <i data-lucide="bell" class="w-5 h-5"></i>
+                </button>
+                <div class="h-8 w-px bg-slate-200 mx-1 md:mx-2"></div>
+                <button onclick="abrirModalSubir()" class="bg-slate-900 text-white px-3 md:px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-slate-800 transition-all shadow-md">
+                    <i data-lucide="upload-cloud" class="w-4 h-4 text-emerald-400"></i> <span class="hidden xs:inline sm:inline">Subir Archivo</span>
+                </button>
+            </div>
+        </header>
+
+        <section class="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar">
+            <div class="mb-6 md:mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div>
+                    <h1 class="text-xl md:text-2xl font-black text-slate-900 uppercase tracking-tight">Archivos Compartidos</h1>
+                    <p class="text-xs md:text-sm text-slate-500">Documentos, manuales y evidencias accesibles para todas las áreas.</p>
+                </div>
+                <div class="relative w-full sm:w-64">
+                    <input type="text" id="buscador-archivos" onkeyup="filtrarArchivos()" placeholder="Buscar archivo o etiqueta..." class="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-emerald-500 font-medium shadow-sm">
+                    <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-3"></i>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-2xl md:rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left min-w-[800px] md:min-w-full">
+                        <thead class="bg-slate-50 text-slate-400 text-[10px] font-black uppercase tracking-widest">
+                            <tr>
+                                <th class="px-6 py-4">Nombre del Documento</th>
+                                <th class="px-6 py-4">Área / Categoría</th>
+                                <th class="px-6 py-4 text-center">Tamaño</th>
+                                <th class="px-6 py-4">Subido el</th>
+                                <th class="px-6 py-4">Subido por</th>
+                                <th class="px-6 py-4 text-right">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabla-cuerpo-archivos" class="divide-y divide-slate-50 text-sm"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <div id="modal-subir" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] hidden items-center justify-center p-2 md:p-4">
+        <div class="bg-white w-full max-w-lg rounded-2xl md:rounded-3xl shadow-2xl overflow-hidden flex flex-col">
+            <div class="p-4 md:p-6 bg-slate-900 text-white flex justify-between items-center shrink-0">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 bg-emerald-500 rounded-lg flex items-center justify-center text-slate-900"><i data-lucide="upload" class="w-4 h-4"></i></div>
+                    <h2 class="font-black text-base uppercase tracking-tight">Cargar Documento</h2>
+                </div>
+                <button onclick="cerrarModalSubir()" class="text-slate-400 hover:text-white transition-colors"><i data-lucide="x"></i></button>
+            </div>
+            
+            <form id="form-subir" class="p-4 md:p-8 space-y-6 text-sm flex-1 overflow-y-auto">
+                
+                <div class="border-2 border-dashed border-slate-300 rounded-2xl p-8 text-center hover:bg-slate-50 hover:border-emerald-500 transition-colors cursor-pointer group" onclick="document.getElementById('file-upload-input').click()">
+                    <div class="w-12 h-12 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform">
+                        <i data-lucide="cloud-upload" class="w-6 h-6"></i>
+                    </div>
+                    <p class="text-slate-700 font-bold text-base">Haz clic para buscar o arrastra tu archivo aquí</p>
+                    <p class="text-xs text-slate-400 mt-2">PDF, JPG, PNG, DOCX, XLSX (Máx. 25MB)</p>
+                    <input type="file" id="file-upload-input" class="hidden" onchange="mostrarNombreArchivo(this)" required>
+                </div>
+                
+                <div id="file-name-display" class="hidden items-center gap-2 bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 rounded-xl font-bold">
+                    <i data-lucide="file-check" class="w-5 h-5"></i>
+                    <span id="file-name-text">archivo.pdf</span>
+                </div>
+
+                <div class="grid grid-cols-1 gap-4">
+                    <div>
+                        <label class="block text-slate-500 font-bold mb-1">Nombre Descriptivo / Título</label>
+                        <input type="text" id="arc-titulo" required placeholder="Ej: Manual de Despiece Toyota Hilux" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 focus:outline-none focus:border-emerald-500 font-medium text-slate-800">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-slate-500 font-bold mb-1">Área o Categoría destino</label>
+                        <select id="arc-area" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 focus:outline-none focus:border-emerald-500 font-medium text-slate-800">
+                            <option value="Administración">Administración</option>
+                            <option value="Facturación">Facturación / Contabilidad</option>
+                            <option value="Taller">Taller / Mecánicos</option>
+                            <option value="Evidencias / Vehículos">Evidencias de Vehículos</option>
+                            <option value="General">General / Todos</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="pt-4 border-t border-slate-100 flex justify-end gap-3 shrink-0">
+                    <button type="button" onclick="cerrarModalSubir()" class="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition-all w-full sm:w-auto">Cancelar</button>
+                    <button type="submit" class="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-black uppercase tracking-tight transition-all shadow-md flex items-center justify-center gap-2 w-full sm:w-auto">
+                        <i data-lucide="save" class="w-4 h-4"></i> Guardar Archivo
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // BASE DE DATOS MOCK DE ARCHIVOS
+        let archivosDB = [
+            { id: 1, titulo: "Manual Motor 2TR-FE Toyota Hilux", filename: "manual_hilux.pdf", tipo: "pdf", size: 4.5, area: "Taller", user: "Admin", fecha: "2026-05-16" },
+            { id: 2, titulo: "Evidencia Choque Lateral OS-1024", filename: "choque_1024.jpg", tipo: "img", size: 1.2, area: "Evidencias / Vehículos", user: "Carlos Mendoza", fecha: "2026-05-17" },
+            { id: 3, titulo: "Lista de Precios Repuestos 2026", filename: "precios_2026.xlsx", tipo: "excel", size: 0.8, area: "Administración", user: "Admin", fecha: "2026-05-15" },
+            { id: 4, titulo: "Contrato Mantenimiento Flota SAC", filename: "contrato_flota.docx", tipo: "word", size: 0.3, area: "Facturación", user: "María G.", fecha: "2026-05-10" }
+        ];
+
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar-menu');
+            const backdrop = document.getElementById('sidebar-backdrop');
+            sidebar.classList.toggle('-translate-x-full');
+            backdrop.classList.toggle('hidden');
+        }
+
+        // Obtener color y logo según extensión (mockeado por el tipo)
+        function getFileIcon(tipo) {
+            switch(tipo) {
+                case 'pdf': return { icon: 'file-text', color: 'text-red-500', bg: 'bg-red-50' };
+                case 'excel': return { icon: 'file-spreadsheet', color: 'text-emerald-500', bg: 'bg-emerald-50' };
+                case 'word': return { icon: 'file-text', color: 'text-blue-500', bg: 'bg-blue-50' };
+                case 'img': return { icon: 'image', color: 'text-amber-500', bg: 'bg-amber-50' };
+                default: return { icon: 'file', color: 'text-slate-500', bg: 'bg-slate-100' };
+            }
+        }
+
+        function formatearFecha(fechaStr) {
+            if(!fechaStr) return "-";
+            const p = fechaStr.split('-');
+            return `${p[2]}/${p[1]}/${p[0]}`;
+        }
+
+        function renderizarTablaArchivos(filtroTexto = "") {
+            const tabla = document.getElementById('tabla-cuerpo-archivos');
+            let html = '';
+
+            const filtroMinuscula = filtroTexto.toLowerCase();
+
+            // Clonamos y revertimos para mostrar los más nuevos primero
+            const archivosMostrar = [...archivosDB].reverse();
+
+            archivosMostrar.forEach(a => {
+                if (filtroMinuscula && !a.titulo.toLowerCase().includes(filtroMinuscula) && !a.area.toLowerCase().includes(filtroMinuscula) && !a.filename.toLowerCase().includes(filtroMinuscula)) {
+                    return; 
+                }
+
+                const config = getFileIcon(a.tipo);
+
+                html += `
+                    <tr class="hover:bg-slate-50 transition-colors">
+                        <td class="px-6 py-4">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 ${config.bg} ${config.color} rounded-xl flex items-center justify-center shrink-0">
+                                    <i data-lucide="${config.icon}" class="w-5 h-5"></i>
+                                </div>
+                                <div class="flex flex-col">
+                                    <span class="font-bold text-slate-800 text-sm">${a.titulo}</span>
+                                    <span class="text-xs text-slate-400 font-mono mt-0.5">${a.filename}</span>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4">
+                            <span class="bg-slate-100 text-slate-600 border border-slate-200 px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-wider">${a.area}</span>
+                        </td>
+                        <td class="px-6 py-4 text-center font-mono text-slate-500 text-xs font-bold">
+                            ${a.size.toFixed(1)} MB
+                        </td>
+                        <td class="px-6 py-4 text-slate-500 font-medium text-sm">${formatearFecha(a.fecha)}</td>
+                        <td class="px-6 py-4 text-slate-700 font-bold text-sm">${a.user}</td>
+                        <td class="px-6 py-4 text-right">
+                            <div class="flex items-center justify-end gap-2">
+                                <button onclick="descargarArchivo('${a.filename}')" class="bg-slate-100 hover:bg-emerald-50 text-slate-600 hover:text-emerald-600 p-2 rounded-lg transition-colors" title="Descargar">
+                                    <i data-lucide="download" class="w-4 h-4"></i>
+                                </button>
+                                <button onclick="eliminarArchivo(${a.id})" class="bg-slate-100 hover:bg-red-50 text-slate-400 hover:text-red-500 p-2 rounded-lg transition-colors" title="Eliminar">
+                                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>`;
+            });
+
+            tabla.innerHTML = html || `<tr><td colspan="6" class="text-center py-10 text-slate-400 italic font-medium">No se encontraron documentos en el repositorio.</td></tr>`;
+            
+            lucide.createIcons();
+        }
+
+        function filtrarArchivos() {
+            const texto = document.getElementById('buscador-archivos').value;
+            renderizarTablaArchivos(texto);
+        }
+
+        // --- LÓGICA DEL MODAL SUBIR ---
+        function mostrarNombreArchivo(input) {
+            const display = document.getElementById('file-name-display');
+            const text = document.getElementById('file-name-text');
+            const tituloInput = document.getElementById('arc-titulo');
+            
+            if(input.files && input.files[0]) {
+                const nombre = input.files[0].name;
+                text.innerText = nombre;
+                display.classList.remove('hidden');
+                display.classList.add('flex');
+                
+                // Autocompletar el título si está vacío
+                if(!tituloInput.value) {
+                    // Quitar extensión para el título sugerido
+                    tituloInput.value = nombre.replace(/\.[^/.]+$/, "");
+                }
+            } else {
+                display.classList.add('hidden');
+                display.classList.remove('flex');
+            }
+        }
+
+        function abrirModalSubir() {
+            document.getElementById('form-subir').reset();
+            document.getElementById('file-name-display').classList.add('hidden');
+            document.getElementById('file-name-display').classList.remove('flex');
+            document.getElementById('modal-subir').classList.add('modal-active');
+        }
+
+        function cerrarModalSubir() {
+            document.getElementById('modal-subir').classList.remove('modal-active');
+        }
+
+        // Mock simple para detectar el tipo por la extensión
+        function detectarTipo(filename) {
+            const ext = filename.split('.').pop().toLowerCase();
+            if(['pdf'].includes(ext)) return 'pdf';
+            if(['xls', 'xlsx', 'csv'].includes(ext)) return 'excel';
+            if(['doc', 'docx'].includes(ext)) return 'word';
+            if(['jpg', 'jpeg', 'png'].includes(ext)) return 'img';
+            return 'otro';
+        }
+
+        document.getElementById('form-subir').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const fileInput = document.getElementById('file-upload-input');
+            if(!fileInput.files || !fileInput.files[0]) {
+                alert("Debes seleccionar un archivo primero.");
+                return;
+            }
+
+            const file = fileInput.files[0];
+            const sizeMB = file.size / (1024 * 1024); // Convertir bytes a MB
+            
+            const nuevoArchivo = {
+                id: Date.now(),
+                titulo: document.getElementById('arc-titulo').value.trim(),
+                filename: file.name,
+                tipo: detectarTipo(file.name),
+                size: sizeMB,
+                area: document.getElementById('arc-area').value,
+                user: "Admin", // Usuario actual logueado
+                fecha: new Date().toISOString().split('T')[0] // Fecha de hoy YYYY-MM-DD
+            };
+
+            archivosDB.push(nuevoArchivo);
+            
+            document.getElementById('buscador-archivos').value = "";
+            renderizarTablaArchivos();
+            cerrarModalSubir();
+            
+            // Simulación visual
+            setTimeout(() => {
+                alert("Archivo cargado y compartido exitosamente.");
+            }, 100);
+        });
+
+        // --- ACCIONES TABLA ---
+        function descargarArchivo(filename) {
+            // Simulador de descarga
+            alert(`Iniciando descarga segura de: ${filename}\n(Esto conectará con tu servidor S3 o carpeta local).`);
+        }
+
+        function eliminarArchivo(id) {
+            if(confirm("¿Estás seguro que deseas eliminar permanentemente este archivo del repositorio?")) {
+                archivosDB = archivosDB.filter(a => a.id !== id);
+                renderizarTablaArchivos(document.getElementById('buscador-archivos').value);
+            }
+        }
+
+        // INICIALIZACIÓN DE LA VISTA
+        renderizarTablaArchivos();
+
+    </script>
+</body>
+</html>

@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SISTEMA ERP - TALLER AUTOMOTRIZ</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
+        :root { --brand-primary: #10b981; --brand-dark: #111827; }
+        body { font-family: 'Inter', sans-serif; background-color: #f1f5f9; }
+        
+        .sidebar-item { transition: all 0.2s; border-radius: 12px; margin: 4px 12px; }
+        .sidebar-item:hover { background-color: rgba(255, 255, 255, 0.1); color: white; }
+        .sidebar-active { background-color: var(--brand-primary); color: var(--brand-dark) !important; font-weight: 700; }
+        
+        .modal-active { display: flex !important; animation: fadeIn 0.2s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    </style>
+</head>
+<body class="flex h-screen overflow-hidden relative">
+
+    <div id="sidebar-backdrop" onclick="toggleSidebar()" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-40 hidden md:hidden"></div>
+
+    <aside id="sidebar-menu" class="fixed md:relative inset-y-0 left-0 w-64 bg-slate-900 text-slate-400 flex flex-col shadow-2xl z-50 transform -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out">
+        <div class="p-6 flex items-center justify-between md:justify-start gap-3">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center text-slate-900 shadow-lg shadow-emerald-500/20">
+                    <i data-lucide="wrench"></i>
+                </div>
+                <span class="text-white font-black text-xl tracking-tighter">AUTO<span class="text-emerald-400">ERP</span></span>
+            </div>
+            <button onclick="toggleSidebar()" class="text-slate-400 hover:text-white md:hidden">
+                <i data-lucide="x" class="w-6 h-6"></i>
+            </button>
+        </div>
+
+        <nav class="flex-1 mt-4 space-y-1">
+            <a href="#" class="sidebar-item flex items-center gap-3 p-3 text-sm">
+                <i data-lucide="layout-dashboard" class="w-5 h-5"></i> Dashboard
+            </a>
+            <a href="javascript:void(0)" id="btn-menu-ordenes" onclick="cambiarVista('ordenes')" class="sidebar-item sidebar-active flex items-center gap-3 p-3 text-sm">
+                <i data-lucide="clipboard-list" class="w-5 h-5"></i> Órdenes de Servicio
+            </a>
+            <a href="javascript:void(0)" id="btn-menu-proceso" onclick="cambiarVista('proceso')" class="sidebar-item flex items-center gap-3 p-3 text-sm">
+                <i data-lucide="activity" class="w-5 h-5"></i> Vehículos en Proceso
+            </a>
+            <a href="javascript:void(0)" id="btn-menu-vehiculos" onclick="cambiarVista('vehiculos')" class="sidebar-item flex items-center gap-3 p-3 text-sm">
+                <i data-lucide="car" class="w-5 h-5"></i> Directorio Vehículos
+            </a>
+            <a href="javascript:void(0)" id="btn-menu-clientes" onclick="cambiarVista('clientes')" class="sidebar-item flex items-center gap-3 p-3 text-sm">
+                <i data-lucide="users" class="w-5 h-5"></i> Clientes
+            </a>
+            <a href="#" class="sidebar-item flex items-center gap-3 p-3 text-sm">
+                <i data-lucide="package" class="w-5 h-5"></i> Almacén / Repuestos
+            </a>
+			<a href="#" class="sidebar-item flex items-center gap-3 p-3 text-sm">
+                <i data-lucide="banknote" class="w-5 h-5"></i> Facturación
+            </a>
+        </nav>
+
+        <div class="p-4 border-t border-slate-800">
+            <div class="flex items-center gap-3 p-2 bg-slate-800/50 rounded-xl">
+                <div class="w-8 h-8 bg-slate-700 rounded-full flex items-center justify-center text-xs font-bold text-white">AD</div>
+                <div class="text-xs">
+                    <p class="text-white font-bold">Administrador</p>
+                    <p class="text-slate-500">Taller Central</p>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <main class="flex-1 flex flex-col overflow-hidden w-full">
+        
+        <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 md:px-8 z-10 shrink-0">
+            <div class="flex items-center gap-3">
+                <button onclick="toggleSidebar()" class="p-2 text-slate-600 hover:bg-slate-100 rounded-xl md:hidden">
+                    <i data-lucide="menu" class="w-6 h-6"></i>
+                </button>
+                <div class="hidden sm:flex items-center gap-2 text-slate-500 text-sm font-medium">
+                    <span id="breadcrumb-modulo">Órdenes de Servicio</span>
+                    <i data-lucide="chevron-right" class="w-4 h-4"></i>
+                    <span id="breadcrumb-sub" class="text-slate-900 font-bold">Gestión Operativa</span>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-2 md:gap-4">
+                <button class="p-2 text-slate-400 hover:text-slate-600 relative">
+                    <i data-lucide="bell" class="w-5 h-5"></i>
+                    <span class="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>
+                </button>
+                <div class="h-8 w-px bg-slate-200 mx-1 md:mx-2"></div>
+                <button id="btn-accion-global" onclick="abrirModalNuevaOrden()" class="bg-slate-900 text-white px-3 md:px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-slate-800 transition-all">
+                    <i data-lucide="plus" class="w-4 h-4"></i> <span id="txt-accion-global" class="hidden xs:inline sm:inline">Nueva Orden</span>
+                </button>
+            </div>
+        </header>
+
+        <section id="vista-ordenes" class="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar hidden">
+            <div class="mb-6 md:mb-8"><h1 class="text-xl font-black text-slate-900 uppercase">Órdenes de Servicio</h1></div>
+        </section>
+        
+        <section id="vista-proceso" class="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar hidden">
+             </section>
+
+        <section id="vista-vehiculos" class="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar hidden">
+             </section>
+
+        <section id="vista-clientes" class="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar">
+            <div class="mb-6 md:mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div>
+                    <h1 class="text-xl md:text-2xl font-black text-slate-900 uppercase tracking-tight">Directorio de Clientes</h1>
+                    <p class="text-xs md:text-sm text-slate-500">Gestión de datos de contacto y facturación.</p>
+                </div>
+                <div class="relative w-full sm:w-64">
+                    <input type="text" placeholder="Buscar por DNI, RUC o Nombre..." class="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:border-emerald-500 font-medium">
+                    <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-3"></i>
+                </div>
+            </div>
+            <div class="bg-white rounded-2xl md:rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left min-w-[800px] md:min-w-full">
+                        <thead class="bg-slate-50 text-slate-400 text-[10px] font-black uppercase tracking-widest">
+                            <tr>
+                                <th class="px-6 py-4">Documento</th>
+                                <th class="px-6 py-4">Nombre / Razón Social</th>
+                                <th class="px-6 py-4">Contacto</th>
+                                <th class="px-6 py-4">Vehículos Asociados</th>
+                                <th class="px-6 py-4 text-right">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabla-cuerpo-clientes" class="divide-y divide-slate-50 text-sm"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <div id="modal-cliente" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] hidden items-center justify-center p-2 md:p-4">
+        <div class="bg-white w-full max-w-2xl rounded-2xl md:rounded-3xl shadow-2xl overflow-hidden flex flex-col">
+            <div class="p-4 md:p-6 bg-slate-900 text-white flex justify-between items-center shrink-0">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 bg-emerald-500 rounded-lg flex items-center justify-center text-slate-900"><i data-lucide="user" class="w-4 h-4"></i></div>
+                    <h2 id="modal-cli-titulo" class="font-black text-base md:text-lg uppercase tracking-tight">Nuevo Cliente</h2>
+                </div>
+                <button onclick="cerrarModalCliente()" class="text-slate-400 hover:text-white transition-colors"><i data-lucide="x"></i></button>
+            </div>
+            <form id="form-cliente" class="p-4 md:p-8 space-y-6 text-sm">
+                <input type="hidden" id="cliente-id-edicion">
+                
+                <div>
+                    <h3 class="text-xs font-black text-emerald-600 uppercase tracking-widest mb-3">Identificación</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div class="sm:col-span-1">
+                            <label class="block text-slate-500 font-bold mb-1">Tipo Doc.</label>
+                            <select id="cli-tipo-doc" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 focus:outline-none focus:border-emerald-500 font-medium text-slate-800">
+                                <option value="DNI">DNI</option>
+                                <option value="RUC">RUC</option>
+                                <option value="CE">Carnet Extranjería</option>
+                                <option value="PAS">Pasaporte</option>
+                            </select>
+                        </div>
+                        <div class="sm:col-span-2">
+                            <label class="block text-slate-500 font-bold mb-1">Número de Documento</label>
+                            <div class="flex gap-2">
+                                <input type="text" id="cli-num-doc" required placeholder="Ej: 12345678" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 focus:outline-none focus:border-emerald-500 font-mono font-bold text-slate-800">
+                                <button type="button" class="bg-slate-200 hover:bg-slate-300 text-slate-700 px-3 rounded-xl transition-colors" title="Consultar en línea"><i data-lucide="search" class="w-4 h-4"></i></button>
+                            </div>
+                        </div>
+                        <div class="sm:col-span-3">
+                            <label class="block text-slate-500 font-bold mb-1">Nombre Completo / Razón Social</label>
+                            <input type="text" id="cli-nombre" required placeholder="Ej: Juan Pérez o Empresa SAC" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 focus:outline-none focus:border-emerald-500 font-medium text-slate-800">
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <h3 class="text-xs font-black text-emerald-600 uppercase tracking-widest mb-3">Datos de Contacto</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-slate-500 font-bold mb-1">Teléfono / WhatsApp</label>
+                            <input type="text" id="cli-tel" required placeholder="Ej: +51 987654321" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 focus:outline-none focus:border-emerald-500 font-medium text-slate-800">
+                        </div>
+                        <div>
+                            <label class="block text-slate-500 font-bold mb-1">Correo Electrónico (Opcional)</label>
+                            <input type="email" id="cli-correo" placeholder="correo@ejemplo.com" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 focus:outline-none focus:border-emerald-500 font-medium text-slate-800">
+                        </div>
+                        <div class="sm:col-span-2">
+                            <label class="block text-slate-500 font-bold mb-1">Dirección (Opcional)</label>
+                            <input type="text" id="cli-dir" placeholder="Av. Principal 123, Distrito" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 focus:outline-none focus:border-emerald-500 font-medium text-slate-800">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pt-4 border-t border-slate-100 flex justify-end gap-3 shrink-0">
+                    <button type="button" onclick="cerrarModalCliente()" class="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition-all">Cancelar</button>
+                    <button type="submit" id="modal-cli-btn-submit" class="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-slate-900 rounded-xl font-black uppercase tracking-tight transition-all">Guardar Cliente</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // BASE DE DATOS MOCK: CLIENTES
+        const clientesDB = {
+            "70123456": { tipoDoc: "DNI", numDoc: "70123456", nombre: "Juan Pérez", tel: "987654321", correo: "juan.perez@email.com", dir: "Av. Las Flores 123", vehiculos: ["ABC-123"] },
+            "20512345678": { tipoDoc: "RUC", numDoc: "20512345678", nombre: "Transportes García SAC", tel: "951847263", correo: "admin@tgarcia.pe", dir: "Z.I. Mz A Lote 4", vehiculos: ["XYZ-789", "MNO-456"] }
+        };
+
+        // --- NAVEGACIÓN Y BOTÓN GLOBAL ---
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar-menu');
+            const backdrop = document.getElementById('sidebar-backdrop');
+            sidebar.classList.toggle('-translate-x-full');
+            backdrop.classList.toggle('hidden');
+        }
+
+        function cambiarVista(vista) {
+            // Ocultar todas las vistas
+            ['ordenes', 'proceso', 'vehiculos', 'clientes'].forEach(v => {
+                const el = document.getElementById(`vista-${v}`);
+                if(el) el.classList.add('hidden');
+                
+                const btn = document.getElementById(`btn-menu-${v}`);
+                if(btn) btn.classList.remove('sidebar-active');
+            });
+
+            // Elementos del Topbar
+            const btnGlobal = document.getElementById('btn-accion-global');
+            const txtGlobal = document.getElementById('txt-accion-global');
+
+            // Mostrar vista activa
+            const vistaActiva = document.getElementById(`vista-${vista}`);
+            if(vistaActiva) vistaActiva.classList.remove('hidden');
+            
+            const btnMenuActivo = document.getElementById(`btn-menu-${vista}`);
+            if(btnMenuActivo) btnMenuActivo.classList.add('sidebar-active');
+
+            // Configurar Botón y Breadcrumbs según la vista
+            if(vista === 'ordenes') {
+                document.getElementById('breadcrumb-modulo').innerText = "Órdenes de Servicio";
+                document.getElementById('breadcrumb-sub').innerText = "Gestión Operativa";
+                txtGlobal.innerText = "Nueva Orden";
+                btnGlobal.onclick = () => alert("Abrir Modal Orden"); // Conectar con tu función abrirModalNuevaOrden
+                btnGlobal.classList.remove('hidden');
+            } else if(vista === 'proceso') {
+                document.getElementById('breadcrumb-modulo').innerText = "Vehículos en Proceso";
+                document.getElementById('breadcrumb-sub').innerText = "Monitoreo de Taller";
+                btnGlobal.classList.add('hidden');
+            } else if(vista === 'vehiculos') {
+                document.getElementById('breadcrumb-modulo').innerText = "Vehículos";
+                document.getElementById('breadcrumb-sub').innerText = "Unidades";
+                txtGlobal.innerText = "Nuevo Vehículo";
+                btnGlobal.onclick = () => alert("Abrir Modal Vehículo"); // Conectar con abrirModalVehiculo
+                btnGlobal.classList.remove('hidden');
+            } else if(vista === 'clientes') {
+                document.getElementById('breadcrumb-modulo').innerText = "Directorio de Clientes";
+                document.getElementById('breadcrumb-sub').innerText = "Contactos";
+                txtGlobal.innerText = "Nuevo Cliente";
+                btnGlobal.onclick = abrirModalCliente;
+                btnGlobal.classList.remove('hidden');
+            }
+
+            // Ocultar sidebar en móviles al hacer click
+            if(!document.getElementById('sidebar-menu').classList.contains('-translate-x-full')) {
+                toggleSidebar();
+            }
+        }
+
+        // --- LÓGICA DE CLIENTES ---
+        function renderizarTablaClientes() {
+            const tabla = document.getElementById('tabla-cuerpo-clientes');
+            let html = '';
+            
+            Object.values(clientesDB).forEach(c => {
+                // Generar etiquetas de vehículos (Pills)
+                const tagsVehiculos = c.vehiculos && c.vehiculos.length > 0 
+                    ? c.vehiculos.map(placa => `<span class="bg-slate-100 border border-slate-200 text-slate-600 px-2 py-0.5 rounded text-[10px] font-mono font-bold mr-1 inline-block">${placa}</span>`).join('') 
+                    : '<span class="text-xs text-slate-400 italic">Sin vehículos</span>';
+
+                html += `
+                    <tr>
+                        <td class="px-6 py-4">
+                            <span class="text-xs font-bold text-slate-400 block">${c.tipoDoc}</span>
+                            <span class="font-mono font-bold text-slate-900">${c.numDoc}</span>
+                        </td>
+                        <td class="px-6 py-4 font-bold text-slate-800">${c.nombre}</td>
+                        <td class="px-6 py-4">
+                            <div class="flex items-center gap-2 text-slate-600 font-medium">
+                                <i data-lucide="phone" class="w-3.5 h-3.5 text-slate-400"></i> ${c.tel}
+                            </div>
+                            ${c.correo ? `<div class="text-xs text-slate-400 mt-1">${c.correo}</div>` : ''}
+                        </td>
+                        <td class="px-6 py-4">
+                            <div class="flex flex-wrap gap-1">${tagsVehiculos}</div>
+                        </td>
+                        <td class="px-6 py-4 text-right">
+                            <div class="flex items-center justify-end gap-1">
+                                <a href="https://wa.me/51${c.tel.replace(/\D/g, '')}" target="_blank" class="p-1.5 text-slate-400 hover:text-emerald-500 transition-colors" title="Enviar WhatsApp">
+                                    <i data-lucide="message-circle" class="w-4 h-4"></i>
+                                </a>
+                                <button onclick="editarCliente('${c.numDoc}')" class="p-1.5 text-slate-400 hover:text-blue-500 transition-colors" title="Editar Cliente">
+                                    <i data-lucide="edit-3" class="w-4 h-4"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>`;
+            });
+            tabla.innerHTML = html;
+            lucide.createIcons();
+        }
+
+        // --- MODALES DE CLIENTE ---
+        function abrirModalCliente() {
+            document.getElementById('form-cliente').reset();
+            document.getElementById('cliente-id-edicion').value = "";
+            document.getElementById('cli-num-doc').disabled = false; // Permitir editar doc
+            document.getElementById('modal-cli-titulo').innerText = "Nuevo Cliente";
+            document.getElementById('modal-cli-btn-submit').innerText = "Guardar Cliente";
+            document.getElementById('modal-cliente').classList.add('modal-active');
+        }
+
+        function cerrarModalCliente() {
+            document.getElementById('modal-cliente').classList.remove('modal-active');
+        }
+
+        function editarCliente(doc) {
+            const c = clientesDB[doc]; 
+            if(!c) return;
+            
+            document.getElementById('cliente-id-edicion').value = doc;
+            document.getElementById('cli-tipo-doc').value = c.tipoDoc;
+            document.getElementById('cli-num-doc').value = c.numDoc;
+            document.getElementById('cli-num-doc').disabled = true; // Bloquear doc en edición por integridad
+            document.getElementById('cli-nombre').value = c.nombre;
+            document.getElementById('cli-tel').value = c.tel;
+            document.getElementById('cli-correo').value = c.correo || "";
+            document.getElementById('cli-dir').value = c.dir || "";
+            
+            document.getElementById('modal-cli-titulo').innerText = "Editar Cliente";
+            document.getElementById('modal-cli-btn-submit').innerText = "Actualizar Datos";
+            document.getElementById('modal-cliente').classList.add('modal-active');
+        }
+
+        document.getElementById('form-cliente').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const numDocAnterior = document.getElementById('cliente-id-edicion').value;
+            const nuevoNumDoc = document.getElementById('cli-num-doc').value.trim();
+
+            const data = {
+                tipoDoc: document.getElementById('cli-tipo-doc').value,
+                numDoc: nuevoNumDoc,
+                nombre: document.getElementById('cli-nombre').value,
+                tel: document.getElementById('cli-tel').value,
+                correo: document.getElementById('cli-correo').value,
+                dir: document.getElementById('cli-dir').value,
+                vehiculos: [] // Por defecto
+            };
+
+            // Si es edición, conservamos los vehículos que ya tenía asignados
+            if (numDocAnterior && clientesDB[numDocAnterior]) {
+                data.vehiculos = clientesDB[numDocAnterior].vehiculos;
+                if(numDocAnterior !== nuevoNumDoc) {
+                    delete clientesDB[numDocAnterior]; // En caso haya cambiado el DNI (aunque lo bloqueamos en la UI)
+                }
+            }
+
+            clientesDB[nuevoNumDoc] = data;
+            renderizarTablaClientes();
+            cerrarModalCliente();
+        });
+
+        // INICIALIZACIÓN
+        cambiarVista('clientes'); // Por defecto para probar esta pantalla, luego lo puedes cambiar a 'ordenes'
+        renderizarTablaClientes();
+
+    </script>
+</body>
+</html>
