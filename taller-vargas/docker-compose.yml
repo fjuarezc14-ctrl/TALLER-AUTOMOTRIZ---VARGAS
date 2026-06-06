@@ -1,0 +1,82 @@
+﻿version: "3.8"
+
+# =========================================================
+# TALLER AUTOMOTRIZ VARGAS - ERP System
+# Ports: Frontend 5174 | Backend 3001 | PostgreSQL 5436
+# Conflicts avoided: fogon-dorado (5173,3000,5435)
+#                    autotaller-manager (5432)
+#                    sistema-odontologico (8080,3306)
+# =========================================================
+
+services:
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: taller_vargas_web
+    ports:
+      - "5174:5174"
+    volumes:
+      - .:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+      - VITE_API_URL=http://localhost:3001
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - taller_vargas_net
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    container_name: taller_vargas_backend
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    env_file:
+      - ./backend/.env
+    environment:
+      - DATABASE_URL=postgresql://vargas_user:vargas_password@db:5432/taller_vargas_db
+      - PORT=3001
+      - NODE_ENV=development
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: on-failure
+    networks:
+      - taller_vargas_net
+
+  db:
+    image: postgres:16-alpine
+    container_name: taller_vargas_db
+    ports:
+      - "5436:5432"
+    environment:
+      - POSTGRES_USER=vargas_user
+      - POSTGRES_PASSWORD=vargas_password
+      - POSTGRES_DB=taller_vargas_db
+    volumes:
+      - taller_vargas_postgres_data:/var/lib/postgresql/data
+      - ./backend/database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vargas_user -d taller_vargas_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - taller_vargas_net
+
+volumes:
+  taller_vargas_postgres_data:
+    name: taller_vargas_postgres_data
+
+networks:
+  taller_vargas_net:
+    name: taller_vargas_net
+    driver: bridge

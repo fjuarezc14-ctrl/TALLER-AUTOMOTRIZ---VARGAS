@@ -1,0 +1,10 @@
+# ── Taller Automotriz Vargas ERP ─────────────────────────
+node_modules/
+npm-debug.log*
+dist/
+.env
+.env.local
+.DS_Store
+Thumbs.db
+.vscode/
+*.log
