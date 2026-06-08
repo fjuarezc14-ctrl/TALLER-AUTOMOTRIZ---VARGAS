@@ -3,9 +3,6 @@ import { getDashboard } from '../api.js';
 export async function init(container) {
   container.innerHTML = `<div class="fade-in" id="dashboard-root"></div>`;
   const root = document.getElementById('dashboard-root');
-  
-  // CTA global: nueva orden
-  window.setCTAButton('Nueva Orden', () => navigate('/ordenes'));
 
   // Render skeleton mientras carga
   root.innerHTML = renderSkeleton();
@@ -57,11 +54,15 @@ function renderDashboard({ stats, alertas_stock, ordenes_recientes }) {
 
   return `
     <!-- Header -->
-    <div class="flex items-center justify-between mb-6">
+    <div class="flex items-center justify-between mb-6" style="flex-wrap:wrap;gap:16px;">
       <div>
         <h1 style="font-size:22px;font-weight:900;color:var(--dark);text-transform:uppercase;letter-spacing:-.5px;">Estado del Taller</h1>
         <p style="font-size:13px;color:var(--slate-5);margin-top:2px;">Resumen operativo al <strong>${date}</strong></p>
       </div>
+      <button class="btn-primary" onclick="navigate('/ordenes')">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg>
+        Nueva Orden
+      </button>
     </div>
 
     <!-- Stats Grid -->

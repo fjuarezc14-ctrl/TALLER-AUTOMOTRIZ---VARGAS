@@ -59,13 +59,6 @@ function renderError(msg) {
 function renderPage() {
   const root = document.getElementById('almacen-root');
 
-  // Configurar CTA Global según pestaña activa
-  if (activeTab === 'admin') {
-    window.setCTAButton('Nuevo Producto', () => abrirModalProducto());
-  } else {
-    window.setCTAButton(null);
-  }
-
   const dateStr = new Date().toLocaleDateString('es-PE', { day:'numeric', month:'short', year:'numeric' });
 
   // Calcular estadísticas para admin
@@ -80,10 +73,18 @@ function renderPage() {
         <h1 style="font-size:22px;font-weight:900;color:var(--dark);text-transform:uppercase;letter-spacing:-.5px;">Almacén y Repuestos</h1>
         <p style="font-size:13px;color:var(--slate-5);margin-top:2px;">Control de inventario, stock crítico y solicitudes de taller.</p>
       </div>
-      <div class="flex gap-2" style="background:var(--slate-8);padding:4px;border-radius:10px;">
-        <button class="btn-tab ${activeTab === 'admin' ? 'active-tab' : ''}" id="tab-admin" style="font-size:12px;padding:6px 12px;border:none;background:transparent;cursor:pointer;font-weight:700;border-radius:6px;">Administración</button>
-        <button class="btn-tab ${activeTab === 'mecanico' ? 'active-tab' : ''}" id="tab-mecanico" style="font-size:12px;padding:6px 12px;border:none;background:transparent;cursor:pointer;font-weight:700;border-radius:6px;">Uso de Mecánicos</button>
-        <button class="btn-tab ${activeTab === 'solicitudes' ? 'active-tab' : ''}" id="tab-solicitudes" style="font-size:12px;padding:6px 12px;border:none;background:transparent;cursor:pointer;font-weight:700;border-radius:6px;">Historial Retiros</button>
+      <div class="flex gap-2" style="background:var(--slate-8);padding:4px;border-radius:10px;align-items:center;">
+        ${activeTab === 'admin' ? `
+          <button class="btn-primary" id="btn-nuevo-producto-header" style="font-size:12px;padding:6px 12px;white-space:nowrap;margin-right:4px;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M12 4v16m8-8H4"/></svg>
+            Nuevo Producto
+          </button>
+        ` : ''}
+        <div class="flex gap-1" style="background:rgba(255,255,255,0.4);padding:2px;border-radius:8px;">
+          <button class="btn-tab ${activeTab === 'admin' ? 'active-tab' : ''}" id="tab-admin" style="font-size:12px;padding:6px 12px;border:none;background:transparent;cursor:pointer;font-weight:700;border-radius:6px;">Administración</button>
+          <button class="btn-tab ${activeTab === 'mecanico' ? 'active-tab' : ''}" id="tab-mecanico" style="font-size:12px;padding:6px 12px;border:none;background:transparent;cursor:pointer;font-weight:700;border-radius:6px;">Uso de Mecánicos</button>
+          <button class="btn-tab ${activeTab === 'solicitudes' ? 'active-tab' : ''}" id="tab-solicitudes" style="font-size:12px;padding:6px 12px;border:none;background:transparent;cursor:pointer;font-weight:700;border-radius:6px;">Historial Retiros</button>
+        </div>
       </div>
     </div>
 
@@ -112,6 +113,8 @@ function renderPage() {
 
   if (activeTab === 'admin') {
     document.getElementById('search-almacen').addEventListener('input', filtrarAlmacen);
+    const btnNew = document.getElementById('btn-nuevo-producto-header');
+    if (btnNew) btnNew.addEventListener('click', () => abrirModalProducto());
     document.getElementById('btn-close-prod-x').addEventListener('click', cerrarModalProducto);
     document.getElementById('btn-close-prod-cancel').addEventListener('click', cerrarModalProducto);
     document.getElementById('form-producto').addEventListener('submit', guardarProducto);

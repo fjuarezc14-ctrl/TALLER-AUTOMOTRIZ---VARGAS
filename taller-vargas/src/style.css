@@ -486,9 +486,30 @@ body {
     transform: translateX(-100%);
   }
   .sidebar.sidebar-open { transform: translateX(0); }
-  .main-content { padding: 16px; }
-  .topbar { padding: 0 16px; }
+  .main-content { padding: 60px 16px 16px; }
   .data-table th, .data-table td { padding: 10px 12px; }
+}
+
+.mobile-menu-btn {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  z-index: 40;
+  background: var(--white);
+  border: 1px solid var(--slate-8);
+  border-radius: var(--radius-sm);
+  color: var(--slate-4);
+  padding: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-sm);
+  transition: all .15s;
+}
+.mobile-menu-btn:hover {
+  background: var(--slate-9);
+  color: var(--dark);
 }
 
 /* ── Utility classes (mínimas, solo las que usa el JS) ─── */

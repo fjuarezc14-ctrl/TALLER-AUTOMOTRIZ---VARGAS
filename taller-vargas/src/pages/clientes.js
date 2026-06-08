@@ -8,9 +8,6 @@ export async function init(container) {
   container.innerHTML = `<div class="fade-in" id="clientes-root"></div>`;
   const root = document.getElementById('clientes-root');
 
-  // CTA Global: Nuevo Cliente
-  window.setCTAButton('Nuevo Cliente', () => abrirModalCliente());
-
   // Renderizar Skeleton
   root.innerHTML = renderSkeleton();
 
@@ -58,8 +55,12 @@ function renderClientes(clientes) {
         <h1 style="font-size:22px;font-weight:900;color:var(--dark);text-transform:uppercase;letter-spacing:-.5px;">Directorio de Clientes</h1>
         <p style="font-size:13px;color:var(--slate-5);margin-top:2px;">Gestión de datos de contacto y facturación.</p>
       </div>
-      <div>
+      <div class="flex items-center gap-3">
         <input type="text" id="search-clientes" placeholder="Buscar cliente..." class="form-input" style="width:260px;" />
+        <button class="btn-primary" id="btn-nuevo-cliente-header" style="white-space:nowrap;">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M12 4v16m8-8H4"/></svg>
+          Nuevo Cliente
+        </button>
       </div>
     </div>
 
@@ -151,6 +152,7 @@ function renderClientes(clientes) {
 
   // Registrar Event Listeners
   document.getElementById('search-clientes').addEventListener('input', filtrarClientes);
+  document.getElementById('btn-nuevo-cliente-header').addEventListener('click', () => abrirModalCliente());
   document.getElementById('btn-close-modal-x').addEventListener('click', cerrarModalCliente);
   document.getElementById('btn-close-modal-cancel').addEventListener('click', cerrarModalCliente);
   document.getElementById('form-cliente').addEventListener('submit', guardarCliente);

@@ -8,9 +8,6 @@ export async function init(container) {
   container.innerHTML = `<div class="fade-in" id="archivos-root"></div>`;
   const root = document.getElementById('archivos-root');
 
-  // CTA Global: Cargar Archivo
-  window.setCTAButton('Subir Archivo', () => abrirModalSubir());
-
   // Renderizar skeleton
   root.innerHTML = renderSkeleton();
 
@@ -80,8 +77,12 @@ function renderArchivos(archivos) {
         <h1 style="font-size:22px;font-weight:900;color:var(--dark);text-transform:uppercase;letter-spacing:-.5px;">Archivos Compartidos</h1>
         <p style="font-size:13px;color:var(--slate-5);margin-top:2px;">Manuales de despiece, reglamentos y evidencias de servicio.</p>
       </div>
-      <div>
+      <div class="flex items-center gap-3">
         <input type="text" id="search-archivos" placeholder="Buscar por título o área..." class="form-input" style="width:260px;" />
+        <button id="btn-subir-archivo-header" class="btn-primary flex items-center gap-2">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+          Subir Archivo
+        </button>
       </div>
     </div>
 
@@ -162,6 +163,7 @@ function renderArchivos(archivos) {
 
   // Registrar Eventos
   document.getElementById('search-archivos').addEventListener('input', filtrarArchivos);
+  document.getElementById('btn-subir-archivo-header').addEventListener('click', abrirModalSubir);
   document.getElementById('btn-close-subir-x').addEventListener('click', cerrarModalSubir);
   document.getElementById('btn-close-subir-cancel').addEventListener('click', cerrarModalSubir);
   document.getElementById('form-subir').addEventListener('submit', guardarArchivo);

@@ -9,9 +9,6 @@ export async function init(container) {
   container.innerHTML = `<div class="fade-in" id="vehiculos-root"></div>`;
   const root = document.getElementById('vehiculos-root');
 
-  // CTA Global: Nuevo Vehículo
-  window.setCTAButton('Nuevo Vehículo', () => abrirModalVehiculo());
-
   // Renderizar Skeleton
   root.innerHTML = renderSkeleton();
 
@@ -61,8 +58,12 @@ function renderVehiculos(vehiculos) {
         <h1 style="font-size:22px;font-weight:900;color:var(--dark);text-transform:uppercase;letter-spacing:-.5px;">Directorio de Vehículos</h1>
         <p style="font-size:13px;color:var(--slate-5);margin-top:2px;">Base de datos histórica de carros atendidos en el taller.</p>
       </div>
-      <div>
+      <div class="flex items-center gap-3">
         <input type="text" id="search-vehiculos" placeholder="Buscar placa, modelo..." class="form-input" style="width:260px;" />
+        <button class="btn-primary" id="btn-nuevo-vehiculo-header" style="white-space:nowrap;">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M12 4v16m8-8H4"/></svg>
+          Nuevo Vehículo
+        </button>
       </div>
     </div>
 
@@ -189,6 +190,7 @@ function renderVehiculos(vehiculos) {
 
   // Registrar Eventos
   document.getElementById('search-vehiculos').addEventListener('input', filtrarVehiculos);
+  document.getElementById('btn-nuevo-vehiculo-header').addEventListener('click', () => abrirModalVehiculo());
   document.getElementById('btn-close-veh-modal-x').addEventListener('click', cerrarModalVehiculo);
   document.getElementById('btn-close-veh-modal-cancel').addEventListener('click', cerrarModalVehiculo);
   document.getElementById('form-vehiculo').addEventListener('submit', guardarVehiculo);

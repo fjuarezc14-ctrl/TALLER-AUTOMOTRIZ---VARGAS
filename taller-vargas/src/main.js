@@ -44,17 +44,4 @@ window.toggleSidebar = function() {
   backdrop.classList.toggle('hidden');
 };
 
-// Mostrar/ocultar botón CTA del topbar según módulo
-window.setCTAButton = function(text, onClick) {
-  const btn  = document.getElementById('btn-cta-global');
-  const span = document.getElementById('btn-cta-text');
-  if (text) {
-    span.textContent = text;
-    btn.onclick = onClick;
-    btn.classList.remove('hidden');
-  } else {
-    btn.classList.add('hidden');
-  }
-};
-
 init().catch(console.error);

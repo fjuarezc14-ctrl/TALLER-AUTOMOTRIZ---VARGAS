@@ -8,9 +8,6 @@ export async function init(container) {
   container.innerHTML = `<div class="fade-in" id="facturacion-root"></div>`;
   const root = document.getElementById('facturacion-root');
 
-  // CTA Global: Sin acción en facturación
-  window.setCTAButton(null);
-
   // Renderizar skeleton
   root.innerHTML = renderSkeleton();
 

@@ -62,9 +62,6 @@ function renderError(msg) {
 function renderPage() {
   const root = document.getElementById('ordenes-root');
 
-  // Configurar CTA Global
-  window.setCTAButton('Nueva Orden', () => abrirModalNuevaOrden());
-
   // Filtrar según pestaña
   const filtradas = activeTab === 'process' 
     ? ordenesList.filter(o => o.estado === 'En Proceso' || o.estado === 'Esperando Repuestos' || o.estado === 'Diagnostico')
@@ -74,7 +71,13 @@ function renderPage() {
     <!-- Header & Tabs -->
     <div class="flex justify-between items-center mb-6" style="flex-wrap:wrap;gap:16px;">
       <div>
-        <h1 style="font-size:22px;font-weight:900;color:var(--dark);text-transform:uppercase;letter-spacing:-.5px;">Órdenes de Servicio</h1>
+        <div class="flex items-center gap-3">
+          <h1 style="font-size:22px;font-weight:900;color:var(--dark);text-transform:uppercase;letter-spacing:-.5px;">Órdenes de Servicio</h1>
+          <button id="btn-nueva-orden-header" class="btn-primary flex items-center gap-2" style="padding:6px 14px; font-size:12px;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M12 4v16m8-8H4"/></svg>
+            Nueva Orden
+          </button>
+        </div>
         <p style="font-size:13px;color:var(--slate-5);margin-top:2px;">Recepción de unidades, control técnico de costos y flujo del taller.</p>
       </div>
       <div class="flex gap-2" style="background:var(--slate-8);padding:4px;border-radius:10px;">
@@ -141,6 +144,7 @@ function renderPage() {
   document.getElementById('tab-ord-all').addEventListener('click', () => { activeTab = 'all'; renderPage(); });
   document.getElementById('tab-ord-proc').addEventListener('click', () => { activeTab = 'process'; renderPage(); });
   document.getElementById('search-ordenes').addEventListener('input', filtrarOrdenes);
+  document.getElementById('btn-nueva-orden-header').addEventListener('click', abrirModalNuevaOrden);
 
   // Registrar cierres de modales
   document.getElementById('btn-close-ord-x').addEventListener('click', cerrarModalNuevaOrden);
