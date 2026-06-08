@@ -555,3 +555,253 @@ body {
 .col-span-2  { grid-column: span 2; }
 .col-span-3  { grid-column: span 3; }
 .md\:grid-cols-2 { grid-template-columns: repeat(2, 1fr); }
+
+/* ══════════════════════════════════════════════════════════
+   MÓDULO VEHÍCULOS — Vista Tarjetas Premium
+   ══════════════════════════════════════════════════════════ */
+
+/* Toggle de vista (Lista / Tarjetas) */
+.view-toggle {
+  display: flex;
+  gap: 2px;
+  background: var(--slate-9);
+  border: 1.5px solid var(--slate-8);
+  border-radius: var(--radius-sm);
+  padding: 3px;
+}
+.view-toggle-btn {
+  display: flex; align-items: center; justify-content: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border-radius: 5px;
+  border: none; background: none; cursor: pointer;
+  font-size: 12px; font-weight: 600; color: var(--slate-5);
+  transition: all .15s;
+}
+.view-toggle-btn.active {
+  background: var(--white);
+  color: var(--dark);
+  box-shadow: 0 1px 4px rgba(0,0,0,.1);
+}
+.view-toggle-btn:hover:not(.active) { color: var(--dark); }
+
+/* Grid de tarjetas */
+.vehiculos-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 18px;
+}
+
+/* Tarjeta de vehículo premium */
+.vehiculo-card {
+  background: var(--white);
+  border: 1px solid var(--slate-8);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform .2s ease, box-shadow .2s ease, border-color .2s;
+  position: relative;
+}
+.vehiculo-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 36px rgba(0,0,0,.12);
+  border-color: var(--slate-7);
+}
+
+/* Franja superior de color por tipo */
+.vehiculo-card-accent {
+  height: 4px;
+  background: linear-gradient(90deg, var(--brand), var(--brand-dark));
+}
+.vehiculo-card-accent.tipo-suv    { background: linear-gradient(90deg, #3b82f6, #1d4ed8); }
+.vehiculo-card-accent.tipo-camion { background: linear-gradient(90deg, #f59e0b, #b45309); }
+.vehiculo-card-accent.tipo-moto   { background: linear-gradient(90deg, #8b5cf6, #6d28d9); }
+.vehiculo-card-accent.tipo-pickup { background: linear-gradient(90deg, #ef4444, #b91c1c); }
+.vehiculo-card-accent.tipo-van    { background: linear-gradient(90deg, #06b6d4, #0e7490); }
+.vehiculo-card-accent.tipo-sedan  { background: linear-gradient(90deg, #10b981, #059669); }
+
+/* Cuerpo de la tarjeta */
+.vehiculo-card-body {
+  padding: 18px;
+}
+
+/* Header con placa e icono */
+.vehiculo-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+.vehiculo-tipo-icon {
+  width: 44px; height: 44px;
+  border-radius: var(--radius-md);
+  background: var(--slate-9);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px;
+  flex-shrink: 0;
+}
+
+/* Info principal */
+.vehiculo-card-marca {
+  font-size: 15px; font-weight: 800;
+  color: var(--dark); line-height: 1.2;
+  margin-bottom: 3px;
+}
+.vehiculo-card-sub {
+  font-size: 12px; color: var(--slate-5); font-weight: 500;
+}
+
+/* Datos técnicos mini-grid */
+.vehiculo-card-specs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 12px 0;
+  padding: 10px;
+  background: var(--slate-9);
+  border-radius: var(--radius-md);
+}
+.spec-item { display: flex; flex-direction: column; gap: 1px; }
+.spec-label { font-size: 9px; font-weight: 800; color: var(--slate-5); text-transform: uppercase; letter-spacing: .5px; }
+.spec-value { font-size: 12px; font-weight: 700; color: var(--dark); }
+
+/* Semáforo de mantenimiento preventivo */
+.mant-semaforo {
+  display: flex;
+  gap: 6px;
+  margin-top: 10px;
+}
+.mant-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 7px 4px;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid transparent;
+  cursor: default;
+  position: relative;
+}
+.mant-item.ok    { background: #f0fdf4; border-color: #bbf7d0; }
+.mant-item.warn  { background: #fffbeb; border-color: #fde68a; }
+.mant-item.alert { background: #fff1f2; border-color: #fecdd3; }
+
+.mant-dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.mant-item.ok .mant-dot    { background: #22c55e; box-shadow: 0 0 6px rgba(34,197,94,.6); }
+.mant-item.warn .mant-dot  { background: #f59e0b; box-shadow: 0 0 6px rgba(245,158,11,.6); }
+.mant-item.alert .mant-dot { background: #ef4444; box-shadow: 0 0 6px rgba(239,68,68,.6); animation: pulse-dot .8s ease-in-out infinite alternate; }
+
+@keyframes pulse-dot {
+  from { box-shadow: 0 0 4px rgba(239,68,68,.4); }
+  to   { box-shadow: 0 0 10px rgba(239,68,68,.9); }
+}
+
+.mant-label { font-size: 9px; font-weight: 700; color: var(--slate-5); text-transform: uppercase; text-align: center; }
+
+/* Footer de la tarjeta con acciones */
+.vehiculo-card-footer {
+  display: flex;
+  gap: 6px;
+  padding: 12px 18px;
+  border-top: 1px solid var(--slate-9);
+  background: var(--white);
+}
+.vehiculo-card-footer .btn-ghost {
+  flex: 1;
+  justify-content: center;
+  font-size: 12px;
+  padding: 6px 10px;
+}
+.vehiculo-card-footer .btn-primary {
+  flex: 1;
+  justify-content: center;
+  font-size: 12px;
+  padding: 6px 10px;
+}
+
+/* ── Plano SVG del vehículo en el modal de historial ───── */
+.car-blueprint-wrap {
+  background: var(--dark);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  min-height: 200px;
+  overflow: hidden;
+}
+.car-blueprint-wrap::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg, transparent, transparent 29px, rgba(16,185,129,.06) 29px, rgba(16,185,129,.06) 30px
+  ), repeating-linear-gradient(
+    90deg, transparent, transparent 29px, rgba(16,185,129,.06) 29px, rgba(16,185,129,.06) 30px
+  );
+}
+.car-blueprint-wrap svg { position: relative; z-index: 1; }
+
+/* Zonas activas del plano (puntos de trabajo) */
+.blueprint-zone {
+  cursor: pointer;
+  transition: opacity .2s;
+}
+.blueprint-zone:hover { opacity: .7; }
+.blueprint-zone-dot {
+  fill: var(--brand);
+  stroke: none;
+  animation: pulse-zone 2s ease-in-out infinite;
+}
+@keyframes pulse-zone {
+  0%, 100% { r: 5; opacity: 1; }
+  50% { r: 7; opacity: .7; }
+}
+.blueprint-zone-label {
+  font-size: 9px; fill: var(--brand);
+  font-family: 'Courier New', monospace;
+  font-weight: 800;
+}
+
+/* ── VIN Decoder badge ──────────────────────────────────── */
+.vin-decode-result {
+  background: var(--dark);
+  color: var(--brand);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 5px 10px;
+  border-radius: var(--radius-sm);
+  margin-top: 4px;
+  display: none;
+  font-family: 'Courier New', monospace;
+  letter-spacing: .5px;
+}
+.vin-decode-result.visible { display: block; animation: fadeIn .2s ease; }
+
+/* ── KM Progress bar ────────────────────────────────────── */
+.km-bar-wrap {
+  background: var(--slate-8);
+  border-radius: 99px;
+  height: 6px;
+  overflow: hidden;
+  margin-top: 4px;
+}
+.km-bar-fill {
+  height: 100%;
+  border-radius: 99px;
+  transition: width .6s ease;
+}
+.km-bar-fill.ok   { background: linear-gradient(90deg, #22c55e, #16a34a); }
+.km-bar-fill.warn { background: linear-gradient(90deg, #f59e0b, #d97706); }
+.km-bar-fill.over { background: linear-gradient(90deg, #ef4444, #dc2626); }
+
+/* ── modal extra-large para historial con plano ─────────── */
+.modal-xl { max-width: 960px; }
+

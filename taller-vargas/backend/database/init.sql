@@ -1,4 +1,4 @@
-﻿-- TALLER AUTOMOTRIZ VARGAS - Esquema DB PostgreSQL 16
+-- TALLER AUTOMOTRIZ VARGAS - Esquema DB PostgreSQL 16
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
 CREATE TABLE IF NOT EXISTS clientes (
@@ -20,9 +20,18 @@ CREATE TABLE IF NOT EXISTS vehiculos (
   anio INTEGER,
   cliente_id INTEGER REFERENCES clientes(id) ON DELETE SET NULL,
   ultima_visita DATE,
+  vin VARCHAR(17),
+  n_motor VARCHAR(50),
+  tipo_motor VARCHAR(50),
+  transmision VARCHAR(30),
+  color VARCHAR(50),
+  tipo_vehiculo VARCHAR(50) DEFAULT 'Sedan',
+  km_actual INTEGER,
+  km_ultimo_servicio INTEGER,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
 
 CREATE TABLE IF NOT EXISTS mecanicos (
   id SERIAL PRIMARY KEY,
