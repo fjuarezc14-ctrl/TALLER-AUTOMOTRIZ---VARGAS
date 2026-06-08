@@ -488,9 +488,11 @@ body {
   .sidebar.sidebar-open { transform: translateX(0); }
   .main-content { padding: 60px 16px 16px; }
   .data-table th, .data-table td { padding: 10px 12px; }
+  .mobile-menu-btn { display: flex; } /* Mostrar solo en móvil */
 }
 
 .mobile-menu-btn {
+  display: none; /* Ocultar por defecto (escritorio) */
   position: absolute;
   top: 14px;
   left: 14px;
@@ -501,7 +503,6 @@ body {
   color: var(--slate-4);
   padding: 8px;
   cursor: pointer;
-  display: flex;
   align-items: center;
   justify-content: center;
   box-shadow: var(--shadow-sm);
