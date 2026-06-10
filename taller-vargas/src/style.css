@@ -853,3 +853,14 @@ body {
 /* ── modal extra-large para historial con plano ─────────── */
 .modal-xl { max-width: 960px; }
 
+/* ── Tarjetas de diagnóstico preventivo en modal costos ── */
+.component-diag-card {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.component-diag-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.02) !important;
+  border-color: var(--slate-5) !important;
+}
+
+
