@@ -940,13 +940,65 @@ window.quickAddRepuestoDirecto = async function(ordenId, codigoRepuesto) {
     infoBox.style.display = 'block';
     infoBox.innerHTML = `✅ Agregado directamente a la cotización: <strong>${item.descripcion}</strong> (1 unidad · S/ ${parseFloat(item.precio_venta).toFixed(2)})`;
 
-    // Recargar componentes
-    await cargarCostosItemsTable(ordenId);
-    await cargarDatos();
+    // Recargar componentes en segundo plano
+    await actualizarListasSegundoPlano();
+    await refrescarVistaCostos(ordenId);
   } catch (err) {
     alert(err.message);
   }
 };
+
+// Actualizar las listas principales en segundo plano y refrescar la tabla del dashboard
+async function actualizarListasSegundoPlano() {
+  try {
+    const [ord, veh, alm] = await Promise.all([
+      getOrdenes(),
+      getVehiculos(),
+      getAlmacen()
+    ]);
+    ordenesList = ord;
+    vehiculosList = veh;
+    almacenList = alm;
+
+    const tbody = document.getElementById('tabla-ordenes-body');
+    if (tbody) {
+      const filtradas = activeTab === 'process' 
+        ? ordenesList.filter(o => o.estado === 'En Proceso' || o.estado === 'Esperando Repuestos' || o.estado === 'Diagnostico')
+        : ordenesList;
+      tbody.innerHTML = renderTableRows(filtradas);
+    }
+  } catch (err) {
+    console.error('Error actualizando listas en segundo plano:', err);
+  }
+}
+
+// Actualizar el selector de repuestos en el formulario sin re-renderizar todo
+function actualizarDropdownRepuestos() {
+  const select = document.getElementById('item-repuesto-select');
+  if (!select) return;
+  const currentValue = select.value;
+  select.innerHTML = `
+    <option value="">-- Seleccionar --</option>
+    ${almacenList.map(p => `<option value="${p.codigo}" data-precio="${p.precio_venta}">${p.descripcion} (Stock: ${p.stock})</option>`).join('')}
+  `;
+  select.value = currentValue;
+}
+
+// Refrescar todos los componentes interactivos del modal de costos sin cerrarlo
+async function refrescarVistaCostos(ordenId) {
+  // 1. Cargar la tabla de items de la orden
+  await cargarCostosItemsTable(ordenId);
+
+  // 2. Volver a renderizar el panel de diagnóstico preventivo con la data fresca
+  const o = ordenesList.find(item => item.id == ordenId);
+  if (o) {
+    const v = vehiculosList.find(x => x.placa === o.placa || x.id === o.vehiculo_id);
+    renderDiagnosticoPreventivo(v, ordenId);
+  }
+
+  // 3. Actualizar la disponibilidad en el dropdown del almacén
+  actualizarDropdownRepuestos();
+}
 
 // Configurar y prellenar formulario de costos según el método elegido
 window.prellenarCostoForm = function(tipoComponente, metodo, textoSugerido) {
@@ -1089,14 +1141,14 @@ async function cargarCostosItemsTable(ordenId) {
       </tr>
     `).join('');
 
-    // Listener para eliminar concepto
+    // Listener para eliminar concepto en segundo plano
     tbody.querySelectorAll('.btn-delete-item').forEach(btn => {
       btn.onclick = async () => {
         if (!confirm('¿Quitar este concepto de la orden?')) return;
         try {
           await deleteItem(ordenId, btn.dataset.itemId);
-          await cargarCostosItemsTable(ordenId);
-          await cargarDatos(); // refrescar lista principal
+          await actualizarListasSegundoPlano();
+          await refrescarVistaCostos(ordenId);
         } catch (err) {
           alert(err.message);
         }
@@ -1171,8 +1223,9 @@ async function guardarCostoItem(e) {
     document.getElementById('item-precio').value = '';
     document.getElementById('item-cantidad').value = 1;
     
-    await cargarCostosItemsTable(ordenId);
-    await cargarDatos();
+    await actualizarListasSegundoPlano();
+    await refrescarVistaCostos(ordenId);
+
   } catch (err) {
     alert(err.message);
   }
