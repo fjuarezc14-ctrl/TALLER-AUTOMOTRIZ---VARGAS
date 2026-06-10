@@ -28,7 +28,18 @@ router.post("/", async (req, res) => {
   try {
     const r = await query("INSERT INTO ordenes_servicio (vehiculo_id,cliente_id,mecanico_id,kilometraje,nivel_combustible,falla_reportada,estado) VALUES ($1,$2,$3,$4,$5,$6,'Diagnostico') RETURNING *",
       [vehiculo_id,cliente_id,mecanico_id||null,kilometraje,nivel_combustible,falla_reportada||""]);
-    await query("UPDATE vehiculos SET ultima_visita=CURRENT_DATE WHERE id=$1", [vehiculo_id]);
+    
+    let kmVal = null;
+    if (kilometraje) {
+      const cleanKm = String(kilometraje).replace(/[^0-9]/g, '');
+      if (cleanKm) kmVal = parseInt(cleanKm);
+    }
+    if (kmVal && kmVal > 0) {
+      await query("UPDATE vehiculos SET km_actual=$1, ultima_visita=CURRENT_DATE WHERE id=$2", [kmVal, vehiculo_id]);
+    } else {
+      await query("UPDATE vehiculos SET ultima_visita=CURRENT_DATE WHERE id=$1", [vehiculo_id]);
+    }
+    
     res.status(201).json(r.rows[0]);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -39,6 +50,16 @@ router.put("/:id", async (req, res) => {
     const r = await query("UPDATE ordenes_servicio SET vehiculo_id=$1,cliente_id=$2,mecanico_id=$3,kilometraje=$4,nivel_combustible=$5,falla_reportada=$6,estado=$7,repuestos_esperando=$8,fecha_entrega=$9,nota_interna=$10 WHERE id=$11 RETURNING *",
       [vehiculo_id,cliente_id,mecanico_id,kilometraje,nivel_combustible,falla_reportada,estado,repuestos_esperando||"",fecha_entrega||null,nota_interna||"",req.params.id]);
     if (!r.rows.length) return res.status(404).json({ error: "Orden no encontrada" });
+    
+    let kmVal = null;
+    if (kilometraje) {
+      const cleanKm = String(kilometraje).replace(/[^0-9]/g, '');
+      if (cleanKm) kmVal = parseInt(cleanKm);
+    }
+    if (kmVal && kmVal > 0) {
+      await query("UPDATE vehiculos SET km_actual=$1 WHERE id=$2", [kmVal, vehiculo_id]);
+    }
+
     res.json(r.rows[0]);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });

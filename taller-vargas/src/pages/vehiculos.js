@@ -367,7 +367,7 @@ function renderModalVehiculo() {
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
           </button>
         </div>
-        <form id="form-vehiculo">
+        <form id="form-vehiculo" style="display: flex; flex-direction: column; flex: 1; overflow: hidden;">
           <div class="modal-body" style="display:flex;flex-direction:column;gap:18px;">
             <input type="hidden" id="vehiculo-id" />
 
