@@ -28,6 +28,13 @@ CREATE TABLE IF NOT EXISTS vehiculos (
   tipo_vehiculo VARCHAR(50) DEFAULT 'Sedan',
   km_actual INTEGER,
   km_ultimo_servicio INTEGER,
+  km_ultimo_aceite INTEGER,
+  km_ultimo_frenos INTEGER,
+  km_ultimo_bujias INTEGER,
+  km_ultimo_filtros INTEGER,
+  km_ultimo_liquido_frenos INTEGER,
+  km_ultimo_refrigerante INTEGER,
+  km_ultimo_distribucion INTEGER,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );

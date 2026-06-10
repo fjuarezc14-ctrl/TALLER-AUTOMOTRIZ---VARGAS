@@ -1,4 +1,4 @@
-﻿import { Router } from "express";
+import { Router } from "express";
 import { query, getClient } from "../db.js";
 const router = Router();
 
@@ -51,12 +51,73 @@ router.patch("/:id/estado", async (req, res) => {
     const totalRes = await client.query("SELECT COALESCE(SUM(cantidad*precio_unitario),0) AS total FROM items_costo WHERE orden_id=$1", [req.params.id]);
     const total = parseFloat(totalRes.rows[0].total);
     const ordRes = await client.query("UPDATE ordenes_servicio SET estado=$1,repuestos_esperando=$2,total_estimado=$3 WHERE id=$4 RETURNING *", [estado,repuestos_esperando||"",total,req.params.id]);
+    
+    const ordObj = ordRes.rows[0];
+    if (estado === "Finalizado" && ordObj && ordObj.vehiculo_id) {
+      // Extraer el kilometraje como entero
+      const rawKm = ordObj.kilometraje;
+      let kmVal = null;
+      if (rawKm) {
+        const cleanKm = rawKm.replace(/[^0-9]/g, '');
+        if (cleanKm) kmVal = parseInt(cleanKm);
+      }
+
+      if (kmVal && kmVal > 0) {
+        // Consultar los ítems de costo para ver qué se hizo
+        const itemsRes = await client.query("SELECT descripcion FROM items_costo WHERE orden_id=$1", [req.params.id]);
+        const descripciones = itemsRes.rows.map(item => item.descripcion.toLowerCase());
+
+        const updates = [];
+        const params = [kmVal];
+        let paramIndex = 2;
+
+        // Analizar palabras clave para actualizar kilometraje de componentes
+        if (descripciones.some(d => /aceite|oil|lubricante/i.test(d))) {
+          updates.push(`km_ultimo_aceite = $${paramIndex++}`);
+          params.push(kmVal);
+        }
+        if (descripciones.some(d => /freno|pastilla|zapata|disco\s*freno/i.test(d))) {
+          updates.push(`km_ultimo_frenos = $${paramIndex++}`);
+          params.push(kmVal);
+        }
+        if (descripciones.some(d => /bujia|spark\s*plug|ignicion/i.test(d))) {
+          updates.push(`km_ultimo_bujias = $${paramIndex++}`);
+          params.push(kmVal);
+        }
+        if (descripciones.some(d => /filtro\s*aire|filtro\s*cabina|filtro\s*gasolina|filtro\s*polen|filtro\s*aceite/i.test(d))) {
+          updates.push(`km_ultimo_filtros = $${paramIndex++}`);
+          params.push(kmVal);
+        }
+        if (descripciones.some(d => /liquido\s*freno|dot\s*4|dot4/i.test(d))) {
+          updates.push(`km_ultimo_liquido_frenos = $${paramIndex++}`);
+          params.push(kmVal);
+        }
+        if (descripciones.some(d => /refrigerante|coolant|anticongelante/i.test(d))) {
+          updates.push(`km_ultimo_refrigerante = $${paramIndex++}`);
+          params.push(kmVal);
+        }
+        if (descripciones.some(d => /faja|correa|distribucion|timing\s*belt/i.test(d))) {
+          updates.push(`km_ultimo_distribucion = $${paramIndex++}`);
+          params.push(kmVal);
+        }
+
+        // Siempre actualizar kilometraje actual, kilometraje de último servicio general y fecha
+        updates.push(`km_actual = $1`);
+        updates.push(`km_ultimo_servicio = $1`);
+        updates.push(`ultima_visita = CURRENT_DATE`);
+
+        params.push(ordObj.vehiculo_id);
+        const queryStr = `UPDATE vehiculos SET ${updates.join(', ')} WHERE id = $${paramIndex}`;
+        await client.query(queryStr, params);
+      }
+    }
+
     if (estado==="Finalizado" && pasar_facturacion && total>0) {
       await client.query("INSERT INTO cobros (orden_id,cliente_id,monto_total,estado,fecha_emision) VALUES ($1,$2,$3,$4,CURRENT_DATE) ON CONFLICT DO NOTHING",
-        [req.params.id,ordRes.rows[0].cliente_id,total,"Pendiente"]);
+        [req.params.id,ordObj.cliente_id,total,"Pendiente"]);
     }
     await client.query("COMMIT");
-    res.json({ ...ordRes.rows[0], total_calculado: total });
+    res.json({ ...ordObj, total_calculado: total });
   } catch (err) { await client.query("ROLLBACK"); res.status(500).json({ error: err.message }); }
   finally { client.release(); }
 });

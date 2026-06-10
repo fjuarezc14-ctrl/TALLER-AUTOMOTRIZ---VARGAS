@@ -167,11 +167,8 @@ function renderCard(v) {
     ? new Date(v.ultima_visita).toLocaleDateString('es-PE', { day:'numeric', month:'short', year:'numeric' })
     : '—';
 
-  // Semáforo de mantenimiento (basado en km)
-  const kmAct  = v.km_actual || 0;
-  const kmServ = v.km_ultimo_servicio || 0;
-  const kmDiff = kmAct - kmServ;
-  const semaforo = calcSemaforo(kmDiff);
+  // Semáforo de mantenimiento (basado en km por componente)
+  const semaforo = calcSemaforo(v);
 
   return `
     <div class="vehiculo-card">
@@ -207,12 +204,16 @@ function renderCard(v) {
         </div>
 
         <!-- Semáforo Preventivo -->
-        <div style="margin-top:8px;">
-          <div style="font-size:9px;font-weight:800;color:var(--slate-5);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Mantenimiento Preventivo</div>
-          <div class="mant-semaforo">
-            ${renderMantItem(semaforo.aceite,   '🛢️ Aceite')}
-            ${renderMantItem(semaforo.pastillas,'🔩 Frenos')}
-            ${renderMantItem(semaforo.bujias,   '⚡ Bujías')}
+        <div style="margin-top:10px; border-top:1px dashed var(--slate-8); padding-top:8px;">
+          <div style="font-size:9px;font-weight:800;color:var(--slate-5);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Salud por Componentes</div>
+          <div class="mant-semaforo-grid">
+            ${renderMantItem(semaforo.aceite,       '🛢️ Aceite')}
+            ${renderMantItem(semaforo.frenos,       '🔩 Frenos')}
+            ${renderMantItem(semaforo.bujias,       '⚡ Bujías')}
+            ${renderMantItem(semaforo.filtros,      '💨 Filtros')}
+            ${renderMantItem(semaforo.liquido,      '💧 Líq. Frenos')}
+            ${renderMantItem(semaforo.refrigerante, '❄️ Coolant')}
+            ${renderMantItem(semaforo.distribucion, '⛓️ Distrib.')}
           </div>
         </div>
       </div>
@@ -246,18 +247,29 @@ function renderMantItem(status, label) {
  * de km entre el servicio registrado y el km actual.
  * Aceite:    cada 5,000 km | Pastillas: 20,000 km | Bujías: 30,000 km
  */
-function calcSemaforo(kmDiff) {
-  const state = (limite) => {
-    if (kmDiff <= 0)                   return 'ok';
-    const pct = kmDiff / limite;
-    if (pct < 0.7)                     return 'ok';
-    if (pct < 1.0)                     return 'warn';
+function calcSemaforo(v) {
+  const kmAct = v.km_actual || 0;
+  const kmFallback = v.km_ultimo_servicio || 0;
+
+  const getStatus = (kmComponente, limite) => {
+    const kmUltimo = (kmComponente !== null && kmComponente !== undefined) ? kmComponente : kmFallback;
+    if (!kmAct) return 'unknown';
+    const diff = kmAct - kmUltimo;
+    if (diff <= 0) return 'ok';
+    const pct = diff / limite;
+    if (pct < 0.7) return 'ok';
+    if (pct < 1.0) return 'warn';
     return 'alert';
   };
+
   return {
-    aceite:    state(5000),
-    pastillas: state(20000),
-    bujias:    state(30000),
+    aceite:       getStatus(v.km_ultimo_aceite, 8000),
+    frenos:       getStatus(v.km_ultimo_frenos, 30000),
+    bujias:       getStatus(v.km_ultimo_bujias, 40000),
+    filtros:      getStatus(v.km_ultimo_filtros, 15000),
+    liquido:      getStatus(v.km_ultimo_liquido_frenos, 40000),
+    refrigerante: getStatus(v.km_ultimo_refrigerante, 40000),
+    distribucion: getStatus(v.km_ultimo_distribucion, 80000)
   };
 }
 
@@ -431,17 +443,46 @@ function renderModalVehiculo() {
               </div>
             </div>
 
-            <!-- Sección 4: KM -->
+            <!-- Sección 4: Kilometraje e Indicadores -->
             <div>
-              <div class="form-section-title">📍 Kilometraje</div>
-              <div class="grid grid-cols-2 gap-3">
+              <div class="form-section-title">📍 Historial de Kilometrajes por Componente</div>
+              <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;">
+                <div class="form-group" style="grid-column: span 2;">
+                  <label class="form-label">KM Actual (Odómetro) *</label>
+                  <input type="number" id="veh-km-actual" class="form-input font-bold" required placeholder="Ej: 45000" min="0" />
+                </div>
+                <div class="form-group" style="grid-column: span 2;">
+                  <label class="form-label">KM Último Servicio Gral.</label>
+                  <input type="number" id="veh-km-ult-serv" class="form-input" placeholder="Ej: 40000" min="0" />
+                </div>
+                
                 <div class="form-group">
-                  <label class="form-label">KM Actual</label>
-                  <input type="number" id="veh-km-actual" class="form-input" placeholder="Ej: 45000" min="0" />
+                  <label class="form-label">Últ. Aceite (KM)</label>
+                  <input type="number" id="veh-km-aceite" class="form-input" placeholder="Ej: 42000" min="0" />
                 </div>
                 <div class="form-group">
-                  <label class="form-label">KM en Último Servicio</label>
-                  <input type="number" id="veh-km-ult-serv" class="form-input" placeholder="Ej: 40000" min="0" />
+                  <label class="form-label">Últ. Frenos (KM)</label>
+                  <input type="number" id="veh-km-frenos" class="form-input" placeholder="Ej: 35000" min="0" />
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Últ. Bujías (KM)</label>
+                  <input type="number" id="veh-km-bujias" class="form-input" placeholder="Ej: 30000" min="0" />
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Últ. Filtros (KM)</label>
+                  <input type="number" id="veh-km-filtros" class="form-input" placeholder="Ej: 40000" min="0" />
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Últ. Líq. Frenos (KM)</label>
+                  <input type="number" id="veh-km-liq-frenos" class="form-input" placeholder="Ej: 30000" min="0" />
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Últ. Refrigerante (KM)</label>
+                  <input type="number" id="veh-km-refrigerante" class="form-input" placeholder="Ej: 30000" min="0" />
+                </div>
+                <div class="form-group" style="grid-column: span 2;">
+                  <label class="form-label">Últ. Distribución (KM)</label>
+                  <input type="number" id="veh-km-distribucion" class="form-input" placeholder="Ej: 10000" min="0" />
                 </div>
               </div>
             </div>
@@ -496,28 +537,109 @@ const VIN_YEARS_MAP = {
 function getVINYear(ch) { return VIN_YEARS_MAP[ch] || null; }
 
 
-function decodeVIN() {
+async function decodeVIN() {
   const vin = document.getElementById('veh-vin').value.toUpperCase().trim();
   const res  = document.getElementById('vin-decode-result');
 
   if (vin.length < 3) { res.className = 'vin-decode-result'; return; }
 
   const wmi    = vin.substring(0,3);
-  const year   = vin.length >= 10 ? getVINYear(vin[9]) : null;
-  const origen = VIN_WMI[wmi] || `Fabricante: ${wmi}`;
+  const localYear = vin.length >= 10 ? getVINYear(vin[9]) : null;
+  const localOrigen = VIN_WMI[wmi] || `Fabricante: ${wmi}`;
 
-  const msgs = [];
-  if (origen) msgs.push(`🏭 ${origen}`);
-  if (year)   msgs.push(`📅 Año aprox.: ${year}`);
-  if (vin.length === 17) msgs.push(`✅ VIN válido (17 dígitos)`);
-  else msgs.push(`⚠️ VIN incompleto (${vin.length}/17 dígitos)`);
+  // Si no tiene los 17 dígitos, usamos fallback local preliminar
+  if (vin.length < 17) {
+    const msgs = [];
+    if (localOrigen) msgs.push(`🏭 ${localOrigen}`);
+    if (localYear)   msgs.push(`📅 Año aprox.: ${localYear}`);
+    msgs.push(`⚠️ VIN incompleto (${vin.length}/17 dígitos)`);
+    res.textContent = msgs.join('  ·  ');
+    res.className = 'vin-decode-result visible';
+    
+    if (localYear && !document.getElementById('veh-anio').value) {
+      document.getElementById('veh-anio').value = localYear;
+    }
+    return;
+  }
 
-  res.textContent = msgs.join('  ·  ');
-  res.className = 'vin-decode-result visible';
+  // Con 17 dígitos, intentamos la decodificación por API de la NHTSA
+  res.innerHTML = `🔍 Decodificando VIN a través de base de datos internacional... <span class="spinner-small"></span>`;
+  res.className = 'vin-decode-result visible info';
 
-  // Auto-completar año si el campo está vacío
-  if (year && !document.getElementById('veh-anio').value) {
-    document.getElementById('veh-anio').value = year;
+  try {
+    const response = await fetch(`https://vpic.nhtsa.dot.gov/api/vehicles/DecodeVinValuesExtended/${vin}?format=json`);
+    if (!response.ok) throw new Error('API offline');
+
+    const data = await response.json();
+    const result = data.Results && data.Results[0];
+
+    if (result && result.Make && result.Make.trim() !== "") {
+      const make = result.Make.trim();
+      const model = result.Model ? result.Model.trim() : '';
+      const year = result.ModelYear ? parseInt(result.ModelYear) : null;
+      const bodyClass = result.BodyClass ? result.BodyClass.toLowerCase() : '';
+      const displacement = result.DisplacementL ? parseFloat(result.DisplacementL).toFixed(1) + 'L' : '';
+      const cylinders = result.EngineCylinders ? result.EngineCylinders + 'cil' : '';
+      const transmissionStyle = result.TransmissionStyle ? result.TransmissionStyle.toLowerCase() : '';
+
+      // Completar formulario con animación visual
+      const triggerFlash = (el) => {
+        el.classList.add('flash-success');
+        setTimeout(() => el.classList.remove('flash-success'), 1200);
+      };
+
+      const modelInput = document.getElementById('veh-marca');
+      const yearInput = document.getElementById('veh-anio');
+      const motorInput = document.getElementById('veh-tipo-motor');
+      const typeSelect = document.getElementById('veh-tipo');
+      const transmissionSelect = document.getElementById('veh-transmision');
+
+      if (modelInput && (!modelInput.value || modelInput.value.toLowerCase().includes('corolla') || modelInput.value.toLowerCase().includes('hilux') || modelInput.value === '')) {
+        modelInput.value = `${make} ${model}`.trim();
+        triggerFlash(modelInput);
+      }
+
+      if (year && yearInput && !yearInput.value) {
+        yearInput.value = year;
+        triggerFlash(yearInput);
+      }
+
+      if ((displacement || cylinders) && motorInput && !motorInput.value) {
+        motorInput.value = `${displacement} ${cylinders}`.trim();
+        triggerFlash(motorInput);
+      }
+
+      if (bodyClass && typeSelect) {
+        let typeVal = 'Sedán';
+        if (bodyClass.includes('suv') || bodyClass.includes('utility')) typeVal = 'SUV';
+        else if (bodyClass.includes('pickup') || bodyClass.includes('truck')) typeVal = 'Pickup';
+        else if (bodyClass.includes('van') || bodyClass.includes('minivan')) typeVal = 'Van';
+        else if (bodyClass.includes('motorcycle')) typeVal = 'Moto';
+        else if (bodyClass.includes('sedan') || bodyClass.includes('coupe') || bodyClass.includes('hatchback')) typeVal = 'Sedán';
+        else typeVal = 'Otro';
+
+        typeSelect.value = typeVal;
+        triggerFlash(typeSelect);
+      }
+
+      if (transmissionStyle && transmissionSelect && !transmissionSelect.value) {
+        if (transmissionStyle.includes('manual')) transmissionSelect.value = 'Manual';
+        else if (transmissionStyle.includes('auto') || transmissionStyle.includes('cvt')) transmissionSelect.value = 'Automático';
+        triggerFlash(transmissionSelect);
+      }
+
+      res.textContent = `✅ VIN decodificado: ${make} ${model} (${year || '—'}) · Origen: ${localOrigen}`;
+      res.className = 'vin-decode-result visible success';
+    } else {
+      throw new Error('Sin datos en API');
+    }
+  } catch (err) {
+    // Fallback a decodificador estático
+    res.textContent = `✅ Origen: ${localOrigen} ${localYear ? ' · Año: '+localYear : ''} (Local Fallback)`;
+    res.className = 'vin-decode-result visible success';
+    if (localYear && !document.getElementById('veh-anio').value) {
+      document.getElementById('veh-anio').value = localYear;
+    }
   }
 }
 
@@ -548,6 +670,13 @@ function abrirModalVehiculo(id = null) {
     document.getElementById('veh-vin').value           = v.vin || '';
     document.getElementById('veh-km-actual').value     = v.km_actual || '';
     document.getElementById('veh-km-ult-serv').value   = v.km_ultimo_servicio || '';
+    document.getElementById('veh-km-aceite').value      = v.km_ultimo_aceite !== null && v.km_ultimo_aceite !== undefined ? v.km_ultimo_aceite : '';
+    document.getElementById('veh-km-frenos').value      = v.km_ultimo_frenos !== null && v.km_ultimo_frenos !== undefined ? v.km_ultimo_frenos : '';
+    document.getElementById('veh-km-bujias').value      = v.km_ultimo_bujias !== null && v.km_ultimo_bujias !== undefined ? v.km_ultimo_bujias : '';
+    document.getElementById('veh-km-filtros').value     = v.km_ultimo_filtros !== null && v.km_ultimo_filtros !== undefined ? v.km_ultimo_filtros : '';
+    document.getElementById('veh-km-liq-frenos').value  = v.km_ultimo_liquido_frenos !== null && v.km_ultimo_liquido_frenos !== undefined ? v.km_ultimo_liquido_frenos : '';
+    document.getElementById('veh-km-refrigerante').value= v.km_ultimo_refrigerante !== null && v.km_ultimo_refrigerante !== undefined ? v.km_ultimo_refrigerante : '';
+    document.getElementById('veh-km-distribucion').value= v.km_ultimo_distribucion !== null && v.km_ultimo_distribucion !== undefined ? v.km_ultimo_distribucion : '';
 
     if (v.vin) decodeVIN();
 
@@ -583,6 +712,13 @@ async function guardarVehiculo(e) {
     vin:                 document.getElementById('veh-vin').value.trim().toUpperCase() || null,
     km_actual:           parseInt(document.getElementById('veh-km-actual').value) || null,
     km_ultimo_servicio:  parseInt(document.getElementById('veh-km-ult-serv').value) || null,
+    km_ultimo_aceite:         parseInt(document.getElementById('veh-km-aceite').value) || null,
+    km_ultimo_frenos:         parseInt(document.getElementById('veh-km-frenos').value) || null,
+    km_ultimo_bujias:         parseInt(document.getElementById('veh-km-bujias').value) || null,
+    km_ultimo_filtros:        parseInt(document.getElementById('veh-km-filtros').value) || null,
+    km_ultimo_liquido_frenos: parseInt(document.getElementById('veh-km-liq-frenos').value) || null,
+    km_ultimo_refrigerante:   parseInt(document.getElementById('veh-km-refrigerante').value) || null,
+    km_ultimo_distribucion:   parseInt(document.getElementById('veh-km-distribucion').value) || null,
   };
 
   const btn = document.getElementById('btn-save-vehiculo');
@@ -751,10 +887,7 @@ async function verHistorial(id) {
   // Actualizar datos en el modal
   document.getElementById('historial-placa').textContent = v.placa;
 
-  const kmAct  = v.km_actual || 0;
-  const kmServ = v.km_ultimo_servicio || 0;
-  const kmDiff = kmAct - kmServ;
-  const sem    = calcSemaforo(kmDiff);
+  const sem = calcSemaforo(v);
 
   document.getElementById('historial-veh-datos').innerHTML = `
     <div style="background:var(--slate-9);padding:14px;border-radius:var(--radius-md);border:1px solid var(--slate-8);">
@@ -792,13 +925,16 @@ async function verHistorial(id) {
   `;
 
   // Semáforo en el historial con barra de progreso
-  const semHtml = (label, icon, diff, limite, color) => {
-    const pct   = Math.min(100, Math.round((diff/limite)*100));
+  const semHtml = (label, icon, kmComponente, limite) => {
+    const kmUltimo = kmComponente !== null && kmComponente !== undefined ? kmComponente : (v.km_ultimo_servicio || 0);
+    const diff = (v.km_actual || 0) - kmUltimo;
+    const cleanDiff = diff > 0 ? diff : 0;
+    const pct = Math.min(100, Math.round((cleanDiff / limite) * 100));
     const barCls = pct < 70 ? 'ok' : pct < 100 ? 'warn' : 'over';
     return `
-      <div style="flex:1;background:var(--slate-9);border-radius:var(--radius-md);padding:10px;border:1px solid var(--slate-8);">
+      <div style="background:var(--slate-9);border-radius:var(--radius-md);padding:10px;border:1px solid var(--slate-8);">
         <div style="font-size:10px;font-weight:800;color:var(--slate-5);text-transform:uppercase;">${icon} ${label}</div>
-        <div style="font-size:12px;font-weight:700;color:var(--dark);margin-top:4px;">${diff > 0 ? diff.toLocaleString()+' km desde servicio' : 'Al día'}</div>
+        <div style="font-size:12px;font-weight:700;color:var(--dark);margin-top:4px;">${cleanDiff > 0 ? cleanDiff.toLocaleString()+' km desde servicio' : 'Al día'}</div>
         <div class="km-bar-wrap"><div class="km-bar-fill ${barCls}" style="width:${pct}%"></div></div>
         <div style="font-size:10px;color:var(--slate-5);margin-top:3px;">Intervalo: cada ${limite.toLocaleString()} km</div>
       </div>
@@ -806,11 +942,15 @@ async function verHistorial(id) {
   };
 
   document.getElementById('historial-semaforo-wrap').innerHTML = `
-    <div style="font-size:11px;font-weight:800;color:var(--slate-5);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">📊 Estado de Mantenimiento Preventivo</div>
-    <div style="display:flex;gap:10px;flex-wrap:wrap;">
-      ${semHtml('Aceite de Motor', '🛢️', kmDiff, 5000, 'green')}
-      ${semHtml('Pastillas de Freno', '🔩', kmDiff, 20000, 'orange')}
-      ${semHtml('Bujías / Filtros', '⚡', kmDiff, 30000, 'red')}
+    <div style="font-size:11px;font-weight:800;color:var(--slate-5);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">📊 Estado de Mantenimiento Preventivo (Salud Clínica)</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(200px, 1fr));gap:10px;">
+      ${semHtml('Aceite de Motor', '🛢️', v.km_ultimo_aceite, 8000)}
+      ${semHtml('Pastillas de Freno', '🔩', v.km_ultimo_frenos, 30000)}
+      ${semHtml('Bujías', '⚡', v.km_ultimo_bujias, 40000)}
+      ${semHtml('Filtros (Aire/Aceite)', '💨', v.km_ultimo_filtros, 15000)}
+      ${semHtml('Líquido de Frenos', '💧', v.km_ultimo_liquido_frenos, 40000)}
+      ${semHtml('Refrigerante / Coolant', '❄️', v.km_ultimo_refrigerante, 40000)}
+      ${semHtml('Correa de Distribución', '⛓️', v.km_ultimo_distribucion, 80000)}
     </div>
   `;
 

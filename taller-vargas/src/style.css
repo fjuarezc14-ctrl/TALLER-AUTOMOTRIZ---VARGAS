@@ -672,6 +672,15 @@ body {
   gap: 6px;
   margin-top: 10px;
 }
+.mant-semaforo-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+  margin-top: 10px;
+}
+.mant-semaforo-grid > :last-child {
+  grid-column: span 2;
+}
 .mant-item {
   flex: 1;
   display: flex;
@@ -684,18 +693,20 @@ body {
   cursor: default;
   position: relative;
 }
-.mant-item.ok    { background: #f0fdf4; border-color: #bbf7d0; }
-.mant-item.warn  { background: #fffbeb; border-color: #fde68a; }
-.mant-item.alert { background: #fff1f2; border-color: #fecdd3; }
+.mant-item.ok      { background: #f0fdf4; border-color: #bbf7d0; }
+.mant-item.warn    { background: #fffbeb; border-color: #fde68a; }
+.mant-item.alert   { background: #fff1f2; border-color: #fecdd3; }
+.mant-item.unknown { background: #f1f5f9; border-color: #cbd5e1; }
 
 .mant-dot {
   width: 10px; height: 10px;
   border-radius: 50%;
   flex-shrink: 0;
 }
-.mant-item.ok .mant-dot    { background: #22c55e; box-shadow: 0 0 6px rgba(34,197,94,.6); }
-.mant-item.warn .mant-dot  { background: #f59e0b; box-shadow: 0 0 6px rgba(245,158,11,.6); }
-.mant-item.alert .mant-dot { background: #ef4444; box-shadow: 0 0 6px rgba(239,68,68,.6); animation: pulse-dot .8s ease-in-out infinite alternate; }
+.mant-item.ok .mant-dot       { background: #22c55e; box-shadow: 0 0 6px rgba(34,197,94,.6); }
+.mant-item.warn .mant-dot     { background: #f59e0b; box-shadow: 0 0 6px rgba(245,158,11,.6); }
+.mant-item.alert .mant-dot    { background: #ef4444; box-shadow: 0 0 6px rgba(239,68,68,.6); animation: pulse-dot .8s ease-in-out infinite alternate; }
+.mant-item.unknown .mant-dot  { background: #64748b; box-shadow: 0 0 6px rgba(100,116,139,.4); }
 
 @keyframes pulse-dot {
   from { box-shadow: 0 0 4px rgba(239,68,68,.4); }
@@ -776,14 +787,51 @@ body {
   color: var(--brand);
   font-size: 11px;
   font-weight: 700;
-  padding: 5px 10px;
+  padding: 6px 12px;
   border-radius: var(--radius-sm);
-  margin-top: 4px;
+  margin-top: 5px;
   display: none;
   font-family: 'Courier New', monospace;
   letter-spacing: .5px;
+  border: 1.5px solid transparent;
+  transition: all .2s ease;
 }
 .vin-decode-result.visible { display: block; animation: fadeIn .2s ease; }
+.vin-decode-result.success {
+  background: #ecfdf5;
+  color: #047857;
+  border-color: #a7f3d0;
+}
+.vin-decode-result.info {
+  background: #f0f9ff;
+  color: #0369a1;
+  border-color: #bae6fd;
+}
+
+/* Spinner animado */
+.spinner-small {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin .8s linear infinite;
+  vertical-align: middle;
+  margin-left: 6px;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Animación flash success para inputs completados */
+@keyframes flash-success-anim {
+  0% { background-color: rgba(16, 185, 129, 0.15); border-color: #10b981; }
+  100% { background-color: transparent; }
+}
+.flash-success {
+  animation: flash-success-anim 1.2s ease-out;
+}
 
 /* ── KM Progress bar ────────────────────────────────────── */
 .km-bar-wrap {
