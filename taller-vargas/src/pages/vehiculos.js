@@ -487,7 +487,30 @@ function renderModalVehiculo() {
               </div>
             </div>
 
-            <!-- Sección 5: Cliente -->
+            <!-- Sección 5: Consumibles Sugeridos -->
+            <div>
+              <div class="form-section-title">🧼 Ficha Técnica de Consumibles (Sugeridos)</div>
+              <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px;">
+                <div class="form-group">
+                  <label class="form-label">Aceite Sugerido</label>
+                  <input type="text" id="veh-sug-aceite" class="form-input" placeholder="Ej: 5W-30 Sintético" />
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Refrigerante Sugerido</label>
+                  <input type="text" id="veh-sug-refrigerante" class="form-input" placeholder="Ej: Coolant Rojo 50/50" />
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Bujías Sugeridas</label>
+                  <input type="text" id="veh-sug-bujias" class="form-input" placeholder="Ej: Iridio NGK" />
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Filtros Sugeridos</label>
+                  <input type="text" id="veh-sug-filtros" class="form-input" placeholder="Ej: Filtro Aceite Toyota 90915-YZZD4" />
+                </div>
+              </div>
+            </div>
+
+            <!-- Sección 6: Cliente -->
             <div>
               <div class="form-section-title">👤 Vinculación a Cliente</div>
               <div class="form-group">
@@ -628,7 +651,60 @@ async function decodeVIN() {
         triggerFlash(transmissionSelect);
       }
 
-      res.textContent = `✅ VIN decodificado: ${make} ${model} (${year || '—'}) · Origen: ${localOrigen}`;
+      // Consumibles sugeridos automáticos según la marca
+      let sugAceiteVal = '';
+      let sugRefrigVal = '';
+      let sugBujiasVal = '';
+      let sugFiltrosVal = '';
+      
+      const makeLower = make.toLowerCase();
+      if (makeLower.includes('toyota')) {
+        sugAceiteVal = "5W-30 Sintético (SAE GF-6A)";
+        sugRefrigVal = "Coolant Rojo Orgánico Toyota SLLC 50/50";
+        sugBujiasVal = "Iridio Premium (NGK / Denso)";
+        sugFiltrosVal = "Filtro Toyota 90915-YZZD4 / Aire OEM";
+      } else if (makeLower.includes('nissan')) {
+        sugAceiteVal = "5W-30 Sintético API SP";
+        sugRefrigVal = "Coolant Azul Nissan L255";
+        sugBujiasVal = "Iridio NGK PLZKAR6A-11";
+        sugFiltrosVal = "Filtro de Aceite Nissan 15208-65F0A";
+      } else if (makeLower.includes('hyundai') || makeLower.includes('kia')) {
+        sugAceiteVal = "5W-30 o 5W-40 Sintético Acea A5/B5";
+        sugRefrigVal = "Coolant Verde Orgánico LLC";
+        sugBujiasVal = "Bujías Iridio NGK SILZKR7B11";
+        sugFiltrosVal = "Filtro Hyundai 26300-35505";
+      } else {
+        sugAceiteVal = "5W-30 Sintético Multigrado API SP";
+        sugRefrigVal = "Coolant Orgánico de Larga Duración 50/50";
+        sugBujiasVal = "Bujías Iridio Estándar";
+        sugFiltrosVal = "Filtro Aceite / Filtro Aire homologados";
+      }
+      
+      const sugAceiteInput = document.getElementById('veh-sug-aceite');
+      const sugRefrigInput = document.getElementById('veh-sug-refrigerante');
+      const sugBujiasInput = document.getElementById('veh-sug-bujias');
+      const sugFiltrosInput = document.getElementById('veh-sug-filtros');
+      
+      if (sugAceiteInput && !sugAceiteInput.value) { sugAceiteInput.value = sugAceiteVal; triggerFlash(sugAceiteInput); }
+      if (sugRefrigInput && !sugRefrigInput.value) { sugRefrigInput.value = sugRefrigVal; triggerFlash(sugRefrigInput); }
+      if (sugBujiasInput && !sugBujiasInput.value) { sugBujiasInput.value = sugBujiasVal; triggerFlash(sugBujiasInput); }
+      if (sugFiltrosInput && !sugFiltrosInput.value) { sugFiltrosInput.value = sugFiltrosVal; triggerFlash(sugFiltrosInput); }
+
+      let specsText = `✅ VIN decodificado: ${make} ${model} (${year || '—'}) · Origen: ${localOrigen}`;
+      
+      res.innerHTML = `
+        <div style="margin-bottom:6px; font-weight:800; color:#047857;">${specsText}</div>
+        <div class="vin-specs-badge-grid" style="display:grid; grid-template-columns: repeat(3, 1fr); gap: 6px; background: rgba(16,185,129,0.08); padding: 8px; border-radius: 6px; margin-top:6px; font-family:var(--font-sans); border:1px solid rgba(16,185,129,0.2);">
+          <div style="font-size:10px;"><span style="color:#64748b;">Motor:</span> <strong style="color:#0f172a;">${displacement || '—'} ${cylinders || ''}</strong></div>
+          <div style="font-size:10px;"><span style="color:#64748b;">Transmisión:</span> <strong style="color:#0f172a;">${transmissionStyle ? (transmissionStyle.includes('manual') ? 'Manual' : 'Automático') : '—'}</strong></div>
+          <div style="font-size:10px;"><span style="color:#64748b;">Carrocería:</span> <strong style="color:#0f172a; text-transform:capitalize;">${bodyClass || '—'}</strong></div>
+          <div style="font-size:10px; grid-column: span 3; border-top: 1px dashed rgba(16,185,129,0.2); padding-top:4px; margin-top:4px;">
+            <span style="color:#64748b;">Consumibles Sugeridos:</span><br/>
+            <span style="color:#0f172a; font-weight:700;">🛢️ Aceite:</span> ${sugAceiteVal} <br/>
+            <span style="color:#0f172a; font-weight:700;">❄️ Coolant:</span> ${sugRefrigVal}
+          </div>
+        </div>
+      `;
       res.className = 'vin-decode-result visible success';
     } else {
       throw new Error('Sin datos en API');
@@ -678,6 +754,12 @@ function abrirModalVehiculo(id = null) {
     document.getElementById('veh-km-refrigerante').value= v.km_ultimo_refrigerante !== null && v.km_ultimo_refrigerante !== undefined ? v.km_ultimo_refrigerante : '';
     document.getElementById('veh-km-distribucion').value= v.km_ultimo_distribucion !== null && v.km_ultimo_distribucion !== undefined ? v.km_ultimo_distribucion : '';
 
+    // Sugerencias de consumibles
+    document.getElementById('veh-sug-aceite').value     = v.sug_aceite || '';
+    document.getElementById('veh-sug-refrigerante').value= v.sug_refrigerante || '';
+    document.getElementById('veh-sug-bujias').value     = v.sug_bujias || '';
+    document.getElementById('veh-sug-filtros').value    = v.sug_filtros || '';
+
     if (v.vin) decodeVIN();
 
     titulo.textContent    = 'Editar Vehículo';
@@ -719,6 +801,10 @@ async function guardarVehiculo(e) {
     km_ultimo_liquido_frenos: parseInt(document.getElementById('veh-km-liq-frenos').value) || null,
     km_ultimo_refrigerante:   parseInt(document.getElementById('veh-km-refrigerante').value) || null,
     km_ultimo_distribucion:   parseInt(document.getElementById('veh-km-distribucion').value) || null,
+    sug_aceite:          document.getElementById('veh-sug-aceite').value.trim() || null,
+    sug_refrigerante:    document.getElementById('veh-sug-refrigerante').value.trim() || null,
+    sug_bujias:          document.getElementById('veh-sug-bujias').value.trim() || null,
+    sug_filtros:         document.getElementById('veh-sug-filtros').value.trim() || null,
   };
 
   const btn = document.getElementById('btn-save-vehiculo');
@@ -919,6 +1005,26 @@ async function verHistorial(id) {
         <div>
           <p style="font-size:10px;font-weight:700;color:var(--slate-5);text-transform:uppercase;">Transmisión</p>
           <p style="font-weight:700;color:var(--dark);font-size:12px;margin-top:2px;">${v.transmision || '—'}</p>
+        </div>
+      </div>
+    </div>
+    <div style="background:var(--slate-9);padding:14px;border-radius:var(--radius-md);border:1px solid var(--slate-8);grid-column: span 2;">
+      <div style="display:grid;grid-template-columns:repeat(4, 1fr);gap:12px;">
+        <div>
+          <p style="font-size:9px;font-weight:700;color:var(--slate-5);text-transform:uppercase;">🛢️ Aceite Sugerido</p>
+          <p style="font-weight:700;color:var(--dark);font-size:11px;margin-top:2px;">${v.sug_aceite || '—'}</p>
+        </div>
+        <div>
+          <p style="font-size:9px;font-weight:700;color:var(--slate-5);text-transform:uppercase;">❄️ Refrigerante</p>
+          <p style="font-weight:700;color:var(--dark);font-size:11px;margin-top:2px;">${v.sug_refrigerante || '—'}</p>
+        </div>
+        <div>
+          <p style="font-size:9px;font-weight:700;color:var(--slate-5);text-transform:uppercase;">⚡ Bujías</p>
+          <p style="font-weight:700;color:var(--dark);font-size:11px;margin-top:2px;">${v.sug_bujias || '—'}</p>
+        </div>
+        <div>
+          <p style="font-size:9px;font-weight:700;color:var(--slate-5);text-transform:uppercase;">💨 Filtros</p>
+          <p style="font-weight:700;color:var(--dark);font-size:11px;margin-top:2px;">${v.sug_filtros || '—'}</p>
         </div>
       </div>
     </div>

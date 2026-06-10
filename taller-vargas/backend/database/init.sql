@@ -35,6 +35,10 @@ CREATE TABLE IF NOT EXISTS vehiculos (
   km_ultimo_liquido_frenos INTEGER,
   km_ultimo_refrigerante INTEGER,
   km_ultimo_distribucion INTEGER,
+  sug_aceite VARCHAR(255),
+  sug_refrigerante VARCHAR(255),
+  sug_bujias VARCHAR(255),
+  sug_filtros VARCHAR(255),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
