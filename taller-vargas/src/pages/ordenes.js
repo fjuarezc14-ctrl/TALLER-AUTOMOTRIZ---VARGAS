@@ -478,6 +478,12 @@ function renderModales() {
           
           <input type="hidden" id="costos-orden-id" />
 
+          <!-- Sugerencia de Consumibles según Ficha de Vehículo -->
+          <div id="consumibles-sugeridos-box" class="hidden animate-fadeIn" style="background:#eff6ff; border:1px solid #bfdbfe; padding:12px; border-radius:var(--radius-md); display:flex; flex-direction:column; gap:6px;">
+            <div style="font-size:10px; font-weight:800; color:#1e40af; text-transform:uppercase; letter-spacing:0.5px;">💡 Consumibles Recomendados para esta Unidad (Haz clic para presupuestar)</div>
+            <div id="consumibles-sugeridos-list" style="display:flex; gap:8px; flex-wrap:wrap;"></div>
+          </div>
+
           <!-- Agregar Costo Form -->
           <form id="form-agregar-costo" style="background:var(--slate-9);padding:16px;border-radius:var(--radius-md);border:1px solid var(--slate-8);display:flex;flex-direction:column;gap:12px;">
             <div class="form-section-title" style="margin-bottom:0;">Agregar Concepto / Repuesto</div>
@@ -728,9 +734,142 @@ async function abrirModalCostos(id) {
   document.getElementById('item-tipo').value = 'mano_obra';
   toggleTipoCostoForm();
   
+  // Ocultar feedback previo si lo hay
+  const fb = document.getElementById('sug-feedback-msg');
+  if (fb) fb.style.display = 'none';
+
+  // Buscar vehículo para sugerir insumos
+  const v = vehiculosList.find(x => x.placa === o.placa || x.id === o.vehiculo_id);
+  const sugBox = document.getElementById('consumibles-sugeridos-box');
+  const sugList = document.getElementById('consumibles-sugeridos-list');
+
+  if (v && (v.sug_aceite || v.sug_refrigerante || v.sug_bujias || v.sug_filtros)) {
+    sugBox.classList.remove('hidden');
+    
+    const sugItems = [];
+    if (v.sug_aceite) {
+      sugItems.push(`
+        <button type="button" class="btn-sug-item" onclick="sugerirConsumible('aceite', '${v.sug_aceite}')" style="background:#eff6ff; border:1px solid #bfdbfe; color:#1e40af; font-size:10px; font-weight:700; padding:4px 8px; border-radius:4px; cursor:pointer; display:flex; align-items:center; gap:4px;">
+          🛢️ Aceite: ${v.sug_aceite}
+        </button>
+      `);
+    }
+    if (v.sug_refrigerante) {
+      sugItems.push(`
+        <button type="button" class="btn-sug-item" onclick="sugerirConsumible('refrigerante', '${v.sug_refrigerante}')" style="background:#eff6ff; border:1px solid #bfdbfe; color:#1e40af; font-size:10px; font-weight:700; padding:4px 8px; border-radius:4px; cursor:pointer; display:flex; align-items:center; gap:4px;">
+          ❄️ Coolant: ${v.sug_refrigerante}
+        </button>
+      `);
+    }
+    if (v.sug_bujias) {
+      sugItems.push(`
+        <button type="button" class="btn-sug-item" onclick="sugerirConsumible('bujias', '${v.sug_bujias}')" style="background:#eff6ff; border:1px solid #bfdbfe; color:#1e40af; font-size:10px; font-weight:700; padding:4px 8px; border-radius:4px; cursor:pointer; display:flex; align-items:center; gap:4px;">
+          ⚡ Bujías: ${v.sug_bujias}
+        </button>
+      `);
+    }
+    if (v.sug_filtros) {
+      sugItems.push(`
+        <button type="button" class="btn-sug-item" onclick="sugerirConsumible('filtros', '${v.sug_filtros}')" style="background:#eff6ff; border:1px solid #bfdbfe; color:#1e40af; font-size:10px; font-weight:700; padding:4px 8px; border-radius:4px; cursor:pointer; display:flex; align-items:center; gap:4px;">
+          💨 Filtros: ${v.sug_filtros}
+        </button>
+      `);
+    }
+    sugList.innerHTML = sugItems.join('');
+  } else {
+    sugBox.classList.add('hidden');
+  }
+
   await cargarCostosItemsTable(o.id);
   document.getElementById('modal-costos').classList.add('active');
 }
+
+// Lógica de búsqueda de consumibles sugeridos en el inventario del almacén
+window.sugerirConsumible = function(tipo, texto) {
+  const tipoSelect = document.getElementById('item-tipo');
+  const repSelect = document.getElementById('item-repuesto-select');
+  const descManual = document.getElementById('item-desc-manual');
+  const precioInput = document.getElementById('item-precio');
+  const cantInput = document.getElementById('item-cantidad');
+  
+  // Palabras clave de búsqueda
+  const words = texto.toLowerCase().split(/\s+/).filter(w => w.length > 2 && w !== 'sugerido' && w !== 'sintetico' && w !== 'sintético');
+  
+  // Intentar encontrar algún repuesto en almacenList que coincida con las palabras clave y tenga stock > 0
+  let matchedRepuesto = null;
+  if (words.length > 0) {
+    matchedRepuesto = almacenList.find(p => 
+      p.stock > 0 && 
+      words.some(w => p.descripcion.toLowerCase().includes(w) || p.codigo.toLowerCase().includes(w))
+    );
+  }
+  
+  // Si no encuentra con stock, intenta buscar en general aunque tenga stock 0 (como fallback)
+  if (!matchedRepuesto && words.length > 0) {
+    matchedRepuesto = almacenList.find(p => 
+      words.some(w => p.descripcion.toLowerCase().includes(w) || p.codigo.toLowerCase().includes(w))
+    );
+  }
+  
+  const triggerFlash = (el) => {
+    el.classList.add('flash-success');
+    setTimeout(() => el.classList.remove('flash-success'), 1200);
+  };
+  
+  const infoBox = document.getElementById('sug-feedback-msg') || (() => {
+    const box = document.createElement('div');
+    box.id = 'sug-feedback-msg';
+    box.style.fontSize = '11px';
+    box.style.fontWeight = '700';
+    box.style.padding = '6px 10px';
+    box.style.borderRadius = '4px';
+    box.style.marginTop = '6px';
+    box.style.marginBottom = '6px';
+    const form = document.getElementById('form-agregar-costo');
+    form.insertBefore(box, form.firstChild);
+    return box;
+  })();
+  
+  if (matchedRepuesto) {
+    // Si encontramos en almacén, lo cargamos como repuesto
+    tipoSelect.value = 'almacen';
+    toggleTipoCostoForm();
+    
+    repSelect.value = matchedRepuesto.codigo;
+    precioInput.value = matchedRepuesto.precio_venta;
+    cantInput.value = 1;
+    
+    triggerFlash(tipoSelect);
+    triggerFlash(repSelect);
+    triggerFlash(precioInput);
+    
+    if (matchedRepuesto.stock > 0) {
+      infoBox.className = 'vin-decode-result visible success';
+      infoBox.style.display = 'block';
+      infoBox.innerHTML = `📦 Encontrado en Almacén: <strong>${matchedRepuesto.descripcion}</strong> (Stock: ${matchedRepuesto.stock} · SKU: ${matchedRepuesto.codigo})`;
+    } else {
+      infoBox.className = 'vin-decode-result visible info';
+      infoBox.style.display = 'block';
+      infoBox.innerHTML = `⚠️ Encontrado en Almacén pero <strong>SIN STOCK</strong>: ${matchedRepuesto.descripcion} (Cargado para cotización externa)`;
+    }
+  } else {
+    // Si no encontramos, lo cargamos como concepto libre (mano de obra/compra externa)
+    tipoSelect.value = 'mano_obra';
+    toggleTipoCostoForm();
+    
+    descManual.value = `Repuesto Externo: ${texto}`;
+    precioInput.value = '';
+    cantInput.value = 1;
+    
+    triggerFlash(tipoSelect);
+    triggerFlash(descManual);
+    triggerFlash(precioInput);
+    
+    infoBox.className = 'vin-decode-result visible info';
+    infoBox.style.display = 'block';
+    infoBox.innerHTML = `🛒 No se encontró en almacén. Cargado como <strong>Insumo Externo (libre)</strong> para cotización manual.`;
+  }
+};
 
 async function cargarCostosItemsTable(ordenId) {
   const o = await getOrden(ordenId);
