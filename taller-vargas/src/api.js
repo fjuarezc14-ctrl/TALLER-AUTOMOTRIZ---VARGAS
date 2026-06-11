@@ -28,11 +28,14 @@ async function request(path, options = {}) {
 export const getDashboard = () => request('/dashboard');
 
 // ── Clientes ─────────────────────────────────────────────
-export const getClientes   = ()         => request('/clientes');
-export const getCliente    = (id)       => request(`/clientes/${id}`);
-export const createCliente = (data)     => request('/clientes', { method: 'POST', body: data });
-export const updateCliente = (id, data) => request(`/clientes/${id}`, { method: 'PUT', body: data });
-export const deleteCliente = (id)       => request(`/clientes/${id}`, { method: 'DELETE' });
+export const getClientes          = ()         => request('/clientes');
+export const getCliente           = (id)       => request(`/clientes/${id}`);
+export const getClienteHistorial  = (id)       => request(`/clientes/${id}/historial`);
+export const getClientesCrmStats  = ()         => request('/clientes/stats/crm');
+export const createCliente        = (data)     => request('/clientes', { method: 'POST', body: data });
+export const updateCliente        = (id, data) => request(`/clientes/${id}`, { method: 'PUT', body: data });
+export const patchClienteNotas    = (id, nota) => request(`/clientes/${id}/notas`, { method: 'PATCH', body: { notas: nota } });
+export const deleteCliente        = (id)       => request(`/clientes/${id}`, { method: 'DELETE' });
 
 // ── Vehículos ─────────────────────────────────────────────
 export const getVehiculos    = ()       => request('/vehiculos');

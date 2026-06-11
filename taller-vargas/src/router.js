@@ -65,7 +65,7 @@ const breadcrumbs = {
   '/':            ['Panel Principal', 'Resumen General'],
   '/ordenes':     ['Órdenes de Servicio', 'Gestión Operativa'],
   '/vehiculos':   ['Vehículos', 'Directorio y Proceso'],
-  '/clientes':    ['Clientes', 'Directorio de Contactos'],
+  '/clientes':    ['CRM Clientes', 'Seguimiento 360° y Fidelización'],
   '/almacen':     ['Almacén / Repuestos', 'Control de Inventario'],
   '/facturacion': ['Finanzas', 'Facturación y Cobros'],
   '/archivos':    ['Documentos', 'Repositorio General'],
