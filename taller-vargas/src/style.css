@@ -348,6 +348,7 @@ body {
 .badge-purple  { background: #f3e8ff; color: #7c3aed; }
 .badge-slate   { background: var(--slate-8); color: var(--slate-4); }
 .badge-red     { background: #fee2e2; color: #dc2626; }
+@keyframes pulse-badge { from { opacity: 0.65; } to { opacity: 1; } }
 
 .placa-badge {
   background: var(--dark);
