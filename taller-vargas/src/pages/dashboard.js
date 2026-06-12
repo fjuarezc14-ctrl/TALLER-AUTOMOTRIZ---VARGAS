@@ -1,15 +1,304 @@
 import { getDashboard } from '../api.js';
 
 export async function init(container) {
-  container.innerHTML = `<div class="fade-in" id="dashboard-root"></div>`;
-  const root = document.getElementById('dashboard-root');
+  container.innerHTML = `
+    <style>
+      /* ── Estilos Premium Especiales para el Dashboard ── */
+      .dash-container {
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+        padding-bottom: 40px;
+        animation: fadeIn 0.4s ease-out;
+      }
+      
+      @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(8px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
 
-  // Render skeleton mientras carga
-  root.innerHTML = renderSkeleton();
+      /* Grid de KPIs */
+      .kpi-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 16px;
+      }
+
+      /* Tarjetas de Métricas con Degradados */
+      .metric-card {
+        position: relative;
+        background: var(--white);
+        border-radius: var(--radius-lg);
+        border: 1px solid var(--slate-8);
+        padding: 20px;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        box-shadow: var(--shadow-sm);
+        transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.25s;
+      }
+
+      .metric-card:hover {
+        transform: translateY(-4px);
+        box-shadow: var(--shadow-md);
+      }
+
+      .metric-card::after {
+        content: '';
+        position: absolute;
+        top: 0; right: 0; width: 150px; height: 150px;
+        background: radial-gradient(circle, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0) 70%);
+        border-radius: 50%;
+        transform: translate(30%, -30%);
+        pointer-events: none;
+      }
+
+      /* Variantes de Color */
+      .metric-card.cobros {
+        border-left: 5px solid var(--brand);
+      }
+      .metric-card.eficiencia {
+        border-left: 5px solid #8b5cf6;
+      }
+      .metric-card.ticket {
+        border-left: 5px solid #3b82f6;
+      }
+      .metric-card.activos {
+        border-left: 5px solid #f59e0b;
+      }
+      .metric-card.clientes {
+        border-left: 5px solid #ec4899;
+      }
+      .metric-card.pendientes {
+        border-left: 5px solid #ef4444;
+      }
+
+      .metric-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 12px;
+      }
+
+      .metric-title {
+        font-size: 11px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        color: var(--slate-5);
+      }
+
+      .metric-icon-wrap {
+        width: 38px;
+        height: 38px;
+        border-radius: var(--radius-md);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+      }
+
+      .cobros .metric-icon-wrap { background: #ecfdf5; color: var(--brand); }
+      .eficiencia .metric-icon-wrap { background: #f5f3ff; color: #8b5cf6; }
+      .ticket .metric-icon-wrap { background: #eff6ff; color: #3b82f6; }
+      .activos .metric-icon-wrap { background: #fffbeb; color: #d97706; }
+      .clientes .metric-icon-wrap { background: #fdf2f8; color: #ec4899; }
+      .pendientes .metric-icon-wrap { background: #fef2f2; color: #ef4444; }
+
+      .metric-body {
+        margin-top: auto;
+      }
+
+      .metric-value {
+        font-size: 28px;
+        font-weight: 900;
+        color: var(--dark);
+        line-height: 1.1;
+        letter-spacing: -0.5px;
+      }
+
+      .metric-subtext {
+        font-size: 11px;
+        color: var(--slate-5);
+        margin-top: 4px;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+
+      /* Gráficos SVG Interactivos */
+      .chart-container {
+        position: relative;
+        background: var(--dark);
+        color: var(--white);
+        border-radius: var(--radius-lg);
+        padding: 24px;
+        box-shadow: var(--shadow-lg);
+        border: 1px solid var(--dark-3);
+      }
+
+      .chart-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+        gap: 12px;
+      }
+
+      .chart-legend {
+        display: flex;
+        gap: 16px;
+        font-size: 12px;
+      }
+
+      .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .legend-color {
+        width: 10px;
+        height: 10px;
+        border-radius: 3px;
+      }
+
+      /* Grid Intermedio */
+      .dashboard-grid-2 {
+        display: grid;
+        grid-template-columns: 2fr 1.2fr;
+        gap: 20px;
+      }
+
+      @media (max-width: 1024px) {
+        .dashboard-grid-2 {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      /* Secciones Internas */
+      .top-servicios-list {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        margin-top: 10px;
+      }
+
+      .top-servicio-row {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+
+      .top-servicio-info {
+        display: flex;
+        justify-content: space-between;
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--dark-2);
+      }
+
+      .progress-bg {
+        width: 100%;
+        height: 8px;
+        background: var(--slate-9);
+        border-radius: 99px;
+        overflow: hidden;
+      }
+
+      .progress-bar {
+        height: 100%;
+        border-radius: 99px;
+        transition: width 1s ease-out;
+      }
+
+      /* Mecánicos */
+      .mecanicos-container {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        margin-top: 10px;
+      }
+
+      .mecanico-card-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px 16px;
+        background: var(--slate-9);
+        border-radius: var(--radius-md);
+        border: 1px solid var(--slate-8);
+        transition: transform 0.2s;
+      }
+
+      .mecanico-card-item:hover {
+        transform: translateX(4px);
+        background: #f8fafc;
+      }
+
+      .mecanico-info {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+
+      .pulse-badge {
+        width: 8px;
+        height: 8px;
+        background: var(--brand);
+        border-radius: 50%;
+        display: inline-block;
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+        animation: pulseGreen 2s infinite;
+      }
+
+      .pulse-badge.inactive {
+        background: var(--slate-6);
+        animation: none;
+        box-shadow: none;
+      }
+
+      @keyframes pulseGreen {
+        0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+        70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+        100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+      }
+
+      /* Float Tooltip */
+      .chart-tooltip {
+        position: absolute;
+        background: rgba(15, 23, 42, 0.95);
+        color: var(--white);
+        border: 1px solid var(--dark-3);
+        border-radius: var(--radius-sm);
+        padding: 8px 12px;
+        font-size: 11px;
+        pointer-events: none;
+        box-shadow: var(--shadow-lg);
+        display: none;
+        z-index: 100;
+        backdrop-filter: blur(4px);
+      }
+    </style>
+
+    <div class="dash-container" id="dashboard-root">
+      ${renderSkeleton()}
+    </div>
+  `;
+
+  const root = document.getElementById('dashboard-root');
 
   try {
     const data = await getDashboard();
     root.innerHTML = renderDashboard(data);
+    
+    // Iniciar Animación de Números
+    animateDashboardStats(data.stats);
+    
+    // Iniciar interactividad del Gráfico SVG
+    setupChartInteractivity(data.tendencia_mensual);
   } catch (err) {
     root.innerHTML = renderError(err.message);
   }
@@ -17,34 +306,49 @@ export async function init(container) {
 
 function renderSkeleton() {
   return `
-    <div class="mb-6">
-      <div style="height:28px;width:220px;background:var(--slate-8);border-radius:8px;margin-bottom:8px"></div>
-      <div style="height:16px;width:300px;background:var(--slate-9);border-radius:6px"></div>
+    <div class="flex items-center justify-between mb-2">
+      <div style="height:32px; width:220px; background:var(--slate-8); border-radius:var(--radius-sm);"></div>
+      <div style="height:38px; width:140px; background:var(--slate-8); border-radius:var(--radius-md);"></div>
     </div>
-    <div class="grid grid-cols-4 gap-4 mb-6">
-      ${Array(4).fill('<div style="height:120px;background:var(--white);border-radius:20px;border:1px solid var(--slate-8)"></div>').join('')}
-    </div>`;
+    <div class="kpi-grid">
+      ${Array(6).fill(`
+        <div style="height:120px; background:var(--white); border-radius:var(--radius-lg); border:1px solid var(--slate-8); padding:20px; display:flex; flex-direction:column; justify-content:space-between;">
+          <div style="display:flex; justify-content:between; align-items:center;">
+            <div style="height:12px; width:80px; background:var(--slate-9); border-radius:4px;"></div>
+            <div style="height:30px; width:30px; background:var(--slate-9); border-radius:8px;"></div>
+          </div>
+          <div style="height:24px; width:120px; background:var(--slate-9); border-radius:6px;"></div>
+        </div>
+      `).join('')}
+    </div>
+    <div style="height:280px; background:var(--white); border-radius:var(--radius-lg); border:1px solid var(--slate-8);"></div>
+  `;
 }
 
 function renderError(msg) {
   return `
-    <div class="card" style="max-width:480px;margin:40px auto;">
+    <div class="card" style="max-width:480px; margin:40px auto;">
       <div class="card-body text-center" style="padding:48px 24px;">
-        <div style="font-size:40px;margin-bottom:12px;">⚠️</div>
-        <p style="font-weight:800;color:var(--dark);margin-bottom:8px;">No se pudo conectar al servidor</p>
-        <p style="font-size:13px;color:var(--slate-5);margin-bottom:20px;">${msg}</p>
+        <div style="font-size:40px; margin-bottom:12px;">⚠️</div>
+        <p style="font-weight:800; color:var(--dark); margin-bottom:8px;">No se pudo conectar al servidor</p>
+        <p style="font-size:13px; color:var(--slate-5); margin-bottom:20px;">${msg}</p>
         <button class="btn-primary" onclick="location.reload()">Reintentar</button>
       </div>
     </div>`;
 }
 
-function renderDashboard({ stats, alertas_stock, ordenes_recientes }) {
+function renderDashboard(data) {
+  const { stats, alertas_stock, ordenes_recientes, mecanicos_stats, top_servicios, tendencia_mensual } = data;
   const date = new Date().toLocaleDateString('es-PE', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
 
+  // 1. Calcular total vehículos activos
+  const vehiculosActivos = stats.en_proceso + stats.diagnostico + stats.esperando;
+
+  // 2. Formateador de Estados
   const estadoBadge = (estado) => {
     const map = {
       'En Proceso':          'badge-blue',
-      'Diagnóstico':         'badge-amber',
+      'Diagnostico':         'badge-amber',
       'Esperando Repuestos': 'badge-purple',
       'Finalizado':          'badge-emerald',
       'No realizó el servicio': 'badge-slate',
@@ -52,91 +356,230 @@ function renderDashboard({ stats, alertas_stock, ordenes_recientes }) {
     return `<span class="badge ${map[estado] || 'badge-slate'}">${estado}</span>`;
   };
 
+  // 3. Generación del Gráfico SVG
+  const svgChart = generateSVGChart(tendencia_mensual);
+
   return `
     <!-- Header -->
-    <div class="flex items-center justify-between mb-6" style="flex-wrap:wrap;gap:16px;">
+    <div class="flex items-center justify-between" style="flex-wrap:wrap; gap:16px;">
       <div>
-        <h1 style="font-size:22px;font-weight:900;color:var(--dark);text-transform:uppercase;letter-spacing:-.5px;">Estado del Taller</h1>
-        <p style="font-size:13px;color:var(--slate-5);margin-top:2px;">Resumen operativo al <strong>${date}</strong></p>
+        <h1 style="font-size:24px; font-weight:900; color:var(--dark); text-transform:uppercase; letter-spacing:-.5px; display:flex; align-items:center; gap:8px;">
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="var(--brand)" stroke-width="2.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/></svg>
+          Dashboard Vargas ERP
+        </h1>
+        <p style="font-size:13px; color:var(--slate-5); margin-top:2px;">Centro de control y analítica comercial • <strong>${date}</strong></p>
       </div>
       <button class="btn-primary" onclick="navigate('/ordenes')">
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg>
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" style="margin-right:6px;"><path d="M12 5v14M5 12h14"/></svg>
         Nueva Orden
       </button>
     </div>
 
-    <!-- Stats Grid -->
-    <div class="grid grid-cols-4 gap-4 mb-6" style="grid-template-columns:repeat(auto-fill,minmax(200px,1fr));">
-      
-      <div class="stat-card">
-        <div class="flex items-center justify-between mb-3">
-          <div style="padding:10px;background:#eff6ff;border-radius:12px;color:#1d4ed8;">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-          </div>
-          <span class="badge badge-blue">ACTIVOS</span>
+    <!-- KPIs Grid -->
+    <div class="kpi-grid">
+      <!-- Cobrado Mes -->
+      <div class="metric-card cobros">
+        <div class="metric-header">
+          <span class="metric-title">Ingresos Cobrados</span>
+          <div class="metric-icon-wrap">S/</div>
         </div>
-        <p style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:var(--slate-5);margin-bottom:4px;">En Proceso</p>
-        <p style="font-size:32px;font-weight:900;color:var(--dark);line-height:1;">${stats.en_proceso} <span style="font-size:16px;font-weight:500;color:var(--slate-6);">Autos</span></p>
+        <div class="metric-body">
+          <p class="metric-value" id="kpi-cobros">S/ 0.00</p>
+          <p class="metric-subtext">
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+            Mes actual (Facturado & Pagado)
+          </p>
+        </div>
       </div>
 
-      <div class="stat-card">
-        <div class="flex items-center justify-between mb-3">
-          <div style="padding:10px;background:#fef3c7;border-radius:12px;color:#b45309;">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      <!-- Eficiencia Operativa -->
+      <div class="metric-card eficiencia">
+        <div class="metric-header">
+          <span class="metric-title">Eficiencia Operativa</span>
+          <div class="metric-icon-wrap">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
           </div>
-          <span class="badge badge-amber">PENDIENTES</span>
         </div>
-        <p style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:var(--slate-5);margin-bottom:4px;">Por Diagnosticar</p>
-        <p style="font-size:32px;font-weight:900;color:var(--dark);line-height:1;">${String(stats.diagnostico).padStart(2,'0')} <span style="font-size:16px;font-weight:500;color:var(--slate-6);">Espera</span></p>
+        <div class="metric-body">
+          <p class="metric-value" id="kpi-eficiencia">0%</p>
+          <p class="metric-subtext">Órdenes Finalizadas del total mensual</p>
+        </div>
       </div>
 
-      <div class="stat-card">
-        <div class="flex items-center justify-between mb-3">
-          <div style="padding:10px;background:#d1fae5;border-radius:12px;color:#065f46;">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+      <!-- Ticket Promedio -->
+      <div class="metric-card ticket">
+        <div class="metric-header">
+          <span class="metric-title">Ticket Promedio</span>
+          <div class="metric-icon-wrap">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
           </div>
-          <span class="badge badge-emerald">LISTOS</span>
         </div>
-        <p style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:var(--slate-5);margin-bottom:4px;">Para Entrega</p>
-        <p style="font-size:32px;font-weight:900;color:var(--dark);line-height:1;">${String(stats.finalizado).padStart(2,'0')} <span style="font-size:16px;font-weight:500;color:var(--slate-6);">Completos</span></p>
+        <div class="metric-body">
+          <p class="metric-value" id="kpi-ticket">S/ 0.00</p>
+          <p class="metric-subtext">Valor promedio por servicio listo</p>
+        </div>
       </div>
 
-      <div class="stat-card">
-        <div class="flex items-center justify-between mb-3">
-          <div style="padding:10px;background:var(--dark);border-radius:12px;color:var(--brand);">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+      <!-- Vehículos Activos -->
+      <div class="metric-card activos">
+        <div class="metric-header">
+          <span class="metric-title">Autos en Servicio</span>
+          <div class="metric-icon-wrap">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/></svg>
           </div>
-          <span class="badge badge-slate">MES ACTUAL</span>
         </div>
-        <p style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:var(--slate-5);margin-bottom:4px;">Ingresos Estimados</p>
-        <p style="font-size:28px;font-weight:900;color:var(--dark);line-height:1;font-family:'Courier New',monospace;">S/ ${stats.ingresos_mes.toLocaleString('es-PE',{minimumFractionDigits:2})}</p>
+        <div class="metric-body">
+          <p class="metric-value" id="kpi-activos">0</p>
+          <p class="metric-subtext">Proceso: ${stats.en_proceso} • Diag: ${stats.diagnostico} • Rep: ${stats.esperando}</p>
+        </div>
+      </div>
+
+      <!-- Clientes Nuevos -->
+      <div class="metric-card clientes">
+        <div class="metric-header">
+          <span class="metric-title">Clientes Nuevos</span>
+          <div class="metric-icon-wrap">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="17" y1="11" x2="23" y2="11"/></svg>
+          </div>
+        </div>
+        <div class="metric-body">
+          <p class="metric-value" id="kpi-clientes">0</p>
+          <p class="metric-subtext">Registrados en el mes actual</p>
+        </div>
+      </div>
+
+      <!-- Pendiente por Cobrar -->
+      <div class="metric-card pendientes">
+        <div class="metric-header">
+          <span class="metric-title">Cuentas por Cobrar</span>
+          <div class="metric-icon-wrap">!</div>
+        </div>
+        <div class="metric-body">
+          <p class="metric-value" id="kpi-pendientes">S/ 0.00</p>
+          <p class="metric-subtext">Monto total de cobros pendientes</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tendencia de Ingresos -->
+    <div class="chart-container">
+      <div class="chart-header">
+        <div>
+          <h3 style="font-size:16px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px;">Tendencia y Desempeño Comercial</h3>
+          <p style="font-size:11px; color:var(--slate-6); margin-top:2px;">Últimos 6 meses de facturación finalizada vs volumen de órdenes</p>
+        </div>
+        <div class="chart-legend">
+          <div class="legend-item">
+            <div class="legend-color" style="background:#10b981;"></div>
+            <span>Ingresos (S/)</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-color" style="background:#3b82f6;"></div>
+            <span>Órdenes listadas</span>
+          </div>
+        </div>
+      </div>
+      <div style="width:100%; overflow-x:auto;">
+        ${svgChart}
+      </div>
+      <!-- Floating Tooltip para Gráfico -->
+      <div class="chart-tooltip" id="svg-chart-tooltip"></div>
+    </div>
+
+    <!-- Grid Intermedio -->
+    <div class="dashboard-grid-2">
+      <!-- Top Servicios -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Servicios Más Solicitados</span>
+          <span class="badge badge-emerald">Ranking de Ventas</span>
+        </div>
+        <div class="card-body" style="padding: 16px 20px 24px;">
+          <div class="top-servicios-list">
+            ${top_servicios.length ? top_servicios.map((s, idx) => {
+              const maxFreq = top_servicios[0]?.cantidad || 1;
+              const pct = (s.cantidad / maxFreq) * 100;
+              const colores = ['#10b981', '#3b82f6', '#8b5cf6', '#f59e0b', '#ec4899'];
+              const col = colores[idx % colores.length];
+              return `
+                <div class="top-servicio-row">
+                  <div class="top-servicio-info">
+                    <span style="font-weight:700; color:var(--dark);">${s.descripcion}</span>
+                    <span style="color:var(--slate-4);">${s.cantidad} veces <span style="font-weight:normal; color:var(--slate-5);">(${pct.toFixed(0)}%)</span></span>
+                  </div>
+                  <div class="progress-bg">
+                    <div class="progress-bar" style="width: 0%; background: ${col};" data-pct="${pct}"></div>
+                  </div>
+                  <div style="display:flex; justify-content:space-between; font-size:10px; color:var(--slate-5); margin-top:2px;">
+                    <span>Servicio Automotriz</span>
+                    <span style="font-weight:bold;">S/ ${parseFloat(s.total || 0).toFixed(2)}</span>
+                  </div>
+                </div>
+              `;
+            }).join('') : `<div class="td-empty" style="padding:40px;">Sin datos de consumo de repuestos/servicios todavía.</div>`}
+          </div>
+        </div>
+      </div>
+
+      <!-- Carga de Mecánicos -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Carga de Mecánicos</span>
+          <button class="btn-ghost" style="font-size:12px; padding:4px 8px;" onclick="navigate('/operaciones')">Ver Taller →</button>
+        </div>
+        <div class="card-body" style="padding:16px;">
+          <div class="mecanicos-container">
+            ${mecanicos_stats.length ? mecanicos_stats.map(m => {
+              const totalMecJobs = parseInt(m.ordenes_activas) + parseInt(m.ordenes_completadas);
+              const contribPct = totalMecJobs > 0 ? (parseInt(m.ordenes_activas) / totalMecJobs) * 100 : 0;
+              return `
+                <div class="mecanico-card-item">
+                  <div class="mecanico-info">
+                    <span style="font-weight:800; font-size:13px; color:var(--dark); display:flex; align-items:center; gap:6px;">
+                      <span class="pulse-badge ${m.activo ? '' : 'inactive'}"></span>
+                      ${m.nombre}
+                    </span>
+                    <span style="font-size:11px; color:var(--slate-5);">${m.activo ? 'Disponible para asignación' : 'Fuera de servicio'}</span>
+                  </div>
+                  <div class="text-right">
+                    <span class="badge ${parseInt(m.ordenes_activas) > 2 ? 'badge-amber' : 'badge-blue'}" style="font-weight:800; font-size:11px;">
+                      ${m.ordenes_activas} activas
+                    </span>
+                    <p style="font-size:10px; color:var(--slate-5); margin-top:4px;">${m.ordenes_completadas} completadas</p>
+                  </div>
+                </div>
+              `;
+            }).join('') : `<div class="td-empty" style="padding:40px;">No hay mecánicos registrados.</div>`}
+          </div>
+        </div>
       </div>
     </div>
 
     <!-- Bottom Grid -->
-    <div class="grid gap-6" style="grid-template-columns: 2fr 1fr;">
-
+    <div class="grid gap-6" style="grid-template-columns: 2fr 1fr; margin-top:8px;">
       <!-- Órdenes Recientes -->
       <div class="card">
         <div class="card-header">
-          <span class="card-title">Órdenes Recientes</span>
-          <button class="btn-ghost" style="font-size:12px;padding:5px 10px;" onclick="navigate('/ordenes')">Ver todas →</button>
+          <span class="card-title">Últimas Órdenes Recibidas</span>
+          <button class="btn-ghost" style="font-size:12px; padding:5px 10px;" onclick="navigate('/ordenes')">Ver todas →</button>
         </div>
         <div style="overflow-x:auto;">
           <table class="data-table">
-            <thead><tr>
-              <th>Placa</th>
-              <th>Vehículo</th>
-              <th>Cliente</th>
-              <th>Estado</th>
-              <th class="text-right">Costo Est.</th>
-            </tr></thead>
+            <thead>
+              <tr>
+                <th>Placa</th>
+                <th>Vehículo</th>
+                <th>Cliente</th>
+                <th>Estado</th>
+                <th class="text-right">Costo Est.</th>
+              </tr>
+            </thead>
             <tbody>
               ${ordenes_recientes.length ? ordenes_recientes.map(o => `
-                <tr>
+                <tr style="cursor:pointer;" onclick="navigate('/ordenes')">
                   <td><span class="placa-badge">${o.placa || '—'}</span></td>
-                  <td style="font-weight:700;color:var(--dark);">${o.vehiculo || '—'}</td>
-                  <td style="color:var(--slate-5);font-style:italic;">${o.cliente || '—'}</td>
+                  <td style="font-weight:700; color:var(--dark);">${o.vehiculo || '—'}</td>
+                  <td style="color:var(--slate-5); font-style:italic;">${o.cliente || '—'}</td>
                   <td>${estadoBadge(o.estado)}</td>
                   <td class="text-right font-bold font-mono">S/ ${parseFloat(o.total_estimado||0).toFixed(2)}</td>
                 </tr>`).join('') 
@@ -146,30 +589,272 @@ function renderDashboard({ stats, alertas_stock, ordenes_recientes }) {
         </div>
       </div>
 
-      <!-- Alertas de Stock -->
+      <!-- Alertas de Almacén -->
       <div class="card">
         <div class="card-header">
-          <span class="card-title">Alertas de Stock</span>
-          <button class="btn-ghost" style="font-size:12px;padding:5px 10px;" onclick="navigate('/almacen')">Ver almacén →</button>
+          <span class="card-title">Alertas Críticas de Stock</span>
+          <button class="btn-ghost" style="font-size:12px; padding:5px 10px;" onclick="navigate('/almacen')">Ver almacén →</button>
         </div>
         <div class="card-body" style="padding:16px;">
           ${alertas_stock.length === 0
-            ? `<div style="text-align:center;padding:24px;color:var(--slate-5);">
-                <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" style="margin:0 auto 8px;color:var(--brand);display:block;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-                <p style="font-weight:700;font-size:13px;">Todo el stock está en orden</p>
+            ? `<div style="text-align:center; padding:32px 16px; color:var(--slate-5);">
+                <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" style="margin:0 auto 8px; color:var(--brand); display:block;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                <p style="font-weight:800; font-size:13px; color:var(--dark);">Inventario Óptimo</p>
+                <p style="font-size:11px; margin-top:2px;">No se registran productos por debajo del stock mínimo</p>
               </div>`
             : alertas_stock.map(a => `
-              <div style="display:flex;align-items:center;gap:12px;padding:10px;border-radius:12px;margin-bottom:8px;background:${a.stock === 0 ? '#fef2f2' : '#fffbeb'};border:1px solid ${a.stock === 0 ? '#fecaca' : '#fde68a'};">
-                <div style="width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;background:${a.stock === 0 ? '#fee2e2' : '#fef3c7'};color:${a.stock === 0 ? '#dc2626' : '#b45309'};">
+              <div style="display:flex; align-items:center; gap:12px; padding:10px; border-radius:12px; margin-bottom:8px; background:${a.stock === 0 ? '#fef2f2' : '#fffbeb'}; border:1px solid ${a.stock === 0 ? '#fecaca' : '#fde68a'};">
+                <div style="width:36px; height:36px; border-radius:10px; display:flex; align-items:center; justify-content:center; background:${a.stock === 0 ? '#fee2e2' : '#fef3c7'}; color:${a.stock === 0 ? '#dc2626' : '#b45309'};">
                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>
                 </div>
-                <div>
-                  <p style="font-size:12px;font-weight:800;text-transform:uppercase;color:${a.stock === 0 ? '#7f1d1d' : '#78350f'};">${a.descripcion.substring(0,30)}${a.descripcion.length>30?'...':''}</p>
-                  <p style="font-size:11px;color:${a.stock === 0 ? '#dc2626' : '#d97706'};">Quedan ${a.stock} unidades (mín: ${a.stock_min})</p>
+                <div style="flex:1;">
+                  <p style="font-size:12px; font-weight:800; text-transform:uppercase; color:${a.stock === 0 ? '#7f1d1d' : '#78350f'}; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:160px;">${a.descripcion}</p>
+                  <p style="font-size:11px; color:${a.stock === 0 ? '#dc2626' : '#d97706'}; font-weight:600;">Quedan ${a.stock} de ${a.stock_min} mín.</p>
                 </div>
+                <span class="badge ${a.stock === 0 ? 'badge-danger' : 'badge-amber'}" style="font-size:10px; font-weight:800;">
+                  ${a.stock === 0 ? 'AGOTADO' : 'BAJO'}
+                </span>
               </div>`).join('')}
         </div>
       </div>
     </div>
   `;
 }
+
+function generateSVGChart(tendencia) {
+  if (!tendencia || tendencia.length === 0) {
+    return `
+      <div style="height:180px; display:flex; align-items:center; justify-content:center; color:var(--slate-5);">
+        Falta información de ventas mensuales para mostrar la tendencia.
+      </div>
+    `;
+  }
+
+  const mesesNombres = {
+    '01': 'ENE', '02': 'FEB', '03': 'MAR', '04': 'ABR', '05': 'MAY', '06': 'JUN',
+    '07': 'JUL', '08': 'AGO', '09': 'SEP', '10': 'OCT', '11': 'NOV', '12': 'DIC'
+  };
+
+  const trendParsed = tendencia.map(t => {
+    const parts = t.mes.split('-');
+    const m = parts[1] || '01';
+    return {
+      label: `${mesesNombres[m] || 'ENE'}`,
+      ingresos: parseFloat(t.ingresos || 0),
+      ordenes: parseInt(t.ordenes || 0)
+    };
+  });
+
+  const maxIngresos = Math.max(...trendParsed.map(t => t.ingresos), 1000);
+  const maxOrdenes = Math.max(...trendParsed.map(t => t.ordenes), 5);
+
+  const width = 600;
+  const height = 200;
+  const paddingLeft = 50;
+  const paddingRight = 40;
+  const paddingTop = 20;
+  const paddingBottom = 30;
+
+  const chartWidth = width - paddingLeft - paddingRight;
+  const chartHeight = height - paddingTop - paddingBottom;
+
+  const numMonths = trendParsed.length;
+  const stepX = chartWidth / (numMonths - 1 || 1);
+
+  // Generar barras para ingresos y línea para órdenes
+  let barsHTML = '';
+  let linePoints = [];
+  let gridsHTML = '';
+  let labelsHTML = '';
+  let hotspotHTML = '';
+
+  // Grid Horizontal
+  for (let i = 0; i <= 4; i++) {
+    const yVal = paddingTop + (chartHeight / 4) * i;
+    const valueRepresented = (maxIngresos * (1 - i / 4)).toLocaleString('es-PE', { maximumFractionDigits: 0 });
+    gridsHTML += `
+      <line x1="${paddingLeft}" y1="${yVal}" x2="${width - paddingRight}" y2="${yVal}" stroke="rgba(255,255,255,0.08)" stroke-dasharray="4,4" />
+      <text x="${paddingLeft - 8}" y="${yVal + 4}" fill="rgba(255,255,255,0.4)" font-size="8" text-anchor="end">S/ ${valueRepresented}</text>
+    `;
+  }
+
+  trendParsed.forEach((t, i) => {
+    const x = paddingLeft + i * stepX;
+    
+    // Altura barra ingresos
+    const barHeight = (t.ingresos / maxIngresos) * chartHeight;
+    const barY = paddingTop + chartHeight - barHeight;
+    const barWidth = 18;
+
+    barsHTML += `
+      <rect x="${x - barWidth/2}" y="${barY}" width="${barWidth}" height="${barHeight}" fill="url(#revGradient)" rx="4" />
+    `;
+
+    // Punto de la línea de órdenes
+    const lineY = paddingTop + chartHeight - (t.ordenes / maxOrdenes) * chartHeight;
+    linePoints.push(`${x},${lineY}`);
+
+    // Etiquetas X
+    labelsHTML += `
+      <text x="${x}" y="${height - 10}" fill="rgba(255,255,255,0.6)" font-size="10" font-weight="700" text-anchor="middle">${t.label}</text>
+    `;
+
+    // Hotspot interactivo invisible
+    hotspotHTML += `
+      <rect x="${x - stepX/2 || paddingLeft}" y="${paddingTop}" width="${stepX}" height="${chartHeight}" fill="transparent" 
+        class="chart-hotspot" data-index="${i}" style="cursor:pointer;" />
+    `;
+  });
+
+  const polylinePoints = linePoints.join(' ');
+
+  return `
+    <svg width="100%" height="${height}" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" style="min-width: 500px; display: block; overflow: visible;">
+      <defs>
+        <!-- Degradado para Barras de Ingresos -->
+        <linearGradient id="revGradient" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#10b981" stop-opacity="1" />
+          <stop offset="100%" stop-color="#059669" stop-opacity="0.2" />
+        </linearGradient>
+        <!-- Degradado para la Línea de Órdenes -->
+        <linearGradient id="lineGlow" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#3b82f6" stop-opacity="0.4" />
+          <stop offset="100%" stop-color="#3b82f6" stop-opacity="0.0" />
+        </linearGradient>
+      </defs>
+
+      <!-- Líneas de rejilla -->
+      ${gridsHTML}
+
+      <!-- Barras de ingresos -->
+      ${barsHTML}
+
+      <!-- Área bajo la línea de órdenes -->
+      <polygon points="${paddingLeft},${paddingTop + chartHeight} ${polylinePoints} ${paddingLeft + (numMonths-1)*stepX},${paddingTop + chartHeight}" fill="url(#lineGlow)" />
+
+      <!-- Línea de órdenes -->
+      <polyline points="${polylinePoints}" fill="none" stroke="#3b82f6" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+
+      <!-- Puntos de la línea -->
+      ${linePoints.map((pt, i) => `
+        <circle cx="${pt.split(',')[0]}" cy="${pt.split(',')[1]}" r="4" fill="#ffffff" stroke="#3b82f6" stroke-width="2.5" />
+      `).join('')}
+
+      <!-- Etiquetas del eje X -->
+      ${labelsHTML}
+
+      <!-- Hotspots invisibles para interacciones -->
+      ${hotspotHTML}
+    </svg>
+  `;
+}
+
+function animateDashboardStats(stats) {
+  // Animación del número de cobros del mes
+  animateValue("kpi-cobros", 0, stats.cobrados_mes, 800, "S/ ", "", 2);
+  
+  // Animación de eficiencia operativa
+  animateValue("kpi-eficiencia", 0, stats.eficiencia_operativa, 800, "", "%", 0);
+  
+  // Animación de ticket promedio
+  animateValue("kpi-ticket", 0, stats.ticket_promedio, 800, "S/ ", "", 2);
+
+  // Animación de vehículos activos
+  const totalActivos = stats.en_proceso + stats.diagnostico + stats.esperando;
+  animateValue("kpi-activos", 0, totalActivos, 600, "", "", 0);
+
+  // Animación de nuevos clientes
+  animateValue("kpi-clientes", 0, stats.clientes_nuevos_mes, 600, "", "", 0);
+
+  // Animación de cuentas por cobrar
+  animateValue("kpi-pendientes", 0, stats.pendientes_total, 800, "S/ ", "", 2);
+
+  // Animación de barras de progreso de servicios
+  setTimeout(() => {
+    document.querySelectorAll('.progress-bar').forEach(el => {
+      const pct = el.getAttribute('data-pct');
+      el.style.width = pct + '%';
+    });
+  }, 100);
+}
+
+function animateValue(id, start, end, duration, prefix = '', suffix = '', decimals = 0) {
+  const obj = document.getElementById(id);
+  if (!obj) return;
+  
+  if (end === 0) {
+    obj.innerHTML = prefix + (0).toFixed(decimals) + suffix;
+    return;
+  }
+
+  let startTimestamp = null;
+  const step = (timestamp) => {
+    if (!startTimestamp) startTimestamp = timestamp;
+    const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+    const val = progress * (end - start) + start;
+    obj.innerHTML = prefix + val.toLocaleString('es-PE', {
+      minimumFractionDigits: decimals,
+      maximumFractionDigits: decimals
+    }) + suffix;
+    if (progress < 1) {
+      window.requestAnimationFrame(step);
+    }
+  };
+  window.requestAnimationFrame(step);
+}
+
+function setupChartInteractivity(tendencia) {
+  const hotspots = document.querySelectorAll('.chart-hotspot');
+  const tooltip = document.getElementById('svg-chart-tooltip');
+  const chartContainer = document.querySelector('.chart-container');
+
+  if (!hotspots.length || !tooltip || !chartContainer) return;
+
+  const mesesNombresCompletos = {
+    '01': 'Enero', '02': 'Febrero', '03': 'Marzo', '04': 'Abril', '05': 'Mayo', '06': 'Junio',
+    '07': 'Julio', '08': 'Agosto', '09': 'Septiembre', '10': 'Octubre', '11': 'Noviembre', '12': 'Diciembre'
+  };
+
+  hotspots.forEach(el => {
+    el.addEventListener('mouseenter', (e) => {
+      const idx = parseInt(e.target.getAttribute('data-index'));
+      const data = tendencia[idx];
+      if (!data) return;
+
+      const parts = data.mes.split('-');
+      const mesNombre = mesesNombresCompletos[parts[1]] || 'Enero';
+      const anio = parts[0] || '';
+
+      tooltip.innerHTML = `
+        <div style="font-weight:900; margin-bottom:4px; text-transform:uppercase; color:var(--brand);">${mesNombre} ${anio}</div>
+        <div style="display:flex; justify-content:space-between; gap:12px; margin-bottom:2px;">
+          <span style="color:var(--slate-6);">Ingresos:</span>
+          <span style="font-weight:bold; color:var(--white);">S/ ${parseFloat(data.ingresos || 0).toLocaleString('es-PE', {minimumFractionDigits:2})}</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; gap:12px;">
+          <span style="color:var(--slate-6);">Órdenes:</span>
+          <span style="font-weight:bold; color:#3b82f6;">${data.ordenes} servicios</span>
+        </div>
+      `;
+      tooltip.style.display = 'block';
+    });
+
+    el.addEventListener('mousemove', (e) => {
+      const rect = chartContainer.getBoundingClientRect();
+      const x = e.clientX - rect.left + 15;
+      const y = e.clientY - rect.top - 70;
+      
+      tooltip.style.left = `${x}px`;
+      tooltip.style.top = `${y}px`;
+    });
+
+    el.addEventListener('mouseleave', () => {
+      tooltip.style.display = 'none';
+    });
+  });
+}
+
+export function destroy() {
+  // Limpieza de event listeners si fuera necesario
+}
+
