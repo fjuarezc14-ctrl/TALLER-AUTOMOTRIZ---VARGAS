@@ -281,6 +281,70 @@ export async function init(container) {
         z-index: 100;
         backdrop-filter: blur(4px);
       }
+
+      /* ── Mini Charts Section ───────────────────────────── */
+      .mini-charts-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+      }
+
+      @media (max-width: 860px) {
+        .mini-charts-row { grid-template-columns: 1fr; }
+      }
+
+      .mini-chart-card {
+        background: var(--white);
+        border: 1px solid var(--slate-8);
+        border-radius: var(--radius-lg);
+        padding: 20px 24px;
+        box-shadow: var(--shadow-sm);
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+
+      .mini-chart-title {
+        font-size: 12px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        color: var(--slate-4);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .donut-legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px 20px;
+        font-size: 12px;
+      }
+
+      .donut-legend-item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        color: var(--slate-4);
+      }
+
+      .donut-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        flex-shrink: 0;
+      }
+
+      .gauge-labels {
+        display: flex;
+        justify-content: space-between;
+        font-size: 11px;
+        color: var(--slate-5);
+        font-weight: 600;
+        padding: 0 4px;
+        margin-top: -8px;
+      }
     </style>
 
     <div class="dash-container" id="dashboard-root">
@@ -299,6 +363,10 @@ export async function init(container) {
     
     // Iniciar interactividad del Gráfico SVG
     setupChartInteractivity(data.tendencia_mensual);
+
+    // Animar mini-gráficos
+    animateDonutSegments();
+    animateGaugeArc(data.stats.eficiencia_operativa);
   } catch (err) {
     root.innerHTML = renderError(err.message);
   }
@@ -461,6 +529,71 @@ function renderDashboard(data) {
       </div>
     </div>
 
+    <!-- Mini Charts Row: Donut + Gauge -->
+    <div class="mini-charts-row">
+
+      <!-- Donut: Distribución de Órdenes -->
+      <div class="mini-chart-card">
+        <div class="mini-chart-title">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 1 10 10"/></svg>
+          Distribución de Órdenes del Mes
+        </div>
+        <div style="display:flex; align-items:center; gap:24px; flex-wrap:wrap;">
+          <div style="flex-shrink:0;">
+            ${generateDonutChart(stats)}
+          </div>
+          <div class="donut-legend">
+            <div class="donut-legend-item">
+              <div class="donut-dot" style="background:#3b82f6;"></div>
+              <div>
+                <div style="font-weight:800; font-size:13px; color:var(--dark);">${stats.en_proceso}</div>
+                <div>En Proceso</div>
+              </div>
+            </div>
+            <div class="donut-legend-item">
+              <div class="donut-dot" style="background:#f59e0b;"></div>
+              <div>
+                <div style="font-weight:800; font-size:13px; color:var(--dark);">${stats.diagnostico}</div>
+                <div>Diagnóstico</div>
+              </div>
+            </div>
+            <div class="donut-legend-item">
+              <div class="donut-dot" style="background:#8b5cf6;"></div>
+              <div>
+                <div style="font-weight:800; font-size:13px; color:var(--dark);">${stats.esperando}</div>
+                <div>Esp. Repuestos</div>
+              </div>
+            </div>
+            <div class="donut-legend-item">
+              <div class="donut-dot" style="background:#10b981;"></div>
+              <div>
+                <div style="font-weight:800; font-size:13px; color:var(--dark);">${stats.finalizado}</div>
+                <div>Finalizados</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Gauge: Eficiencia Operativa -->
+      <div class="mini-chart-card">
+        <div class="mini-chart-title">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M12 22c5.52 0 10-4.48 10-10S17.52 2 12 2 2 6.48 2 12s4.48 10 10 10z"/><path d="M12 6v6l4 2"/></svg>
+          Velocímetro de Eficiencia Operativa
+        </div>
+        <div style="display:flex; flex-direction:column; align-items:center; gap:8px;">
+          ${generateGaugeChart(stats.eficiencia_operativa)}
+          <div class="gauge-labels" style="width:190px;">
+            <span>0%</span><span>50%</span><span>100%</span>
+          </div>
+          <div style="text-align:center;">
+            <p style="font-size:28px; font-weight:900; color:var(--dark); letter-spacing:-1px; line-height:1;">${stats.eficiencia_operativa.toFixed(0)}<span style="font-size:16px; font-weight:600; color:var(--slate-5);">%</span></p>
+            <p style="font-size:11px; color:var(--slate-5); margin-top:4px;">Órdenes finalizadas este mes</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Tendencia de Ingresos -->
     <div class="chart-container">
       <div class="chart-header">
@@ -619,6 +752,196 @@ function renderDashboard(data) {
       </div>
     </div>
   `;
+}
+
+// ─────────────────────────────────────────────────────────────
+// DONUT CHART SVG — Distribución de estados de órdenes
+// ─────────────────────────────────────────────────────────────
+function generateDonutChart(stats) {
+  const total = stats.en_proceso + stats.diagnostico + stats.esperando + stats.finalizado;
+
+  // Si no hay datos, mostrar círculo vacío
+  if (total === 0) {
+    return `
+      <svg width="130" height="130" viewBox="0 0 130 130">
+        <circle cx="65" cy="65" r="48" fill="none" stroke="#e2e8f0" stroke-width="14"/>
+        <text x="65" y="70" text-anchor="middle" font-size="13" font-weight="700" fill="#94a3b8">Sin datos</text>
+      </svg>
+    `;
+  }
+
+  const segments = [
+    { value: stats.en_proceso,   color: '#3b82f6', id: 'donut-proceso'   },
+    { value: stats.diagnostico,  color: '#f59e0b', id: 'donut-diag'      },
+    { value: stats.esperando,    color: '#8b5cf6', id: 'donut-espera'    },
+    { value: stats.finalizado,   color: '#10b981', id: 'donut-final'     },
+  ];
+
+  const cx = 65, cy = 65, r = 48;
+  const circumference = 2 * Math.PI * r;
+  let offset = 0;
+  // Start at top (rotate -90deg = starts from 12 o'clock)
+  const startAngle = -Math.PI / 2;
+
+  let circlesHTML = '';
+  segments.forEach(seg => {
+    const pct = seg.value / total;
+    const arc = pct * circumference;
+    // Build stroke-dasharray
+    circlesHTML += `
+      <circle
+        id="${seg.id}"
+        cx="${cx}" cy="${cy}" r="${r}"
+        fill="none"
+        stroke="${seg.color}"
+        stroke-width="14"
+        stroke-dasharray="0 ${circumference}"
+        data-arc="${arc}"
+        data-total="${circumference}"
+        data-offset="${offset}"
+        stroke-linecap="butt"
+        style="transition: stroke-dasharray 0.9s cubic-bezier(0.4,0,0.2,1), stroke-dashoffset 0s; transform-origin: ${cx}px ${cy}px; transform: rotate(-90deg);"
+      />
+    `;
+    offset += arc;
+  });
+
+  return `
+    <svg width="130" height="130" viewBox="0 0 130 130" style="overflow:visible;">
+      <!-- Track -->
+      <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="#f1f5f9" stroke-width="14"/>
+      <!-- Segments (initially invisible, animated via JS) -->
+      ${circlesHTML}
+      <!-- Center Label -->
+      <text x="${cx}" y="${cy - 6}" text-anchor="middle" font-size="22" font-weight="900" fill="#0f172a">${total}</text>
+      <text x="${cx}" y="${cy + 12}" text-anchor="middle" font-size="9" font-weight="700" fill="#94a3b8" letter-spacing="1">ÓRDENES</text>
+    </svg>
+  `;
+}
+
+// ─────────────────────────────────────────────────────────────
+// GAUGE CHART SVG — Velocímetro semicircular de eficiencia
+// ─────────────────────────────────────────────────────────────
+function generateGaugeChart(eficiencia) {
+  const cx = 100, cy = 90;
+  const r = 70;
+  const strokeWidth = 14;
+  const pct = Math.min(Math.max(eficiencia / 100, 0), 1);
+
+  // Semicircle arc length (180°)
+  const arcLength = Math.PI * r;
+
+  // Color based on efficiency level
+  let color = '#ef4444'; // red
+  if (eficiencia >= 50) color = '#f59e0b'; // amber
+  if (eficiencia >= 75) color = '#10b981'; // green
+
+  // Background arc path (half circle, left to right)
+  const bgArc = `M ${cx - r},${cy} A ${r},${r} 0 0,1 ${cx + r},${cy}`;
+
+  // Needle angle: maps 0%→-90deg, 100%→+90deg from vertical
+  const needleAngleDeg = -90 + pct * 180;
+  const needleRad = (needleAngleDeg * Math.PI) / 180;
+  const needleLen = r - 10;
+  const nx = cx + needleLen * Math.cos(needleRad);
+  const ny = cy + needleLen * Math.sin(needleRad);
+
+  return `
+    <svg width="200" height="100" viewBox="0 0 200 100" style="overflow: visible;">
+      <defs>
+        <linearGradient id="gaugeGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%"   stop-color="#ef4444"/>
+          <stop offset="50%"  stop-color="#f59e0b"/>
+          <stop offset="100%" stop-color="#10b981"/>
+        </linearGradient>
+      </defs>
+
+      <!-- Background track -->
+      <path d="${bgArc}" fill="none" stroke="#f1f5f9" stroke-width="${strokeWidth}" stroke-linecap="round"/>
+
+      <!-- Gradient arc (full, for visual only) -->
+      <path d="${bgArc}" fill="none" stroke="url(#gaugeGradient)" stroke-width="${strokeWidth}" stroke-linecap="round" opacity="0.2"/>
+
+      <!-- Active arc (animated via JS) -->
+      <path
+        id="gauge-active-arc"
+        d="${bgArc}"
+        fill="none"
+        stroke="${color}"
+        stroke-width="${strokeWidth}"
+        stroke-linecap="round"
+        stroke-dasharray="0 ${arcLength}"
+        data-target="${(pct * arcLength).toFixed(2)}"
+        data-length="${arcLength.toFixed(2)}"
+        style="transition: stroke-dasharray 1s cubic-bezier(0.4,0,0.2,1);"
+      />
+
+      <!-- Needle -->
+      <line
+        id="gauge-needle"
+        x1="${cx}" y1="${cy}"
+        x2="${cx}" y2="${cy - needleLen}"
+        stroke="#0f172a"
+        stroke-width="2.5"
+        stroke-linecap="round"
+        data-angle="${needleAngleDeg}"
+        style="transform-origin: ${cx}px ${cy}px; transform: rotate(-90deg); transition: transform 1s cubic-bezier(0.4,0,0.2,1);"
+      />
+
+      <!-- Center pivot -->
+      <circle cx="${cx}" cy="${cy}" r="5" fill="#0f172a"/>
+    </svg>
+  `;
+}
+
+// ─────────────────────────────────────────────────────────────
+// ANIMACIONES — Donut Segments
+// ─────────────────────────────────────────────────────────────
+function animateDonutSegments() {
+  const ids = ['donut-proceso', 'donut-diag', 'donut-espera', 'donut-final'];
+  let cumulativeOffset = 0;
+
+  ids.forEach((id, i) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+
+    const arc = parseFloat(el.getAttribute('data-arc') || 0);
+    const total = parseFloat(el.getAttribute('data-total') || 1);
+    const segOffset = cumulativeOffset;
+
+    // Apply dashoffset so this segment starts where the previous ended
+    el.style.strokeDashoffset = -segOffset;
+
+    setTimeout(() => {
+      el.style.strokeDasharray = `${arc} ${total - arc}`;
+    }, 80 + i * 60);
+
+    cumulativeOffset += arc;
+  });
+}
+
+// ─────────────────────────────────────────────────────────────
+// ANIMACIONES — Gauge Arc + Needle
+// ─────────────────────────────────────────────────────────────
+function animateGaugeArc(eficiencia) {
+  const arc = document.getElementById('gauge-active-arc');
+  const needle = document.getElementById('gauge-needle');
+
+  if (arc) {
+    const target = parseFloat(arc.getAttribute('data-target') || 0);
+    const length = parseFloat(arc.getAttribute('data-length') || 1);
+    setTimeout(() => {
+      arc.style.strokeDasharray = `${target} ${length - target}`;
+    }, 120);
+  }
+
+  if (needle) {
+    const pct = Math.min(Math.max(eficiencia / 100, 0), 1);
+    const angleDeg = -90 + pct * 180;
+    setTimeout(() => {
+      needle.style.transform = `rotate(${angleDeg}deg)`;
+    }, 120);
+  }
 }
 
 function generateSVGChart(tendencia) {
