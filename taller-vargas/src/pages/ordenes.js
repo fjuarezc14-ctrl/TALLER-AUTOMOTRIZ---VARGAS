@@ -208,7 +208,7 @@ function renderTableRows(ordenes) {
           <button class="btn-icon btn-view-ord" data-id="${o.id}" title="Ver Detalles">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
           </button>
-          <button class="btn-icon btn-costs-ord" data-id="${o.id}" title="Administrar Repuestos / Mano Obra" ${o.estado === 'Finalizado' ? 'disabled' : ''}>
+          <button class="btn-icon btn-costs-ord" data-id="${o.id}" title="Administrar Repuestos / Mano Obra" ${(o.estado === 'Finalizado' || o.estado === 'Entregado') ? 'disabled' : ''}>
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 11v-1m0-1v-4m-5 4h10"/></svg>
           </button>
           <button class="btn-icon btn-status-ord" data-id="${o.id}" title="Cambiar Estado">
@@ -578,7 +578,7 @@ function abrirModalNuevaOrden() {
   const modal = document.getElementById('modal-nueva-orden');
   const form = document.getElementById('form-nueva-orden');
   form.reset();
-
+  document.getElementById('cli-select-id').disabled = false;
   modal.classList.add('active');
 }
 
@@ -588,12 +588,20 @@ function cerrarModalNuevaOrden() {
 
 function autoAsignarCliente() {
   const selectVeh = document.getElementById('veh-select-id');
+  const cliSelect = document.getElementById('cli-select-id');
   const selectedOpt = selectVeh.options[selectVeh.selectedIndex];
-  if (!selectedOpt) return;
+  if (!selectedOpt || !selectedOpt.value) {
+    cliSelect.value = "";
+    cliSelect.disabled = false;
+    return;
+  }
 
   const clienteId = selectedOpt.dataset.clienteId;
   if (clienteId) {
-    document.getElementById('cli-select-id').value = clienteId;
+    cliSelect.value = clienteId;
+    cliSelect.disabled = true;
+  } else {
+    cliSelect.disabled = false;
   }
 }
 
@@ -705,6 +713,8 @@ function toggleAlertaRepuestos() {
   const est = document.getElementById('select-cambio-estado').value;
   const wrpRepuestos = document.getElementById('wrapper-repuestos-espera');
   const wrpFactura = document.getElementById('wrapper-pasar-factura');
+  const oId = document.getElementById('status-orden-id').value;
+  const o = ordenesList.find(item => item.id == oId);
 
   if (est === 'Esperando Repuestos') {
     wrpRepuestos.classList.remove('hidden');
@@ -714,7 +724,7 @@ function toggleAlertaRepuestos() {
     document.getElementById('status-repuestos-textarea').required = false;
   }
 
-  if (est === 'Finalizado') {
+  if (est === 'Finalizado' && o && o.estado !== 'Finalizado') {
     wrpFactura.classList.remove('hidden');
   } else {
     wrpFactura.classList.add('hidden');
@@ -1242,7 +1252,7 @@ function cerrarModalCostos() {
 function imprimirDocumento(tipo, o) {
   const printArea = document.getElementById('print-area');
   
-  const dateFormatted = new Date(o.created_at || new Date()).toLocaleDateString('es-PE', { day:'numeric', month:'long', year:'numeric' });
+  const dateFormatted = o.fecha_ingreso ? new Date(o.fecha_ingreso + 'T12:00:00').toLocaleDateString('es-PE', { day:'numeric', month:'long', year:'numeric' }) : new Date().toLocaleDateString('es-PE', { day:'numeric', month:'long', year:'numeric' });
   const itemsHtml = o.items.map(it => `
     <tr>
       <td>${it.descripcion} ${it.repuesto_cod ? `[${it.repuesto_cod}]` : ''}</td>

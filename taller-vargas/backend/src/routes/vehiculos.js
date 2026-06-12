@@ -39,6 +39,10 @@ router.post("/", async (req, res) => {
     sug_aceite, sug_refrigerante, sug_bujias, sug_filtros
   } = req.body;
   try {
+    const existing = await query("SELECT id FROM vehiculos WHERE placa = $1 AND cliente_id = $2", [placa.toUpperCase(), cliente_id]);
+    if (existing.rows.length) {
+      return res.status(409).json({ error: "Ya existe un vehículo con esta placa para este cliente." });
+    }
     const r = await query(`
       INSERT INTO vehiculos
         (placa, marca_modelo, anio, cliente_id, ultima_visita,

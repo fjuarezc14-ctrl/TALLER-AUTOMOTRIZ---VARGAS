@@ -108,7 +108,7 @@ CREATE TABLE IF NOT EXISTS solicitudes_mecanico (
 
 CREATE TABLE IF NOT EXISTS cobros (
   id SERIAL PRIMARY KEY,
-  orden_id INTEGER NOT NULL REFERENCES ordenes_servicio(id) ON DELETE CASCADE,
+  orden_id INTEGER NOT NULL REFERENCES ordenes_servicio(id) ON DELETE CASCADE UNIQUE,
   cliente_id INTEGER REFERENCES clientes(id) ON DELETE SET NULL,
   monto_total DECIMAL(10,2) NOT NULL,
   estado VARCHAR(20) DEFAULT 'Pendiente',

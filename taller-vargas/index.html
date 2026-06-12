@@ -9,6 +9,11 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/src/style.css">
+  <style media="print">
+    body > * { display: none !important; }
+    #print-area, #print-area * { display: block !important; visibility: visible !important; }
+    #print-area { position: absolute; left: 0; top: 0; width: 100%; }
+  </style>
 </head>
 <body class="flex h-screen overflow-hidden">
 
@@ -102,6 +107,7 @@
   <!-- Sidebar backdrop (mobile) -->
   <div id="sidebar-backdrop" class="sidebar-backdrop hidden" onclick="toggleSidebar()"></div>
 
+  <div id="print-area" style="display:none"></div>
   <script type="module" src="/src/main.js"></script>
 </body>
 </html>

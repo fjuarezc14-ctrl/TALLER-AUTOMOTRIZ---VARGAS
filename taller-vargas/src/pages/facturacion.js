@@ -141,6 +141,8 @@ function renderPage() {
         border-radius:8px;border:1px solid #e2e8f0;font-family:'Inter',system-ui;
         font-size:13px;color:#1e293b;
       }
+      #modal-factura-electronica { overflow-y: auto; }
+      #modal-cobro-rapido .modal-body { overflow-y: auto; max-height: calc(100vh - 200px); }
       @media print {
         body * { visibility:hidden !important; }
         #modal-factura-electronica, #modal-factura-electronica * { visibility:visible !important; }
@@ -376,8 +378,7 @@ function renderPage() {
           <div style="background:var(--slate-9);padding:4px 20px 0;">
             <div style="display:flex;gap:0;" id="portal-tab-wrap">
               <button class="portal-tab active" data-tab="yape" style="flex:1;padding:10px 0;border:none;background:transparent;cursor:pointer;font-size:12px;font-weight:700;color:var(--dark);border-bottom:2px solid var(--brand);">📱 Yape / Plin</button>
-              <button class="portal-tab" data-tab="tarjeta" style="flex:1;padding:10px 0;border:none;background:transparent;cursor:pointer;font-size:12px;font-weight:700;color:var(--slate-5);border-bottom:2px solid transparent;">💳 Tarjeta</button>
-              <button class="portal-tab" data-tab="banco" style="flex:1;padding:10px 0;border:none;background:transparent;cursor:pointer;font-size:12px;font-weight:700;color:var(--slate-5);border-bottom:2px solid transparent;">🏦 Transferencia</button>
+              <button class="portal-tab" data-tab="banco" style="flex:1;padding:10px 0;border:none;background:transparent;cursor:pointer;font-size:12px;font-weight:700;color:var(--slate-5);border-bottom:2px solid transparent;">🏦 Transferencia Bancaria</button>
             </div>
           </div>
 
@@ -401,8 +402,8 @@ function renderPage() {
         <!-- Barra de acciones -->
         <div class="no-print flex justify-between items-center mb-4" style="flex-wrap:wrap;gap:10px;">
           <div>
-            <span style="font-size:13px;font-weight:800;color:var(--dark);">Comprobante Electrónico</span>
-            <p style="font-size:11px;color:var(--slate-5);">Generado localmente — Simulación estándar SUNAT</p>
+            <span style="font-size:13px;font-weight:800;color:var(--dark);">Comprobante de Pago</span>
+            <p style="font-size:11px;color:var(--slate-5);">Documento de Control Interno sin validez tributaria</p>
           </div>
           <div class="flex gap-2">
             <button class="btn-ghost" id="btn-descargar-xml" style="font-size:12px;">
@@ -465,7 +466,39 @@ function renderPage() {
     const portal  = e.target.closest('.btn-abrir-portal');
     const factura = e.target.closest('.btn-ver-factura');
     if (rapido) abrirCobroRapido(rapido.dataset.id);
-    else if (portal) abrirPortalPago(portal.dataset.id);
+    else if (portal) {
+      const cId = portal.dataset.id;
+      const c = cobrosList.find(item => item.id == cId);
+      if (c) {
+        const payUrl = `https://taller-vargas.pe/pagos/OT-${String(c.orden_numero).padStart(4,'0')}`;
+        navigator.clipboard.writeText(`Estimado(a) ${c.cliente_nombre}, puede pagar su orden de servicio ingresando a su portal de pagos aquí: ${payUrl}`).then(() => {
+          const toast = document.createElement('div');
+          toast.style.position = 'fixed';
+          toast.style.bottom = '24px';
+          toast.style.right = '24px';
+          toast.style.background = 'var(--dark)';
+          toast.style.color = '#fff';
+          toast.style.padding = '12px 20px';
+          toast.style.borderRadius = '8px';
+          toast.style.boxShadow = '0 10px 25px -5px rgba(0,0,0,0.3)';
+          toast.style.zIndex = '9999';
+          toast.style.fontSize = '12px';
+          toast.style.fontWeight = '700';
+          toast.style.display = 'flex';
+          toast.style.alignItems = 'center';
+          toast.style.gap = '8px';
+          toast.style.border = '1px solid var(--brand)';
+          toast.innerHTML = `<span>🔗 ¡Enlace de pago copiado al portapapeles!</span>`;
+          document.body.appendChild(toast);
+          setTimeout(() => {
+            toast.style.opacity = '0';
+            toast.style.transition = 'opacity 0.5s ease';
+            setTimeout(() => toast.remove(), 500);
+          }, 3000);
+        });
+      }
+      abrirPortalPago(cId);
+    }
     else if (factura) abrirFactura(factura.dataset.id);
   });
 
@@ -657,83 +690,6 @@ function renderPortalTab(tab) {
         document.getElementById('btn-portal-confirmar').textContent = '✅ Confirmar y Liquidar';
       }, 2000);
     });
-  } else if (tab === 'tarjeta') {
-    content.innerHTML = `
-      <div class="card-3d-scene">
-        <div class="card-3d" id="card-3d-flip">
-          <div class="card-face">
-            <div class="card-chip"></div>
-            <div class="card-number" id="card-number-display">•••• •••• •••• ••••</div>
-            <div class="flex justify-between items-end">
-              <div>
-                <p style="font-size:9px;color:rgba(255,255,255,0.5);margin-bottom:2px;">TITULAR</p>
-                <p id="card-name-display" style="font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;">NOMBRE APELLIDO</p>
-              </div>
-              <div style="text-align:right;">
-                <p style="font-size:9px;color:rgba(255,255,255,0.5);margin-bottom:2px;">EXPIRA</p>
-                <p id="card-exp-display" style="font-size:13px;font-weight:700;font-family:monospace;">MM/AA</p>
-              </div>
-            </div>
-          </div>
-          <div class="card-back">
-            <div class="card-mag-stripe"></div>
-            <div style="display:flex;justify-content:flex-end;align-items:center;gap:8px;">
-              <span style="font-size:10px;color:rgba(255,255,255,0.6);">CVV</span>
-              <div class="card-cvv-box" id="card-cvv-display">•••</div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px;">
-        <div class="form-group" style="grid-column:1/-1;">
-          <label class="form-label">Número de Tarjeta</label>
-          <input type="text" id="inp-card-num" maxlength="19" class="form-input font-mono text-center" placeholder="0000 0000 0000 0000" style="font-size:16px;letter-spacing:3px;" />
-        </div>
-        <div class="form-group" style="grid-column:1/-1;">
-          <label class="form-label">Nombre del Titular</label>
-          <input type="text" id="inp-card-name" class="form-input" placeholder="NOMBRE APELLIDO" style="text-transform:uppercase;" />
-        </div>
-        <div class="form-group">
-          <label class="form-label">Vencimiento</label>
-          <input type="text" id="inp-card-exp" maxlength="5" class="form-input font-mono text-center" placeholder="MM/AA" />
-        </div>
-        <div class="form-group">
-          <label class="form-label">CVV</label>
-          <input type="text" id="inp-card-cvv" maxlength="3" class="form-input font-mono text-center" placeholder="•••" />
-        </div>
-      </div>`;
-
-    // Lógica interactiva de la tarjeta
-    const numI  = document.getElementById('inp-card-num');
-    const nameI = document.getElementById('inp-card-name');
-    const expI  = document.getElementById('inp-card-exp');
-    const cvvI  = document.getElementById('inp-card-cvv');
-    const card  = document.getElementById('card-3d-flip');
-
-    numI.addEventListener('input', () => {
-      let v = numI.value.replace(/\D/g, '').slice(0,16);
-      numI.value = v.replace(/(.{4})/g, '$1 ').trim();
-      const disp = v.padEnd(16,'•').replace(/(.{4})/g,'$1 ').trim();
-      document.getElementById('card-number-display').textContent = disp;
-    });
-    nameI.addEventListener('input', () => {
-      const v = nameI.value.toUpperCase().slice(0,20);
-      nameI.value = v;
-      document.getElementById('card-name-display').textContent = v || 'NOMBRE APELLIDO';
-    });
-    expI.addEventListener('input', () => {
-      let v = expI.value.replace(/\D/g,'');
-      if (v.length >= 3) v = v.slice(0,2) + '/' + v.slice(2,4);
-      expI.value = v;
-      document.getElementById('card-exp-display').textContent = v || 'MM/AA';
-    });
-    cvvI.addEventListener('focus', () => card.classList.add('flipped'));
-    cvvI.addEventListener('blur',  () => card.classList.remove('flipped'));
-    cvvI.addEventListener('input', () => {
-      const v = cvvI.value.replace(/\D/g,'').slice(0,3);
-      cvvI.value = v;
-      document.getElementById('card-cvv-display').textContent = v.padEnd(3,'•');
-    });
   } else {
     content.innerHTML = `
       <p style="font-size:12px;color:var(--slate-5);margin-bottom:16px;text-align:center;font-weight:600;">Transferencia a cualquiera de estas cuentas del taller</p>
@@ -761,10 +717,10 @@ function renderPortalTab(tab) {
 async function confirmarPagoPortal() {
   const id = portalCobroId;
   if (!id) return;
-  const metodoMap = { yape:'Yape/Plin', tarjeta:'Tarjeta', banco:'Transferencia' };
+  const metodoMap = { yape:'Yape/Plin', banco:'Transferencia' };
   try {
     await registrarCobro(id, {
-      metodo_pago: metodoMap[portalTab],
+      metodo_pago: metodoMap[portalTab] || 'Transferencia',
       tipo_comprobante: 'Boleta'
     });
     cerrarModal('modal-portal-pago');
@@ -825,7 +781,7 @@ async function abrirFactura(id) {
         </div>
         <div style="background:#f8fafc;border:2px solid #e2e8f0;border-radius:12px;padding:16px;text-align:center;">
           <div style="display:inline-block;background:${tipo==='Factura'?'#1e293b':tipo==='Boleta'?'#1d4ed8':'#64748b'};color:white;font-size:10px;font-weight:800;padding:3px 10px;border-radius:99px;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">
-            ${tipo} Electrónica
+            ${tipo} (Control Interno)
           </div>
           <p style="font-size:22px;font-weight:900;color:#1e293b;font-family:monospace;letter-spacing:1px;margin:4px 0;">${numDoc}</p>
           <div style="border-top:1px dashed #e2e8f0;margin-top:10px;padding-top:10px;">
@@ -835,10 +791,10 @@ async function abrirFactura(id) {
         </div>
       </div>
 
-      <!-- Estado SUNAT -->
-      <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:8px 14px;display:flex;align-items:center;gap:8px;margin-bottom:20px;">
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="#15803d" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-        <span style="font-size:11px;font-weight:800;color:#15803d;">✓ ACEPTADA POR SUNAT</span>
+      <!-- Estado SUNAT / Comprobante Interno -->
+      <div style="background:#f1f5f9;border:1px solid #cbd5e1;border-radius:8px;padding:8px 14px;display:flex;align-items:center;gap:8px;margin-bottom:20px;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="#475569" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        <span style="font-size:11px;font-weight:800;color:#475569;">📄 COMPROBANTE DE CONTROL INTERNO</span>
         <span style="font-size:10px;color:#64748b;margin-left:auto;font-family:monospace;">${hashSimulado}</span>
       </div>
 
@@ -914,13 +870,13 @@ async function abrirFactura(id) {
             <span style="font-size:11px;color:#64748b;">Comprobante: ${c.tipo_comprobante || '—'}</span>
           </div>
           <p style="font-size:11px;color:#64748b;margin-top:8px;line-height:1.5;">
-            "Representación impresa de la ${tipo} Electrónica emitida por<br/>
+            "Documento de control interno emitido por<br/>
             TALLER AUTOMOTRIZ VARGAS con RUC 20123456789"
           </p>
         </div>
         <div style="text-align:center;">
           ${renderQRSimuladoPequeno()}
-          <p style="font-size:9px;color:#64748b;margin-top:4px;">Verificar en SUNAT</p>
+          <p style="font-size:9px;color:#64748b;margin-top:4px;">Validación Interna</p>
         </div>
       </div>
     </div>

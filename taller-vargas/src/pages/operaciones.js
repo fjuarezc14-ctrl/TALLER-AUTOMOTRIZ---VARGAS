@@ -355,6 +355,10 @@ function renderKanban(container) {
     sel.disabled = true;
     try {
       await patchOrdenMecanico(ordenId, mecId ? parseInt(mecId) : null);
+      // Actualizar stats de mecánicos
+      const stats = await getMecanicosStats();
+      mecStats = stats;
+      
       // Actualizar lista local
       const ord = ordenesList.find(o => o.id == ordenId);
       if (ord) {

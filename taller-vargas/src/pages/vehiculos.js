@@ -811,6 +811,14 @@ async function guardarVehiculo(e) {
   btn.disabled = true;
   btn.style.opacity = '.6';
 
+  const plateExists = vehiculosList.some(v => v.placa === data.placa && v.cliente_id === data.cliente_id && (!id || v.id != id));
+  if (plateExists) {
+    alert("Ya existe un vehículo con esta placa para este cliente.");
+    btn.disabled = false;
+    btn.style.opacity = '1';
+    return;
+  }
+
   try {
     if (id) {
       await updateVehiculo(id, data);
