@@ -44,8 +44,12 @@ export const createVehiculo  = (data)   => request('/vehiculos', { method: 'POST
 export const updateVehiculo  = (id, d)  => request(`/vehiculos/${id}`, { method: 'PUT', body: d });
 
 // ── Mecánicos ─────────────────────────────────────────────
-export const getMecanicos   = ()     => request('/mecanicos');
-export const createMecanico = (data) => request('/mecanicos', { method: 'POST', body: data });
+export const getMecanicos       = ()         => request('/mecanicos');
+export const getMecanicosStats  = ()         => request('/mecanicos/stats');
+export const createMecanico     = (data)     => request('/mecanicos', { method: 'POST', body: data });
+export const updateMecanico     = (id, data) => request(`/mecanicos/${id}`, { method: 'PUT', body: data });
+export const patchOrdenMecanico = (id, mid)  => request(`/ordenes/${id}/mecanico`, { method: 'PATCH', body: { mecanico_id: mid } });
+
 
 // ── Órdenes de Servicio ──────────────────────────────────
 export const getOrdenes     = ()         => request('/ordenes');

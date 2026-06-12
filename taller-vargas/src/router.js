@@ -8,6 +8,7 @@ const routes = {
   '/ordenes':      () => import('./pages/ordenes.js'),
   '/vehiculos':    () => import('./pages/vehiculos.js'),
   '/clientes':     () => import('./pages/clientes.js'),
+  '/operaciones':  () => import('./pages/operaciones.js'),
   '/almacen':      () => import('./pages/almacen.js'),
   '/facturacion':  () => import('./pages/facturacion.js'),
   '/archivos':     () => import('./pages/archivos.js'),
@@ -62,13 +63,14 @@ export async function navigate(path = '/') {
 }
 
 const breadcrumbs = {
-  '/':            ['Panel Principal', 'Resumen General'],
-  '/ordenes':     ['Órdenes de Servicio', 'Gestión Operativa'],
-  '/vehiculos':   ['Vehículos', 'Directorio y Proceso'],
-  '/clientes':    ['CRM Clientes', 'Seguimiento 360° y Fidelización'],
-  '/almacen':     ['Almacén / Repuestos', 'Control de Inventario'],
-  '/facturacion': ['Finanzas', 'Facturación y Cobros'],
-  '/archivos':    ['Documentos', 'Repositorio General'],
+  '/':             ['Panel Principal', 'Resumen General'],
+  '/ordenes':      ['Órdenes de Servicio', 'Gestión Operativa'],
+  '/vehiculos':    ['Vehículos', 'Directorio y Proceso'],
+  '/clientes':     ['CRM Clientes', 'Seguimiento 360° y Fidelización'],
+  '/operaciones':  ['Operaciones', 'Control de Taller en Vivo y Equipo Técnico'],
+  '/almacen':      ['Almacén / Repuestos', 'Control de Inventario'],
+  '/facturacion':  ['Finanzas', 'Facturación y Cobros'],
+  '/archivos':     ['Documentos', 'Repositorio General'],
 };
 
 function updateBreadcrumb(path) {

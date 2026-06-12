@@ -179,4 +179,18 @@ router.delete("/:id/items/:itemId", async (req, res) => {
   finally { client.release(); }
 });
 
+// PATCH /ordenes/:id/mecanico  — reasignación rápida de mecánico desde el Kanban
+router.patch("/:id/mecanico", async (req, res) => {
+  const { mecanico_id } = req.body;
+  try {
+    const r = await query(
+      "UPDATE ordenes_servicio SET mecanico_id=$1 WHERE id=$2 RETURNING *",
+      [mecanico_id || null, req.params.id]
+    );
+    if (!r.rows.length) return res.status(404).json({ error: "Orden no encontrada" });
+    res.json(r.rows[0]);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 export default router;
+
