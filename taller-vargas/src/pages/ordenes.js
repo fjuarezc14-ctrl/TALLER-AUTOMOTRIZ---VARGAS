@@ -166,7 +166,21 @@ function renderPage() {
   document.getElementById('btn-close-ord-x').addEventListener('click', cerrarModalNuevaOrden);
   document.getElementById('btn-close-ord-cancel').addEventListener('click', cerrarModalNuevaOrden);
   document.getElementById('form-nueva-orden').addEventListener('submit', guardarNuevaOrden);
-  document.getElementById('veh-select-id').addEventListener('change', autoAsignarCliente);
+  document.getElementById('veh-select-id').addEventListener('change', autoAsignarClienteYKm);
+  document.getElementById('cli-select-id').addEventListener('change', filtrarVehiculosPorCliente);
+  document.getElementById('cli-search-input').addEventListener('input', (e) => {
+    const q = e.target.value.toLowerCase().trim();
+    const cliSelect = document.getElementById('cli-select-id');
+    Array.from(cliSelect.options).forEach(opt => {
+      opt.style.display = (!q || opt.textContent.toLowerCase().includes(q) || !opt.value) ? '' : 'none';
+    });
+    // Auto-seleccionar si hay exactamente una coincidencia
+    const visibles = Array.from(cliSelect.options).filter(o => o.value && o.style.display !== 'none');
+    if (visibles.length === 1) {
+      cliSelect.value = visibles[0].value;
+      filtrarVehiculosPorCliente();
+    }
+  });
 
   document.getElementById('btn-close-det-x').addEventListener('click', cerrarModalDetalle);
   document.getElementById('btn-close-status-x').addEventListener('click', cerrarModalEstado);
@@ -207,9 +221,11 @@ function renderTableRows(ordenes) {
     return `<span class="badge ${map[est] || 'badge-slate'}">${est === 'Diagnostico' ? 'Diagnóstico' : est}</span>`;
   };
 
+  const isReadOnly = (estado) => ['Finalizado', 'Entregado', 'No realizo servicio'].includes(estado);
+
   return ordenes.map(o => `
     <tr>
-      <td class="font-mono font-bold">OS-${o.id}</td>
+      <td class="font-mono font-bold" style="color:var(--brand);">OS-${o.id}</td>
       <td><span class="placa-badge">${o.placa || '—'}</span></td>
       <td><strong style="color:var(--dark);">${o.vehiculo || '—'}</strong></td>
       <td>
@@ -220,15 +236,18 @@ function renderTableRows(ordenes) {
       <td>${badgeEstado(o.estado)}</td>
       <td class="text-right font-mono font-bold">S/ ${parseFloat(o.total_estimado || 0).toFixed(2)}</td>
       <td class="text-right">
-        <div class="flex justify-end gap-2">
-          <button class="btn-icon btn-view-ord" data-id="${o.id}" title="Ver Detalles">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+        <div class="flex justify-end gap-1">
+          <button class="btn-action-ord btn-view-ord" data-id="${o.id}" title="Ver Expediente" style="background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+            Ver
           </button>
-          <button class="btn-icon btn-costs-ord" data-id="${o.id}" title="Administrar Repuestos / Mano Obra" ${(o.estado === 'Finalizado' || o.estado === 'Entregado') ? 'disabled' : ''}>
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 11v-1m0-1v-4m-5 4h10"/></svg>
+          <button class="btn-action-ord btn-costs-ord" data-id="${o.id}" title="${isReadOnly(o.estado) ? 'Ver Insumos (Solo Lectura)' : 'Administrar Insumos y Costos'}" style="background:${isReadOnly(o.estado) ? '#f8fafc' : '#faf5ff'};color:${isReadOnly(o.estado) ? '#94a3b8' : '#7c3aed'};border:1px solid ${isReadOnly(o.estado) ? '#e2e8f0' : '#e9d5ff'};">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 11v-1m0-1v-4m-5 4h10"/></svg>
+            ${isReadOnly(o.estado) ? 'Insumos' : 'Costos'}
           </button>
-          <button class="btn-icon btn-status-ord" data-id="${o.id}" title="Cambiar Estado">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 6.002L16.24 11M4 9h5M4 9l4.76-4.76"/></svg>
+          <button class="btn-action-ord btn-status-ord" data-id="${o.id}" title="Cambiar Estado" style="background:#fff7ed;color:#c2410c;border:1px solid #fed7aa;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 6.002L16.24 11M4 9h5M4 9l4.76-4.76"/></svg>
+            Estado
           </button>
         </div>
       </td>
@@ -271,20 +290,32 @@ function renderModales() {
           <div class="modal-body" style="display:flex;flex-direction:column;gap:14px;">
             
             <div class="form-section-title">Recepción de Unidad</div>
-            <div class="grid grid-cols-2 gap-3">
-              <div class="form-group">
-                <label class="form-label">Vehículo / Placa</label>
-                <select id="veh-select-id" class="form-select" required>
-                  <option value="">-- Seleccionar --</option>
-                  ${vehiculosList.map(v => `<option value="${v.id}" data-cliente-id="${v.cliente_id}">${v.placa} - ${v.marca_modelo}</option>`).join('')}
-                </select>
+
+            <!-- Buscador de cliente con filtrado bidireccional -->
+            <div style="background:var(--slate-9);border:1px solid var(--slate-8);border-radius:var(--radius-md);padding:12px;display:flex;flex-direction:column;gap:10px;">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="var(--brand)" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                <span style="font-size:11px;font-weight:800;color:var(--slate-4);text-transform:uppercase;letter-spacing:.5px;">Buscar y seleccionar</span>
               </div>
-              <div class="form-group">
-                <label class="form-label">Cliente Asociado</label>
-                <select id="cli-select-id" class="form-select" required>
-                  <option value="">-- Seleccionar --</option>
-                  ${clientesList.map(c => `<option value="${c.id}">${c.nombre}</option>`).join('')}
-                </select>
+              <div class="grid grid-cols-2 gap-3">
+                <div class="form-group" style="margin:0;">
+                  <label class="form-label">Cliente</label>
+                  <input type="text" id="cli-search-input" class="form-input" placeholder="🔍 Escribir nombre del cliente..." autocomplete="off" style="font-size:12px;" />
+                  <select id="cli-select-id" class="form-select" required style="margin-top:6px;">
+                    <option value="">-- Seleccionar cliente --</option>
+                    ${clientesList.map(c => `<option value="${c.id}">${c.nombre} (${c.num_doc})</option>`).join('')}
+                  </select>
+                </div>
+                <div class="form-group" style="margin:0;">
+                  <label class="form-label">Vehículo / Placa</label>
+                  <select id="veh-select-id" class="form-select" required>
+                    <option value="">-- Primero selecciona un cliente --</option>
+                    ${vehiculosList.map(v => `<option value="${v.id}" data-cliente-id="${v.cliente_id}" data-km="${v.km_actual || 0}">${v.placa} — ${v.marca_modelo}</option>`).join('')}
+                  </select>
+                  <div id="km-anterior-hint" style="display:none;margin-top:5px;font-size:11px;background:#ecfdf5;border:1px solid #a7f3d0;color:#065f46;padding:5px 10px;border-radius:6px;font-weight:600;">
+                    📍 Km anterior: <span id="km-anterior-valor">—</span>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -602,23 +633,84 @@ function cerrarModalNuevaOrden() {
   document.getElementById('modal-nueva-orden').classList.remove('active');
 }
 
-function autoAsignarCliente() {
+function filtrarVehiculosPorCliente() {
+  const cliSelect = document.getElementById('cli-select-id');
+  const vehSelect = document.getElementById('veh-select-id');
+  const selectedCliId = cliSelect.value;
+
+  // Resetear vehículo
+  vehSelect.innerHTML = '<option value="">-- Seleccionar vehículo --</option>';
+  document.getElementById('km-anterior-hint').style.display = 'none';
+
+  if (!selectedCliId) {
+    vehSelect.innerHTML = '<option value="">-- Primero selecciona un cliente --</option>';
+    vehiculosList.forEach(v => {
+      const opt = document.createElement('option');
+      opt.value = v.id;
+      opt.dataset.clienteId = v.cliente_id;
+      opt.dataset.km = v.km_actual || 0;
+      opt.textContent = `${v.placa} — ${v.marca_modelo}`;
+      vehSelect.appendChild(opt);
+    });
+    return;
+  }
+
+  const vehiculosDelCliente = vehiculosList.filter(v => String(v.cliente_id) === String(selectedCliId));
+  if (vehiculosDelCliente.length === 0) {
+    vehSelect.innerHTML = '<option value="">— Este cliente no tiene vehículos registrados —</option>';
+    return;
+  }
+
+  vehiculosDelCliente.forEach(v => {
+    const opt = document.createElement('option');
+    opt.value = v.id;
+    opt.dataset.clienteId = v.cliente_id;
+    opt.dataset.km = v.km_actual || 0;
+    opt.textContent = `${v.placa} — ${v.marca_modelo}`;
+    vehSelect.appendChild(opt);
+  });
+
+  // Auto-seleccionar si solo hay un vehículo
+  if (vehiculosDelCliente.length === 1) {
+    vehSelect.value = vehiculosDelCliente[0].id;
+    mostrarKmAnterior(vehiculosDelCliente[0].km_actual);
+  }
+}
+
+function mostrarKmAnterior(km) {
+  const hint = document.getElementById('km-anterior-hint');
+  const valor = document.getElementById('km-anterior-valor');
+  if (km && parseInt(km) > 0) {
+    valor.textContent = `${parseInt(km).toLocaleString()} Km`;
+    hint.style.display = 'block';
+  } else {
+    hint.style.display = 'none';
+  }
+}
+
+function autoAsignarClienteYKm() {
   const selectVeh = document.getElementById('veh-select-id');
   const cliSelect = document.getElementById('cli-select-id');
   const selectedOpt = selectVeh.options[selectVeh.selectedIndex];
+
   if (!selectedOpt || !selectedOpt.value) {
-    cliSelect.value = "";
+    cliSelect.value = '';
     cliSelect.disabled = false;
+    document.getElementById('km-anterior-hint').style.display = 'none';
     return;
   }
 
   const clienteId = selectedOpt.dataset.clienteId;
+  const km = selectedOpt.dataset.km;
+
   if (clienteId) {
     cliSelect.value = clienteId;
     cliSelect.disabled = true;
   } else {
     cliSelect.disabled = false;
   }
+
+  mostrarKmAnterior(km);
 }
 
 async function guardarNuevaOrden(e) {
@@ -1123,19 +1215,50 @@ async function abrirModalCostos(id) {
   const o = ordenesList.find(item => item.id == id);
   if (!o) return;
 
+  const estadosReadOnly = ['Finalizado', 'Entregado', 'No realizo servicio'];
+  const esReadOnly = estadosReadOnly.includes(o.estado);
+
   document.getElementById('costos-orden-id').value = o.id;
-  document.getElementById('item-tipo').value = 'mano_obra';
-  toggleTipoCostoForm();
-  
-  // Ocultar feedback previo si lo hay
-  const fb = document.getElementById('sug-feedback-msg');
-  if (fb) fb.style.display = 'none';
 
-  // Buscar vehículo para sugerir insumos y diagnóstico
-  const v = vehiculosList.find(x => x.placa === o.placa || x.id === o.vehiculo_id);
-  renderDiagnosticoPreventivo(v, o.id);
+  // Mostrar/ocultar panel de solo lectura según estado
+  const formAgregarCosto = document.getElementById('form-agregar-costo');
+  const diagnosticoBox = document.getElementById('diagnostico-preventivo-box');
+  const btnCerrar = document.getElementById('btn-close-costos-cancel');
 
-  await cargarCostosItemsTable(o.id);
+  if (esReadOnly) {
+    formAgregarCosto.style.display = 'none';
+    diagnosticoBox.style.display = 'none';
+
+    // Mostrar banner de solo lectura si no existe aún
+    let bannerRO = document.getElementById('costos-readonly-banner');
+    if (!bannerRO) {
+      bannerRO = document.createElement('div');
+      bannerRO.id = 'costos-readonly-banner';
+      bannerRO.style.cssText = 'background:#fef3c7;border:1px solid #fde68a;border-radius:var(--radius-md);padding:12px 16px;display:flex;align-items:center;gap:10px;';
+      bannerRO.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="#d97706" stroke-width="2"><path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+        <div><p style="font-weight:800;color:#92400e;font-size:12px;">Orden en estado: ${o.estado}</p><p style="font-size:11px;color:#b45309;margin-top:1px;">Esta orden está cerrada. Solo se puede consultar el detalle de insumos registrados.</p></div>
+      `;
+      formAgregarCosto.parentNode.insertBefore(bannerRO, formAgregarCosto);
+    } else {
+      bannerRO.style.display = 'flex';
+      bannerRO.querySelector('p').textContent = `Orden en estado: ${o.estado}`;
+    }
+    btnCerrar.textContent = 'Cerrar';
+  } else {
+    formAgregarCosto.style.display = '';
+    document.getElementById('item-tipo').value = 'mano_obra';
+    toggleTipoCostoForm();
+    const fb = document.getElementById('sug-feedback-msg');
+    if (fb) fb.style.display = 'none';
+    const v = vehiculosList.find(x => x.placa === o.placa || x.id === o.vehiculo_id);
+    renderDiagnosticoPreventivo(v, o.id);
+    const bannerRO = document.getElementById('costos-readonly-banner');
+    if (bannerRO) bannerRO.style.display = 'none';
+    btnCerrar.textContent = 'Terminado';
+  }
+
+  await cargarCostosItemsTable(o.id, esReadOnly);
   document.getElementById('modal-costos').classList.add('active');
 }
 
@@ -1145,12 +1268,12 @@ window.sugerirConsumible = function(tipo, texto) {
 };
 
 
-async function cargarCostosItemsTable(ordenId) {
+async function cargarCostosItemsTable(ordenId, readOnly = false) {
   const o = await getOrden(ordenId);
   const tbody = document.getElementById('tabla-costos-items-body');
   
   if (o.items.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="6" class="td-empty">No hay insumos ni servicios asociados.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="${readOnly ? 5 : 6}" class="td-empty">No hay insumos ni servicios asociados a esta orden.</td></tr>`;
   } else {
     tbody.innerHTML = o.items.map(it => `
       <tr>
@@ -1159,27 +1282,29 @@ async function cargarCostosItemsTable(ordenId) {
         <td class="text-center font-bold">${it.cantidad}</td>
         <td class="text-right font-mono">S/ ${parseFloat(it.precio_unitario).toFixed(2)}</td>
         <td class="text-right font-mono font-bold">S/ ${(it.cantidad * parseFloat(it.precio_unitario)).toFixed(2)}</td>
-        <td class="text-right">
+        ${!readOnly ? `<td class="text-right">
           <button class="btn-icon btn-delete-item" data-item-id="${it.id}" style="color:#ef4444;" title="Quitar">
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
           </button>
-        </td>
+        </td>` : ''}
       </tr>
     `).join('');
 
-    // Listener para eliminar concepto en segundo plano
-    tbody.querySelectorAll('.btn-delete-item').forEach(btn => {
-      btn.onclick = async () => {
-        if (!confirm('¿Quitar este concepto de la orden?')) return;
-        try {
-          await deleteItem(ordenId, btn.dataset.itemId);
-          await actualizarListasSegundoPlano();
-          await refrescarVistaCostos(ordenId);
-        } catch (err) {
-          alert(err.message);
-        }
-      };
-    });
+    if (!readOnly) {
+      // Listener para eliminar concepto en segundo plano
+      tbody.querySelectorAll('.btn-delete-item').forEach(btn => {
+        btn.onclick = async () => {
+          if (!confirm('¿Quitar este concepto de la orden?')) return;
+          try {
+            await deleteItem(ordenId, btn.dataset.itemId);
+            await actualizarListasSegundoPlano();
+            await refrescarVistaCostos(ordenId);
+          } catch (err) {
+            alert(err.message);
+          }
+        };
+      });
+    }
   }
 }
 

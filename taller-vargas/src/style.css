@@ -280,6 +280,13 @@ body {
 .btn-danger:hover { background: #fee2e2; }
 .btn-icon { padding: 7px; border-radius: var(--radius-sm); cursor: pointer; border: none; background: none; color: var(--slate-6); transition: all .15s; }
 .btn-icon:hover { background: var(--slate-9); }
+.btn-action-ord {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 5px 10px; border-radius: var(--radius-sm); cursor: pointer;
+  font-size: 11px; font-weight: 700; font-family: 'Inter', sans-serif;
+  transition: all .15s; white-space: nowrap;
+}
+.btn-action-ord:hover { filter: brightness(.94); transform: translateY(-1px); box-shadow: 0 2px 8px rgba(0,0,0,.1); }
 
 /* ══════════════════════════════════════════════════════════
    DESIGN SYSTEM: Cards
