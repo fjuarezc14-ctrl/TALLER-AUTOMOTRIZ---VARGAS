@@ -44,4 +44,37 @@ window.toggleSidebar = function() {
   backdrop.classList.toggle('hidden');
 };
 
+// ── Modo Oscuro ───────────────────────────────────────────
+function applyTheme(theme) {
+  const root  = document.documentElement;
+  const icon  = document.getElementById('theme-icon');
+  const label = document.getElementById('theme-label');
+  const pill  = document.getElementById('theme-pill');
+  const dot   = document.getElementById('theme-pill-dot');
+
+  if (theme === 'dark') {
+    root.setAttribute('data-theme', 'dark');
+    if (icon)  icon.textContent  = '☀️';
+    if (label) label.textContent = 'Modo Claro';
+    if (pill)  pill.classList.add('active');
+    if (dot)   dot.classList.add('active');
+  } else {
+    root.removeAttribute('data-theme');
+    if (icon)  icon.textContent  = '🌙';
+    if (label) label.textContent = 'Modo Oscuro';
+    if (pill)  pill.classList.remove('active');
+    if (dot)   dot.classList.remove('active');
+  }
+}
+
+window.toggleTheme = function() {
+  const current = localStorage.getItem('vg-theme') || 'light';
+  const next    = current === 'dark' ? 'light' : 'dark';
+  localStorage.setItem('vg-theme', next);
+  applyTheme(next);
+};
+
+// Aplicar tema guardado al cargar
+applyTheme(localStorage.getItem('vg-theme') || 'light');
+
 init().catch(console.error);

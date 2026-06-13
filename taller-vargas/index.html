@@ -9,6 +9,13 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/src/style.css">
+  <!-- Anti-flash: aplicar tema guardado antes de renderizar -->
+  <script>
+    (function() {
+      const t = localStorage.getItem('vg-theme') || 'light';
+      if (t === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+    })();
+  </script>
   <style media="print">
     body > * { display: none !important; }
     #print-area, #print-area * { display: block !important; visibility: visible !important; }
@@ -73,6 +80,17 @@
         <p class="alert-title">Alerta de Stock</p>
         <p id="sidebar-alert-count" class="alert-desc">0 producto(s) bajo mínimo</p>
       </div>
+    </div>
+
+    <!-- Toggle Modo Oscuro -->
+    <div style="padding: 0 10px 8px;">
+      <button id="btn-dark-toggle" class="sidebar-theme-toggle" onclick="toggleTheme()" title="Cambiar tema">
+        <span id="theme-icon" style="font-size:15px;">&#127769;</span>
+        <span id="theme-label" style="flex:1;text-align:left;">Modo Oscuro</span>
+        <span id="theme-pill" class="theme-toggle-pill">
+          <span id="theme-pill-dot" class="theme-toggle-dot"></span>
+        </span>
+      </button>
     </div>
 
     <!-- User -->
