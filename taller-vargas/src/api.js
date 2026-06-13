@@ -15,7 +15,13 @@ class ApiError extends Error {
 async function request(path, options = {}) {
   const url = `${BASE_URL}/api${path}`;
   const res = await fetch(url, {
-    headers: { 'Content-Type': 'application/json', ...options.headers },
+    headers: { 
+      'Content-Type': 'application/json',
+      'Cache-Control': 'no-cache',
+      'Pragma': 'no-cache',
+      'Expires': '0',
+      ...options.headers 
+    },
     ...options,
     body: options.body ? JSON.stringify(options.body) : undefined,
   });
