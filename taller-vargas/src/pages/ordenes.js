@@ -1090,6 +1090,7 @@ async function actualizarListasSegundoPlano() {
         : ordenesList;
       tbody.innerHTML = renderTableRows(filtradas);
     }
+    if (window.refreshStockAlerts) window.refreshStockAlerts();
   } catch (err) {
     console.error('Error actualizando listas en segundo plano:', err);
   }

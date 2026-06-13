@@ -16,6 +16,7 @@ async function init() {
 }
 
 // ── Alertas de stock globales ─────────────────────────────
+window.refreshStockAlerts = refreshStockAlerts;
 async function refreshStockAlerts() {
   try {
     const alertas = await getAlertasStock();

@@ -58,6 +58,7 @@ async function cargarDatos() {
     mecanicosList = mecs;
     solicitudesList = sols;
     renderPage();
+    if (window.refreshStockAlerts) window.refreshStockAlerts();
   } catch (err) {
     root.innerHTML = renderError(err.message);
   }
