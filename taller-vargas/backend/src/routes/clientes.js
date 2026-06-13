@@ -19,40 +19,59 @@ router.get("/", async (_req, res) => {
         c.*,
         -- Vehículos del cliente con datos de km para alertas predictivas
         COALESCE(
-          json_agg(
-            json_build_object(
-              'id',              v.id,
-              'placa',           v.placa,
-              'marca_modelo',    v.marca_modelo,
-              'anio',            v.anio,
-              'km_actual',       v.km_actual,
-              'km_ultimo_aceite',      v.km_ultimo_aceite,
-              'km_ultimo_frenos',      v.km_ultimo_frenos,
-              'km_ultimo_bujias',      v.km_ultimo_bujias,
-              'km_ultimo_filtros',     v.km_ultimo_filtros,
-              'km_ultimo_refrigerante',v.km_ultimo_refrigerante,
-              'km_ultimo_distribucion',v.km_ultimo_distribucion,
-              'ultima_visita',         v.ultima_visita
+          (
+            SELECT json_agg(
+              json_build_object(
+                'id',              v.id,
+                'placa',           v.placa,
+                'marca_modelo',    v.marca_modelo,
+                'anio',            v.anio,
+                'km_actual',       v.km_actual,
+                'km_ultimo_aceite',      v.km_ultimo_aceite,
+                'km_ultimo_frenos',      v.km_ultimo_frenos,
+                'km_ultimo_bujias',      v.km_ultimo_bujias,
+                'km_ultimo_filtros',     v.km_ultimo_filtros,
+                'km_ultimo_refrigerante',v.km_ultimo_refrigerante,
+                'km_ultimo_distribucion',v.km_ultimo_distribucion,
+                'ultima_visita',         v.ultima_visita
+              )
             )
-          ) FILTER (WHERE v.id IS NOT NULL),
+            FROM vehiculos v
+            WHERE v.cliente_id = c.id
+          ),
           '[]'
         ) AS vehiculos_detalle,
 
         -- Conteo total de órdenes de servicio
-        COUNT(DISTINCT os.id)::INT AS total_servicios,
+        (
+          SELECT COUNT(*)::INT 
+          FROM ordenes_servicio os 
+          WHERE os.cliente_id = c.id
+        ) AS total_servicios,
 
         -- Gasto acumulado (cobros pagados)
-        COALESCE(SUM(co.monto_total) FILTER (WHERE co.estado IN ('Cancelado','Dividido')), 0)::NUMERIC(10,2) AS total_gastado,
+        COALESCE(
+          (
+            SELECT SUM(co.monto_total)::NUMERIC(10,2) 
+            FROM cobros co 
+            WHERE co.cliente_id = c.id AND co.estado IN ('Cancelado','Dividido')
+          ),
+          0
+        ) AS total_gastado,
 
         -- Fecha del último ingreso al taller
-        MAX(os.fecha_ingreso) AS ultima_visita_taller
+        (
+          SELECT MAX(os.fecha_ingreso) 
+          FROM ordenes_servicio os 
+          WHERE os.cliente_id = c.id
+        ) AS ultima_visita_taller
 
       FROM clientes c
-      LEFT JOIN vehiculos v      ON v.cliente_id = c.id
-      LEFT JOIN ordenes_servicio os ON os.cliente_id = c.id
-      LEFT JOIN cobros co         ON co.cliente_id = c.id
-      GROUP BY c.id
-      ORDER BY MAX(os.fecha_ingreso) DESC NULLS LAST, c.nombre
+      ORDER BY (
+        SELECT MAX(os.fecha_ingreso) 
+        FROM ordenes_servicio os 
+        WHERE os.cliente_id = c.id
+      ) DESC NULLS LAST, c.nombre
     `);
     res.json(r.rows);
   } catch (err) { res.status(500).json({ error: err.message }); }

@@ -2,6 +2,25 @@ import {
   getCobros, getStatsCobros, registrarCobro, dividirCobro, getOrden
 } from '../api.js';
 
+function safeFormatDate(dateVal, options = { day: '2-digit', month: 'short', year: 'numeric' }) {
+  if (!dateVal) return '—';
+  let parsedDate;
+  if (typeof dateVal === 'string') {
+    if (dateVal.includes('T')) {
+      parsedDate = new Date(dateVal);
+    } else {
+      parsedDate = new Date(dateVal + 'T12:00:00');
+    }
+  } else {
+    parsedDate = new Date(dateVal);
+  }
+  if (isNaN(parsedDate.getTime())) {
+    parsedDate = new Date(dateVal);
+    if (isNaN(parsedDate.getTime())) return '—';
+  }
+  return parsedDate.toLocaleDateString('es-PE', options);
+}
+
 let containerElement = null;
 let cobrosList = [];
 let statsData = {};
@@ -141,7 +160,11 @@ function renderPage() {
         border-radius:8px;border:1px solid #e2e8f0;font-family:'Inter',system-ui;
         font-size:13px;color:#1e293b;
       }
-      #modal-factura-electronica { overflow-y: auto; }
+      #modal-factura-electronica {
+        align-items: flex-start;
+        overflow-y: auto;
+        padding: 40px 16px;
+      }
       #modal-cobro-rapido .modal-body { overflow-y: auto; max-height: calc(100vh - 200px); }
       @media print {
         body * { visibility:hidden !important; }
@@ -457,7 +480,17 @@ function renderPage() {
   });
 
   document.getElementById('btn-portal-confirmar').addEventListener('click', confirmarPagoPortal);
-  document.getElementById('btn-imprimir-factura').addEventListener('click', () => window.print());
+  document.getElementById('btn-imprimir-factura').addEventListener('click', () => {
+    const printArea = document.getElementById('print-area');
+    const docContent = document.getElementById('factura-doc-content');
+    if (printArea && docContent) {
+      printArea.innerHTML = docContent.innerHTML;
+      window.print();
+      printArea.innerHTML = '';
+    } else {
+      window.print();
+    }
+  });
   document.getElementById('btn-descargar-xml').addEventListener('click', descargarXML);
 
   // Tabla delegada
@@ -525,9 +558,7 @@ function renderTableRows(cobros) {
         ? `B001-${String(c.id + 1000).padStart(4,'0')}`
         : `NV-${String(c.id + 1000).padStart(4,'0')}`;
 
-    const dateStr = c.fecha_emision
-      ? new Date(c.fecha_emision + 'T12:00:00').toLocaleDateString('es-PE', { day:'2-digit', month:'short', year:'numeric' })
-      : '—';
+    const dateStr = safeFormatDate(c.fecha_emision, { day:'2-digit', month:'short', year:'numeric' });
 
     let badge = '';
     if (c.estado === 'Cancelado') badge = `<span class="badge badge-emerald">✓ Cancelado</span>`;
@@ -750,12 +781,8 @@ async function abrirFactura(id) {
   const tipo   = c.tipo_comprobante || 'Boleta';
   const serie  = tipo === 'Factura'  ? 'F001' : tipo === 'Boleta' ? 'B001' : 'NV01';
   const numDoc = `${serie}-${String(c.id + 1000).padStart(4,'0')}`;
-  const fechaEmision = c.fecha_emision
-    ? new Date(c.fecha_emision + 'T12:00:00').toLocaleDateString('es-PE', { day:'2-digit', month:'long', year:'numeric' })
-    : new Date().toLocaleDateString('es-PE', { day:'2-digit', month:'long', year:'numeric' });
-  const fechaCobro = c.fecha_cobro
-    ? new Date(c.fecha_cobro + 'T12:00:00').toLocaleDateString('es-PE', { day:'2-digit', month:'long', year:'numeric' })
-    : '—';
+  const fechaEmision = safeFormatDate(c.fecha_emision || new Date(), { day:'2-digit', month:'long', year:'numeric' });
+  const fechaCobro = c.fecha_cobro ? safeFormatDate(c.fecha_cobro, { day:'2-digit', month:'long', year:'numeric' }) : '—';
   const hashSimulado = `SHA256:${btoa(numDoc + c.cliente_nombre + total).replace(/=/g,'').slice(0,40).toUpperCase()}`;
 
   doc.innerHTML = `
