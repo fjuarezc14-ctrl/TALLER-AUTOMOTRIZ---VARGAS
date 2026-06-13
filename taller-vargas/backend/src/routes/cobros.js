@@ -48,10 +48,14 @@ router.patch('/:id/cobrar', async (req, res) => {
     // Auto-pasar la orden de servicio a estado 'Entregado' para que salga del Kanban
     const cobro = result.rows[0];
     if (cobro.orden_id) {
-      await query(
-        `UPDATE ordenes_servicio SET estado='Entregado' WHERE id=$1 AND estado NOT IN ('Entregado')`,
-        [cobro.orden_id]
-      );
+      try {
+        await query(
+          `UPDATE ordenes_servicio SET estado='Entregado' WHERE id=$1 AND estado NOT IN ('Entregado')`,
+          [cobro.orden_id]
+        );
+      } catch (orderErr) {
+        console.error("[cobros] Error actualizando orden de servicio a Entregado:", orderErr.message);
+      }
     }
 
     res.json(cobro);
@@ -84,10 +88,14 @@ router.patch('/:id/dividir', async (req, res) => {
     // Auto-pasar la orden de servicio a estado 'Entregado' para que salga del Kanban
     const cobro = result.rows[0];
     if (cobro.orden_id) {
-      await query(
-        `UPDATE ordenes_servicio SET estado='Entregado' WHERE id=$1 AND estado NOT IN ('Entregado')`,
-        [cobro.orden_id]
-      );
+      try {
+        await query(
+          `UPDATE ordenes_servicio SET estado='Entregado' WHERE id=$1 AND estado NOT IN ('Entregado')`,
+          [cobro.orden_id]
+        );
+      } catch (orderErr) {
+        console.error("[cobros] Error actualizando orden de servicio a Entregado:", orderErr.message);
+      }
     }
 
     res.json(cobro);
