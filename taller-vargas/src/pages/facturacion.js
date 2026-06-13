@@ -343,6 +343,20 @@ function renderPage() {
                   <div class="form-group"><label class="form-label">Comprobante</label><select id="div-comp-1" class="form-select" style="background:#fff;"><option value="Factura">Factura</option><option value="Boleta">Boleta</option></select></div>
                 </div>
               </div>
+
+              <!-- Indicador de balance en tiempo real -->
+              <div id="split-balance-bar" style="background:var(--slate-9);border:1px solid var(--slate-8);border-radius:var(--radius-md);padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:8px;">
+                <div style="display:flex;align-items:center;gap:6px;">
+                  <span style="font-size:11px;font-weight:700;color:var(--slate-5);">Suma actual:</span>
+                  <span id="split-suma" style="font-size:13px;font-weight:900;font-family:monospace;color:var(--dark);">S/ 0.00</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:6px;">
+                  <span style="font-size:11px;font-weight:700;color:var(--slate-5);">Restante:</span>
+                  <span id="split-restante" style="font-size:13px;font-weight:900;font-family:monospace;color:#64748b;">S/ 0.00</span>
+                </div>
+                <span id="split-estado-icon" style="font-size:16px;">&#9898;</span>
+              </div>
+
               <div style="background:var(--white);border:1px solid var(--slate-8);padding:12px;border-radius:var(--radius-md);">
                 <p style="font-size:10px;font-weight:800;color:var(--slate-5);text-transform:uppercase;margin-bottom:8px;">Empresa 2 / Co-pagador</p>
                 <div class="grid grid-cols-2 gap-3 mb-2">
@@ -463,6 +477,41 @@ function renderPage() {
 
   document.getElementById('form-cobro-rapido').addEventListener('submit', procesarCobroRapido);
   document.getElementById('chk-dividir').addEventListener('change', toggleDividido);
+
+  // Auto-cálculo de montos en pago dividido
+  function actualizarBalanceDividido(campoModificado) {
+    const total = parseFloat(document.getElementById('cobro-rapido-total').value) || 0;
+    const m1El  = document.getElementById('div-monto-1');
+    const m2El  = document.getElementById('div-monto-2');
+    const suma  = document.getElementById('split-suma');
+    const rest  = document.getElementById('split-restante');
+    const icon  = document.getElementById('split-estado-icon');
+    const bar   = document.getElementById('split-balance-bar');
+
+    if (campoModificado === 1) {
+      const v1 = parseFloat(m1El.value) || 0;
+      const v2 = Math.max(0, parseFloat((total - v1).toFixed(2)));
+      m2El.value = v2;
+    } else {
+      const v2 = parseFloat(m2El.value) || 0;
+      const v1 = Math.max(0, parseFloat((total - v2).toFixed(2)));
+      m1El.value = v1;
+    }
+
+    const sumActual  = (parseFloat(m1El.value) || 0) + (parseFloat(m2El.value) || 0);
+    const restante   = total - sumActual;
+    const cuadra     = Math.abs(restante) < 0.05;
+
+    suma.textContent = `S/ ${sumActual.toFixed(2)}`;
+    rest.textContent = cuadra ? '✅ Cuadrado' : `S/ ${Math.abs(restante).toFixed(2)} ${restante > 0 ? 'falta' : 'excede'}`;
+    rest.style.color = cuadra ? '#16a34a' : '#dc2626';
+    icon.textContent = cuadra ? '✅' : '⚠️';
+    bar.style.borderColor  = cuadra ? '#bbf7d0' : '#fecaca';
+    bar.style.background   = cuadra ? '#f0fdf4'  : '#fef2f2';
+  }
+
+  document.getElementById('div-monto-1').addEventListener('input', () => actualizarBalanceDividido(1));
+  document.getElementById('div-monto-2').addEventListener('input', () => actualizarBalanceDividido(2));
 
   // Tabs del portal
   document.getElementById('portal-tab-wrap').addEventListener('click', (e) => {
@@ -629,13 +678,30 @@ function abrirCobroRapido(id) {
   document.getElementById('cobro-rapido-total').value = c.monto_total;
   document.getElementById('cobro-rapido-monto').textContent = `S/ ${parseFloat(c.monto_total).toFixed(2)}`;
   document.getElementById('cobro-rapido-cliente').textContent = `${c.cliente_nombre} | ${c.tipo_doc}: ${c.num_doc}`;
-  const half = (parseFloat(c.monto_total) / 2).toFixed(2);
+
+  // Inicializar mitad y reset del balance visual
+  const total = parseFloat(c.monto_total) || 0;
+  const half  = (total / 2).toFixed(2);
   document.getElementById('div-monto-1').value = half;
   document.getElementById('div-monto-2').value = half;
+
+  // Refrescar barra de balance inicial
+  const suma  = (parseFloat(half) * 2);
+  const cuadra = Math.abs(suma - total) < 0.05;
+  const sumaEl = document.getElementById('split-suma');
+  const restEl = document.getElementById('split-restante');
+  const icon   = document.getElementById('split-estado-icon');
+  const bar    = document.getElementById('split-balance-bar');
+  if (sumaEl) sumaEl.textContent = `S/ ${suma.toFixed(2)}`;
+  if (restEl) { restEl.textContent = cuadra ? '✅ Cuadrado' : `S/ ${Math.abs(total - suma).toFixed(2)} falta`; restEl.style.color = cuadra ? '#16a34a' : '#dc2626'; }
+  if (icon)   icon.textContent = cuadra ? '✅' : '⚠️';
+  if (bar)    { bar.style.borderColor = cuadra ? '#bbf7d0' : '#fecaca'; bar.style.background = cuadra ? '#f0fdf4' : '#fef2f2'; }
+
   document.getElementById('chk-dividir').checked = false;
   document.getElementById('wrapper-dividido').classList.add('hidden');
   document.getElementById('modal-cobro-rapido').classList.add('active');
 }
+
 
 function toggleDividido() {
   const chk = document.getElementById('chk-dividir').checked;

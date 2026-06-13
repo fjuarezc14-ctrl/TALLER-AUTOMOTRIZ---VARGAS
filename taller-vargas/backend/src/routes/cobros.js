@@ -44,7 +44,17 @@ router.patch('/:id/cobrar', async (req, res) => {
       [metodo_pago, tipo_comprobante, req.params.id]
     );
     if (!result.rows.length) return res.status(404).json({ error: 'Cobro no encontrado' });
-    res.json(result.rows[0]);
+
+    // Auto-pasar la orden de servicio a estado 'Entregado' para que salga del Kanban
+    const cobro = result.rows[0];
+    if (cobro.orden_id) {
+      await query(
+        `UPDATE ordenes_servicio SET estado='Entregado' WHERE id=$1 AND estado NOT IN ('Entregado')`,
+        [cobro.orden_id]
+      );
+    }
+
+    res.json(cobro);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -70,7 +80,17 @@ router.patch('/:id/dividir', async (req, res) => {
        req.params.id]
     );
     if (!result.rows.length) return res.status(404).json({ error: 'Cobro no encontrado' });
-    res.json(result.rows[0]);
+
+    // Auto-pasar la orden de servicio a estado 'Entregado' para que salga del Kanban
+    const cobro = result.rows[0];
+    if (cobro.orden_id) {
+      await query(
+        `UPDATE ordenes_servicio SET estado='Entregado' WHERE id=$1 AND estado NOT IN ('Entregado')`,
+        [cobro.orden_id]
+      );
+    }
+
+    res.json(cobro);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
