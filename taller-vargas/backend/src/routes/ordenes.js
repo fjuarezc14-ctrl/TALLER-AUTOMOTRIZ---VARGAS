@@ -133,7 +133,7 @@ router.patch("/:id/estado", async (req, res) => {
       }
     }
 
-    if (estado==="Finalizado" && pasar_facturacion && total>0) {
+    if (estado==="Finalizado" && pasar_facturacion) {
       await client.query("INSERT INTO cobros (orden_id,cliente_id,monto_total,estado,fecha_emision) VALUES ($1,$2,$3,$4,CURRENT_DATE) ON CONFLICT DO NOTHING",
         [req.params.id,ordObj.cliente_id,total,"Pendiente"]);
     }
