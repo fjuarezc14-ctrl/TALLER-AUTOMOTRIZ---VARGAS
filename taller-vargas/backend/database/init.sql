@@ -189,11 +189,14 @@ SELECT os.id, os.estado, os.kilometraje, os.nivel_combustible, os.falla_reportad
   os.nota_interna, os.created_at,
   v.placa, v.marca_modelo AS vehiculo, v.anio,
   c.nombre AS cliente, c.telefono, c.num_doc, c.tipo_doc,
-  m.nombre AS mecanico
+  m.nombre AS mecanico,
+  co.id AS cobro_id, co.estado AS cobro_estado
 FROM ordenes_servicio os
 LEFT JOIN vehiculos v ON os.vehiculo_id = v.id
 LEFT JOIN clientes c ON os.cliente_id = c.id
-LEFT JOIN mecanicos m ON os.mecanico_id = m.id;
+LEFT JOIN mecanicos m ON os.mecanico_id = m.id
+LEFT JOIN cobros co ON co.orden_id = os.id;
+
 
 CREATE OR REPLACE VIEW v_items_por_orden AS
 SELECT ic.*, (ic.cantidad * ic.precio_unitario) AS subtotal FROM items_costo ic;

@@ -383,7 +383,11 @@ function renderKanban(container) {
     btn.classList.add('loading');
     btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" class="animate-spin"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>`;
     try {
-      await cambiarEstado(ordenId, { estado: nuevoEst, repuestos_esperando: '' });
+      await cambiarEstado(ordenId, {
+        estado: nuevoEst,
+        repuestos_esperando: '',
+        pasar_facturacion: nuevoEst === 'Finalizado'
+      });
       const ord = ordenesList.find(o => o.id == ordenId);
       if (ord) ord.estado = nuevoEst;
       renderTabContent(); // Re-render kanban

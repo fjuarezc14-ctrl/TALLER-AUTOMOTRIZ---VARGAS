@@ -808,6 +808,8 @@ function abrirModalEstado(id) {
   document.getElementById('status-orden-id').value = o.id;
   document.getElementById('select-cambio-estado').value = o.estado;
   document.getElementById('status-repuestos-textarea').value = o.repuestos_esperando || '';
+  const chk = document.getElementById('chk-pasar-factura');
+  if (chk) chk.checked = true;
 
   toggleAlertaRepuestos();
   document.getElementById('modal-estado').classList.add('active');
@@ -832,7 +834,7 @@ function toggleAlertaRepuestos() {
     document.getElementById('status-repuestos-textarea').required = false;
   }
 
-  if (est === 'Finalizado' && o && o.estado !== 'Finalizado') {
+  if (est === 'Finalizado' && o && !o.cobro_id) {
     wrpFactura.classList.remove('hidden');
   } else {
     wrpFactura.classList.add('hidden');
