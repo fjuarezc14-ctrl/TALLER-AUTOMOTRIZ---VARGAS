@@ -851,6 +851,12 @@ async function guardarEstadoOrden(e) {
   const repuestos_esperando = estado === 'Esperando Repuestos' ? document.getElementById('status-repuestos-textarea').value.trim() : '';
   const pasar_facturacion = estado === 'Finalizado' ? document.getElementById('chk-pasar-factura').checked : false;
 
+  const o = ordenesList.find(item => item.id == id);
+  if (estado === 'Entregado' && o && o.cobro_estado === 'Pendiente') {
+    alert('No se puede marcar como Entregado porque tiene un cobro pendiente en Facturación.');
+    return;
+  }
+
   try {
     await cambiarEstado(id, { estado, repuestos_esperando, pasar_facturacion });
     cerrarModalEstado();

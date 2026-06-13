@@ -47,6 +47,12 @@ router.post("/", async (req, res) => {
 router.put("/:id", async (req, res) => {
   const { vehiculo_id,cliente_id,mecanico_id,kilometraje,nivel_combustible,falla_reportada,estado,repuestos_esperando,fecha_entrega,nota_interna } = req.body;
   try {
+    if (estado === "Entregado") {
+      const cobroCheck = await query("SELECT estado FROM cobros WHERE orden_id = $1", [req.params.id]);
+      if (cobroCheck.rows.length > 0 && cobroCheck.rows[0].estado === "Pendiente") {
+        return res.status(400).json({ error: "No se puede marcar como Entregado porque tiene un cobro pendiente en Facturación." });
+      }
+    }
     const r = await query("UPDATE ordenes_servicio SET vehiculo_id=$1,cliente_id=$2,mecanico_id=$3,kilometraje=$4,nivel_combustible=$5,falla_reportada=$6,estado=$7,repuestos_esperando=$8,fecha_entrega=$9,nota_interna=$10 WHERE id=$11 RETURNING *",
       [vehiculo_id,cliente_id,mecanico_id,kilometraje,nivel_combustible,falla_reportada,estado,repuestos_esperando||"",fecha_entrega||null,nota_interna||"",req.params.id]);
     if (!r.rows.length) return res.status(404).json({ error: "Orden no encontrada" });
@@ -69,6 +75,14 @@ router.patch("/:id/estado", async (req, res) => {
   const client = await getClient();
   try {
     await client.query("BEGIN");
+    if (estado === "Entregado") {
+      const cobroCheck = await client.query("SELECT estado FROM cobros WHERE orden_id = $1", [req.params.id]);
+      if (cobroCheck.rows.length > 0 && cobroCheck.rows[0].estado === "Pendiente") {
+        await client.query("ROLLBACK");
+        client.release();
+        return res.status(400).json({ error: "No se puede marcar como Entregado porque tiene un cobro pendiente en Facturación." });
+      }
+    }
     const totalRes = await client.query("SELECT COALESCE(SUM(cantidad*precio_unitario),0) AS total FROM items_costo WHERE orden_id=$1", [req.params.id]);
     const total = parseFloat(totalRes.rows[0].total);
     const ordRes = await client.query("UPDATE ordenes_servicio SET estado=$1,repuestos_esperando=$2,total_estimado=$3 WHERE id=$4 RETURNING *", [estado,repuestos_esperando||"",total,req.params.id]);
