@@ -216,6 +216,7 @@ function renderTableRows(ordenes) {
       'En Proceso': 'badge-blue',
       'Esperando Repuestos': 'badge-purple',
       'Finalizado': 'badge-emerald',
+      'Entregado': 'badge-emerald',
       'No realizo servicio': 'badge-slate'
     };
     return `<span class="badge ${map[est] || 'badge-slate'}">${est === 'Diagnostico' ? 'Diagnóstico' : est}</span>`;
@@ -480,6 +481,7 @@ function renderModales() {
                 <option value="En Proceso">En Proceso</option>
                 <option value="Esperando Repuestos">Esperando Repuestos</option>
                 <option value="Finalizado">Finalizado</option>
+                <option value="Entregado">Entregado</option>
                 <option value="No realizo servicio">No se realizó el servicio</option>
               </select>
             </div>
@@ -754,6 +756,7 @@ async function verDetalleOrden(id) {
       'En Proceso': 'badge badge-blue',
       'Esperando Repuestos': 'badge badge-purple',
       'Finalizado': 'badge badge-emerald',
+      'Entregado': 'badge badge-emerald',
       'No realizo servicio': 'badge badge-slate'
     };
     badge.className = badgeMap[o.estado] || 'badge badge-slate';
