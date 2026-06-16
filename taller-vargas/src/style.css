@@ -490,11 +490,12 @@ body {
 @media (max-width: 768px) {
   .sidebar {
     position: fixed;
-    inset-y: 0; left: 0;
+    top: 0; bottom: 0; left: 0;
     transform: translateX(-100%);
   }
   .sidebar.sidebar-open { transform: translateX(0); }
   .main-content { padding: 60px 16px 16px; }
+  .data-table { min-width: 700px; }
   .data-table th, .data-table td { padding: 10px 12px; }
   .mobile-menu-btn { display: flex; } /* Mostrar solo en móvil */
 }
@@ -557,12 +558,27 @@ body {
 .rounded-full { border-radius: 9999px; }
 .border-t { border-top: 1px solid var(--slate-8); }
 .pt-4 { padding-top: 16px; }
-.grid-cols-2 { grid-template-columns: repeat(2, 1fr); }
-.grid-cols-3 { grid-template-columns: repeat(3, 1fr); }
-.grid-cols-4 { grid-template-columns: repeat(4, 1fr); }
-.col-span-2  { grid-column: span 2; }
-.col-span-3  { grid-column: span 3; }
-.md\:grid-cols-2 { grid-template-columns: repeat(2, 1fr); }
+.grid-cols-2,
+.grid-cols-3,
+.grid-cols-4 {
+  grid-template-columns: 1fr;
+}
+.col-span-2,
+.col-span-3 {
+  grid-column: auto;
+}
+.md\:grid-cols-2 {
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 768px) {
+  .grid-cols-2 { grid-template-columns: repeat(2, 1fr); }
+  .grid-cols-3 { grid-template-columns: repeat(3, 1fr); }
+  .grid-cols-4 { grid-template-columns: repeat(4, 1fr); }
+  .col-span-2  { grid-column: span 2; }
+  .col-span-3  { grid-column: span 3; }
+  .md\:grid-cols-2 { grid-template-columns: repeat(2, 1fr); }
+}
 
 /* ══════════════════════════════════════════════════════════
    MÓDULO VEHÍCULOS — Vista Tarjetas Premium
@@ -1169,6 +1185,125 @@ html[data-theme="dark"] [style*="background:var(--dark)"] {
 }
 .theme-toggle-dot { transition: transform .25s !important; }
 .theme-toggle-pill { transition: background .25s !important; }
+
+/* ============================================================
+   Nuevas Clases de Diseño Responsivo
+   ============================================================ */
+
+/* Layout del Almacén */
+.almacen-split-layout {
+  display: grid;
+  grid-template-columns: 1fr 360px;
+  gap: 20px;
+  align-items: flex-start;
+}
+@media (max-width: 900px) {
+  .almacen-split-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Layout del CRM de Clientes */
+.crm-split-layout {
+  display: grid;
+  grid-template-columns: 340px 1fr;
+  gap: 16px;
+  flex: 1;
+  min-height: 0;
+}
+@media (max-width: 900px) {
+  .crm-split-layout {
+    grid-template-columns: 1fr;
+    flex: none;
+    min-height: auto;
+  }
+  #crm-root {
+    height: auto !important;
+  }
+  .crm-split-layout > :first-child {
+    height: 400px !important;
+  }
+}
+
+/* Encabezado de Boleta/Factura */
+.factura-header-layout {
+  display: grid;
+  grid-template-columns: 1fr 220px;
+  gap: 24px;
+  margin-bottom: 24px;
+  align-items: flex-start;
+}
+@media (max-width: 768px) {
+  .factura-header-layout {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+}
+
+/* Metadatos del Cliente en Recibo */
+.factura-details-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  font-size: 12px;
+}
+@media (max-width: 576px) {
+  .factura-details-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Pie de página con forma de pago y QR */
+.factura-footer-layout {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 20px;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px dashed var(--slate-8);
+  align-items: center;
+}
+@media (max-width: 576px) {
+  .factura-footer-layout {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    text-align: center;
+  }
+}
+
+/* Formulario de agregación de insumos */
+.cost-add-grid {
+  display: grid;
+  grid-template-columns: 120px 2fr 1fr 1fr;
+  gap: 12px;
+}
+@media (max-width: 768px) {
+  .cost-add-grid {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+}
+
+/* Especificaciones técnicas del VIN */
+.vin-specs-badge-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  background: rgba(16,185,129,0.08);
+  padding: 8px;
+  border-radius: 6px;
+  margin-top: 6px;
+  font-family: var(--font-sans);
+  border: 1px solid rgba(16,185,129,0.2);
+}
+@media (max-width: 576px) {
+  .vin-specs-badge-grid {
+    grid-template-columns: 1fr;
+  }
+  .vin-specs-badge-grid > div[style*="grid-column: span 3"] {
+    grid-column: span 1 !important;
+  }
+}
 
 
 

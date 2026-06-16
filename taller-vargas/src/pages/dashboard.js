@@ -689,7 +689,7 @@ function renderDashboard(data) {
     </div>
 
     <!-- Bottom Grid -->
-    <div class="grid gap-6" style="grid-template-columns: 2fr 1fr; margin-top:8px;">
+    <div class="dashboard-grid-2" style="margin-top:8px;">
       <!-- Órdenes Recientes -->
       <div class="card">
         <div class="card-header">

@@ -446,12 +446,12 @@ function renderModalVehiculo() {
             <!-- Sección 4: Kilometraje e Indicadores -->
             <div>
               <div class="form-section-title">📍 Historial de Kilometrajes por Componente</div>
-              <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;">
-                <div class="form-group" style="grid-column: span 2;">
+              <div class="grid grid-cols-4 gap-3">
+                <div class="form-group col-span-2">
                   <label class="form-label">KM Actual (Odómetro) *</label>
                   <input type="number" id="veh-km-actual" class="form-input font-bold" required placeholder="Ej: 45000" min="0" />
                 </div>
-                <div class="form-group" style="grid-column: span 2;">
+                <div class="form-group col-span-2">
                   <label class="form-label">KM Último Servicio Gral.</label>
                   <input type="number" id="veh-km-ult-serv" class="form-input" placeholder="Ej: 40000" min="0" />
                 </div>
@@ -480,7 +480,7 @@ function renderModalVehiculo() {
                   <label class="form-label">Últ. Refrigerante (KM)</label>
                   <input type="number" id="veh-km-refrigerante" class="form-input" placeholder="Ej: 30000" min="0" />
                 </div>
-                <div class="form-group" style="grid-column: span 2;">
+                <div class="form-group col-span-2">
                   <label class="form-label">Últ. Distribución (KM)</label>
                   <input type="number" id="veh-km-distribucion" class="form-input" placeholder="Ej: 10000" min="0" />
                 </div>
@@ -490,7 +490,7 @@ function renderModalVehiculo() {
             <!-- Sección 5: Consumibles Sugeridos -->
             <div>
               <div class="form-section-title">🧼 Ficha Técnica de Consumibles (Sugeridos)</div>
-              <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px;">
+              <div class="grid grid-cols-2 gap-3">
                 <div class="form-group">
                   <label class="form-label">Aceite Sugerido</label>
                   <input type="text" id="veh-sug-aceite" class="form-input" placeholder="Ej: 5W-30 Sintético" />
@@ -694,11 +694,11 @@ async function decodeVIN() {
       
       res.innerHTML = `
         <div style="margin-bottom:6px; font-weight:800; color:#047857;">${specsText}</div>
-        <div class="vin-specs-badge-grid" style="display:grid; grid-template-columns: repeat(3, 1fr); gap: 6px; background: rgba(16,185,129,0.08); padding: 8px; border-radius: 6px; margin-top:6px; font-family:var(--font-sans); border:1px solid rgba(16,185,129,0.2);">
+        <div class="vin-specs-badge-grid">
           <div style="font-size:10px;"><span style="color:#64748b;">Motor:</span> <strong style="color:#0f172a;">${displacement || '—'} ${cylinders || ''}</strong></div>
           <div style="font-size:10px;"><span style="color:#64748b;">Transmisión:</span> <strong style="color:#0f172a;">${transmissionStyle ? (transmissionStyle.includes('manual') ? 'Manual' : 'Automático') : '—'}</strong></div>
           <div style="font-size:10px;"><span style="color:#64748b;">Carrocería:</span> <strong style="color:#0f172a; text-transform:capitalize;">${bodyClass || '—'}</strong></div>
-          <div style="font-size:10px; grid-column: span 3; border-top: 1px dashed rgba(16,185,129,0.2); padding-top:4px; margin-top:4px;">
+          <div class="col-span-3" style="font-size:10px; border-top: 1px dashed rgba(16,185,129,0.2); padding-top:4px; margin-top:4px;">
             <span style="color:#64748b;">Consumibles Sugeridos:</span><br/>
             <span style="color:#0f172a; font-weight:700;">🛢️ Aceite:</span> ${sugAceiteVal} <br/>
             <span style="color:#0f172a; font-weight:700;">❄️ Coolant:</span> ${sugRefrigVal}
@@ -854,7 +854,7 @@ function renderModalHistorial() {
         <div class="modal-body" style="display:flex;flex-direction:column;gap:16px;">
 
           <!-- Datos del vehículo -->
-          <div id="historial-veh-datos" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;"></div>
+          <div id="historial-veh-datos" class="grid grid-cols-2 gap-3"></div>
 
           <!-- Plano SVG interactivo -->
           <div>
@@ -985,7 +985,7 @@ async function verHistorial(id) {
 
   document.getElementById('historial-veh-datos').innerHTML = `
     <div style="background:var(--slate-9);padding:14px;border-radius:var(--radius-md);border:1px solid var(--slate-8);">
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+      <div class="grid grid-cols-3 gap-3">
         <div>
           <p style="font-size:10px;font-weight:700;color:var(--slate-5);text-transform:uppercase;">Vehículo</p>
           <p style="font-weight:800;color:var(--dark);margin-top:2px;">${v.marca_modelo} ${v.anio ? '('+v.anio+')' : ''}</p>
@@ -1001,7 +1001,7 @@ async function verHistorial(id) {
       </div>
     </div>
     <div style="background:var(--slate-9);padding:14px;border-radius:var(--radius-md);border:1px solid var(--slate-8);">
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+      <div class="grid grid-cols-3 gap-3">
         <div>
           <p style="font-size:10px;font-weight:700;color:var(--slate-5);text-transform:uppercase;">VIN</p>
           <p style="font-weight:700;color:var(--dark);font-family:'Courier New',monospace;font-size:12px;margin-top:2px;">${v.vin || '—'}</p>
@@ -1016,8 +1016,8 @@ async function verHistorial(id) {
         </div>
       </div>
     </div>
-    <div style="background:var(--slate-9);padding:14px;border-radius:var(--radius-md);border:1px solid var(--slate-8);grid-column: span 2;">
-      <div style="display:grid;grid-template-columns:repeat(4, 1fr);gap:12px;">
+    <div class="col-span-2" style="background:var(--slate-9);padding:14px;border-radius:var(--radius-md);border:1px solid var(--slate-8);">
+      <div class="grid grid-cols-4 gap-3">
         <div>
           <p style="font-size:9px;font-weight:700;color:var(--slate-5);text-transform:uppercase;">🛢️ Aceite Sugerido</p>
           <p style="font-weight:700;color:var(--dark);font-size:11px;margin-top:2px;">${v.sug_aceite || '—'}</p>

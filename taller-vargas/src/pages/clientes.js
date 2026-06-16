@@ -81,10 +81,10 @@ export async function init(container) {
 function renderSkeleton() {
   return `
     <div style="display:flex;flex-direction:column;gap:16px;padding:0;">
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;">
+      <div class="grid grid-cols-4 gap-4 mb-6">
         ${[0,1,2,3].map(()=>`<div style="height:92px;background:var(--slate-9);border-radius:16px;animation:pulse 1.5s infinite;"></div>`).join('')}
       </div>
-      <div style="display:grid;grid-template-columns:340px 1fr;gap:16px;height:calc(100vh - 260px);">
+      <div class="crm-split-layout" style="height:calc(100vh - 260px);">
         <div style="height:100%;background:var(--slate-9);border-radius:16px;animation:pulse 1.5s infinite;"></div>
         <div style="height:100%;background:var(--slate-9);border-radius:16px;animation:pulse 1.5s infinite;"></div>
       </div>
@@ -134,7 +134,7 @@ function renderCRM() {
     </div>
 
     <!-- ─ Split Screen ──────────────────────────────────────── -->
-    <div id="crm-split" style="display:grid;grid-template-columns:340px 1fr;gap:16px;flex:1;min-height:0;">
+    <div id="crm-split" class="crm-split-layout">
 
       <!-- Panel Izquierdo: Directorio -->
       <div class="card" style="display:flex;flex-direction:column;overflow:hidden;padding:0;">

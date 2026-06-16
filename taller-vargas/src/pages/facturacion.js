@@ -854,7 +854,7 @@ async function abrirFactura(id) {
   doc.innerHTML = `
     <div class="factura-doc">
       <!-- Cabecera -->
-      <div style="display:grid;grid-template-columns:1fr 220px;gap:24px;margin-bottom:24px;align-items:flex-start;">
+      <div class="factura-header-layout">
         <div>
           <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
             <div style="width:48px;height:48px;background:linear-gradient(135deg,#1e293b,#334155);border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
@@ -894,7 +894,7 @@ async function abrirFactura(id) {
       <!-- Datos del cliente / receptor -->
       <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px 16px;margin-bottom:20px;">
         <p style="font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Datos del ${tipo === 'Factura' ? 'Adquirente' : 'Cliente'}</p>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:12px;">
+        <div class="factura-details-grid">
           <div><span style="color:#64748b;">Razón Social:</span> <strong>${c.cliente_nombre || '—'}</strong></div>
           <div><span style="color:#64748b;">${c.tipo_doc}:</span> <strong style="font-family:monospace;">${c.num_doc || '—'}</strong></div>
           <div><span style="color:#64748b;">Orden de Servicio:</span> <strong style="font-family:monospace;">OS-${String(c.orden_numero).padStart(4,'0')}</strong></div>
@@ -954,7 +954,7 @@ async function abrirFactura(id) {
       </div>
 
       <!-- Método de pago y QR -->
-      <div style="display:grid;grid-template-columns:1fr auto;gap:20px;margin-top:20px;padding-top:16px;border-top:1px dashed #e2e8f0;align-items:center;">
+      <div class="factura-footer-layout">
         <div>
           <p style="font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Forma de Pago</p>
           <div style="display:flex;align-items:center;gap:8px;">

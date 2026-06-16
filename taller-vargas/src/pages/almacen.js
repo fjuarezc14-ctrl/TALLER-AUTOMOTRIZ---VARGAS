@@ -266,7 +266,7 @@ function renderAdminView(total, bajo, critico, valorCosto, valorVenta) {
 
 function renderMecanicoView() {
   return `
-    <div style="display:grid;grid-template-columns:1fr 360px;gap:20px;align-items:flex-start;">
+    <div class="almacen-split-layout">
       <!-- Listado de Insumos -->
       <div class="card" style="overflow:hidden;">
         <div style="padding:16px 20px;border-bottom:1px solid var(--slate-8);display:flex;justify-content:space-between;align-items:center;">
@@ -325,7 +325,7 @@ function renderMecanicoView() {
               </select>
             </div>
 
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div class="grid grid-cols-2 gap-3">
               <div class="form-group">
                 <label class="form-label">Cantidad</label>
                 <input type="number" id="sol-cantidad" min="1" value="1" class="form-input text-center font-bold" required />
@@ -627,7 +627,7 @@ function renderModales() {
             <input type="number" id="ajuste-cantidad" min="1" value="1" class="form-input text-center" style="width:130px;font-size:20px;font-weight:800;margin:0 auto;" />
           </div>
 
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px;">
+          <div class="grid grid-cols-2 gap-2 mt-1">
             <button class="btn-danger" id="btn-retirar-stock" style="justify-content:center;padding:10px;font-weight:800;">
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" style="margin-right:4px;"><path d="M20 12H4"/></svg>
               Retirar

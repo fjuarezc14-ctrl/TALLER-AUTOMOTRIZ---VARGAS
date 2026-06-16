@@ -548,7 +548,7 @@ function renderModales() {
           <form id="form-agregar-costo" style="background:var(--slate-9);padding:16px;border-radius:var(--radius-md);border:1px solid var(--slate-8);display:flex;flex-direction:column;gap:12px;">
             <div class="form-section-title" style="margin-bottom:0;">Agregar Concepto / Repuesto</div>
             
-            <div class="grid grid-cols-4 gap-3" style="grid-template-columns: 120px 2fr 1fr 1fr;">
+            <div class="cost-add-grid">
               <div class="form-group">
                 <label class="form-label">Tipo</label>
                 <select id="item-tipo" class="form-select" required>

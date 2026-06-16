@@ -24,6 +24,14 @@ export async function navigate(path = '/') {
     el.classList.toggle('sidebar-active', el.dataset.route === path);
   });
 
+  // Cerrar sidebar si está abierto en móvil
+  const sidebar = document.getElementById('sidebar-menu');
+  const backdrop = document.getElementById('sidebar-backdrop');
+  if (sidebar && sidebar.classList.contains('sidebar-open')) {
+    sidebar.classList.remove('sidebar-open');
+    if (backdrop) backdrop.classList.add('hidden');
+  }
+
   // Limpiar módulo anterior
   if (currentModule?.destroy) currentModule.destroy();
 
