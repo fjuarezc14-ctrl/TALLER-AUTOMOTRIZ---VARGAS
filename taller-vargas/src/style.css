@@ -1303,7 +1303,941 @@ html[data-theme="dark"] [style*="background:var(--dark)"] {
   .vin-specs-badge-grid > div[style*="grid-column: span 3"] {
     grid-column: span 1 !important;
   }
+}/* ============================================================
+   PORTAL DE MECÁNICO (MODO TALLER INDUSTRIAL) — STYLING
+   ============================================================ */
+
+/* Wrapper que fuerza colores industriales oscuros */
+.modo-taller-wrapper {
+  background-color: #0b0f19 !important;
+  color: #e2e8f0 !important;
+  min-height: 100vh;
+  margin: -24px; /* Contrarrestar padding del main container */
+  padding: 24px;
+  font-family: 'Outfit', 'Inter', sans-serif;
 }
 
+.taller-portal-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
 
+/* Loader */
+.taller-loader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 100px 20px;
+  gap: 16px;
+}
 
+.taller-spinner {
+  width: 50px;
+  height: 50px;
+  border: 5px solid #1e293b;
+  border-top-color: #10b981;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+.taller-error-card {
+  max-width: 480px;
+  margin: 60px auto;
+  background-color: #1e1b4b;
+  border: 2px solid #ef4444;
+  border-radius: 12px;
+  padding: 32px;
+  text-align: center;
+}
+
+.taller-error-card h2 {
+  color: #fca5a5;
+  margin-bottom: 12px;
+  font-size: 20px;
+}
+
+/* Login de Mecánico (Selector) */
+.taller-login-container {
+  max-width: 800px;
+  margin: 40px auto;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.taller-brand-header {
+  text-align: center;
+}
+
+.taller-brand-header h1 {
+  font-size: 28px;
+  font-weight: 950;
+  color: #10b981;
+  letter-spacing: -1px;
+  text-shadow: 0 4px 12px rgba(16,185,129,0.2);
+}
+
+.taller-brand-header p {
+  color: #64748b;
+  font-size: 13px;
+  margin-top: 4px;
+  font-weight: 700;
+}
+
+.taller-login-box {
+  background-color: #111827;
+  border: 1px solid #1e293b;
+  border-radius: 16px;
+  padding: 32px;
+  box-shadow: 0 10px 25px -5px rgba(0,0,0,0.3);
+}
+
+.taller-login-box h2 {
+  font-size: 20px;
+  font-weight: 800;
+  color: #f1f5f9;
+  text-align: center;
+}
+
+.taller-subtitle {
+  text-align: center;
+  color: #94a3b8;
+  font-size: 14px;
+  margin-bottom: 32px;
+}
+
+.taller-mecanicos-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 20px;
+}
+
+.taller-mecanico-card {
+  background: #1f2937;
+  border: 2px solid #374151;
+  border-radius: 14px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: white;
+}
+
+.taller-mecanico-card:hover {
+  border-color: #10b981;
+  background-color: #111827;
+  transform: translateY(-4px);
+  box-shadow: 0 8px 20px rgba(16,185,129,0.15);
+}
+
+.taller-avatar {
+  font-size: 40px;
+  margin-bottom: 12px;
+}
+
+.taller-mec-name {
+  font-size: 16px;
+  font-weight: 800;
+  margin-bottom: 8px;
+}
+
+.taller-tag-online {
+  background-color: #064e3b;
+  color: #34d399;
+  border: 1px solid #059669;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 99px;
+}
+
+/* Topbars */
+.taller-topbar, .taller-topbar-detail {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: #111827;
+  border: 1px solid #1e293b;
+  border-radius: 12px;
+  padding: 16px 24px;
+}
+
+.taller-topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.taller-badge-live {
+  background-color: #b91c1c;
+  color: white;
+  font-size: 10px;
+  font-weight: 900;
+  padding: 2px 8px;
+  border-radius: 4px;
+  animation: pulse-badge 1s infinite alternate;
+}
+
+.taller-topbar h2, .taller-topbar-detail h2 {
+  font-size: 18px;
+  font-weight: 850;
+  color: white;
+}
+
+.taller-topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.taller-user-info span {
+  font-size: 11px;
+  color: #64748b;
+  display: block;
+}
+
+.taller-user-info strong {
+  font-size: 14px;
+  color: #10b981;
+}
+
+.taller-btn-logout, .taller-btn-back {
+  background-color: #1f2937;
+  border: 1px solid #374151;
+  color: #cbd5e1;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.1s;
+}
+
+.taller-btn-logout:hover, .taller-btn-back:hover {
+  background-color: #ef4444;
+  border-color: #ef4444;
+  color: white;
+}
+
+/* Tabs */
+.taller-tabs-container {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.taller-tab-btn {
+  background-color: #111827;
+  border: 1px solid #1e293b;
+  color: #94a3b8;
+  padding: 12px 20px;
+  border-radius: 8px;
+  font-weight: 800;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.taller-tab-btn:hover {
+  background-color: #1f2937;
+  color: white;
+}
+
+.taller-tab-btn.taller-tab-active {
+  background-color: #10b981;
+  border-color: #10b981;
+  color: #042f2e;
+  box-shadow: 0 4px 12px rgba(16,185,129,0.2);
+}
+
+.taller-btn-refrescar {
+  margin-left: auto;
+  background-color: #1e293b;
+  border: 1px solid #334155;
+  color: white;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+/* Grid de órdenes activas */
+.taller-trabajos-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  gap: 20px;
+}
+
+.taller-trabajo-card {
+  background-color: #111827;
+  border: 1px solid #1e293b;
+  border-radius: 12px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transition: all 0.2s;
+  cursor: pointer;
+}
+
+.taller-trabajo-card:hover {
+  border-color: #3b82f6;
+  box-shadow: 0 8px 24px rgba(59,130,246,0.15);
+}
+
+.taller-card-assigned {
+  border: 1.5px solid #10b981;
+}
+
+.taller-card-header {
+  background-color: #1f2937;
+  padding: 12px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #1e293b;
+}
+
+.taller-card-placa {
+  background-color: #0b0f19;
+  border: 1px solid #374151;
+  color: #f3f4f6;
+  font-family: monospace;
+  font-weight: 900;
+  font-size: 14px;
+  padding: 3px 8px;
+  border-radius: 4px;
+}
+
+.taller-badge {
+  font-size: 10px;
+  font-weight: 850;
+  padding: 2px 6px;
+  border-radius: 99px;
+}
+
+.badge-diag { background-color: #78350f; color: #fef3c7; }
+.badge-proceso { background-color: #1e3a8a; color: #dbeafe; }
+.badge-espera { background-color: #581c87; color: #f3e8ff; }
+
+.taller-card-body {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1;
+}
+
+.taller-card-body h3 {
+  font-size: 16px;
+  font-weight: 800;
+  color: white;
+  margin-bottom: 4px;
+}
+
+.taller-card-field {
+  font-size: 12px;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.taller-card-field strong {
+  color: #64748b;
+}
+
+.taller-card-field span {
+  color: #cbd5e1;
+  text-align: right;
+}
+
+.taller-falla-text {
+  max-width: 180px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.taller-mec-assigned {
+  color: #10b981 !important;
+  font-weight: 800;
+}
+
+.taller-btn-tactile-open {
+  background-color: #1f2937;
+  border: none;
+  border-top: 1px solid #1e293b;
+  color: #3b82f6;
+  font-weight: 800;
+  font-size: 13px;
+  padding: 12px;
+  cursor: pointer;
+  transition: all 0.1s;
+}
+
+.taller-btn-tactile-open:hover {
+  background-color: #3b82f6;
+  color: white;
+}
+
+/* Detalle de Ficha y Silueta */
+.taller-detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+
+@media (max-width: 900px) {
+  .taller-detail-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.taller-col-silueta {
+  background-color: #111827;
+  border: 1px solid #1e293b;
+  border-radius: 16px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+
+.taller-panel-header {
+  text-align: center;
+}
+
+.taller-panel-header h3 {
+  font-size: 15px;
+  font-weight: 900;
+  color: #10b981;
+}
+
+.taller-panel-header p {
+  font-size: 11px;
+  color: #64748b;
+  margin-top: 2px;
+}
+
+.taller-svg-wrapper {
+  width: 100%;
+  max-width: 320px;
+  background-color: #0b0f19;
+  border-radius: 12px;
+  border: 1px dashed #374151;
+  padding: 12px;
+}
+
+.taller-car-svg {
+  width: 100%;
+  height: auto;
+}
+
+.taller-svg-hotzone {
+  cursor: pointer;
+}
+
+.taller-svg-hotzone circle {
+  transition: all 0.2s ease;
+}
+
+.taller-svg-hotzone:hover circle:first-child {
+  fill-opacity: 0.65;
+  r: 32;
+}
+
+.taller-silueta-legend {
+  display: flex;
+  gap: 16px;
+  font-size: 11px;
+  font-weight: 800;
+  color: #94a3b8;
+}
+
+/* Columna Derecha Acciones */
+.taller-col-acciones {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.taller-detail-box {
+  background-color: #111827;
+  border: 1px solid #1e293b;
+  border-radius: 12px;
+  padding: 20px;
+}
+
+.taller-detail-box h4 {
+  font-size: 12px;
+  font-weight: 900;
+  color: #64748b;
+  margin-bottom: 12px;
+  text-transform: uppercase;
+  border-bottom: 1px solid #1e293b;
+  padding-bottom: 6px;
+}
+
+.info-cliente-box p {
+  font-size: 13px;
+  color: #cbd5e1;
+  margin-bottom: 6px;
+}
+
+.txt-falla-alert {
+  color: #f87171;
+  font-weight: 700;
+}
+
+.taller-actions-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+@media (max-width: 480px) {
+  .taller-actions-buttons {
+    grid-template-columns: 1fr;
+  }
+}
+
+.taller-btn-ctrl {
+  border: none;
+  border-radius: 8px;
+  padding: 14px;
+  font-weight: 850;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.btn-repuestos {
+  grid-column: span 2;
+  background-color: #065f46;
+  color: #a7f3d0;
+}
+.btn-repuestos:hover { background-color: #047857; }
+
+@media (max-width: 480px) {
+  .btn-repuestos { grid-column: span 1; }
+}
+
+.btn-proceso-taller { background-color: #1e3a8a; color: #bfdbfe; }
+.btn-proceso-taller:hover { background-color: #1d4ed8; }
+
+.btn-espera-taller { background-color: #581c87; color: #e9d5ff; }
+.btn-espera-taller:hover { background-color: #6b21a8; }
+
+.btn-finalizar-taller {
+  grid-column: span 2;
+  background-color: #10b981;
+  color: #042f2e;
+  font-size: 13px;
+  padding: 16px;
+}
+.btn-finalizar-taller:hover { background-color: #059669; }
+
+@media (max-width: 480px) {
+  .btn-finalizar-taller { grid-column: span 1; }
+}
+
+/* Checklist resumen list */
+.taller-checklist-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.taller-chk-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: #1f2937;
+  padding: 10px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s;
+  border: 1px solid transparent;
+}
+
+.taller-chk-row:hover {
+  border-color: #3b82f6;
+  background-color: #111827;
+}
+
+.taller-chk-left {
+  display: flex;
+  align-items: center;
+}
+
+.taller-chk-left strong {
+  font-size: 13px;
+  color: white;
+}
+
+.taller-chk-desc-label {
+  font-size: 10px;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 99px;
+  text-transform: uppercase;
+}
+
+.taller-btn-save-diagnostico {
+  width: 100%;
+  background-color: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 12px;
+  font-weight: 800;
+  font-size: 12px;
+  cursor: pointer;
+}
+.taller-btn-save-diagnostico:hover {
+  background-color: #2563eb;
+}
+
+/* Cajón Táctil (Bottom Sheet) */
+.taller-drawer-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0,0,0,0.85);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  z-index: 1000;
+  transition: opacity 0.25s ease;
+}
+
+.taller-bottom-drawer {
+  background-color: #111827;
+  border-top-left-radius: 20px;
+  border-top-right-radius: 20px;
+  width: 100%;
+  max-width: 600px;
+  max-height: 90vh;
+  box-shadow: 0 -10px 25px -5px rgba(0,0,0,0.5);
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #1e293b;
+  border-bottom: none;
+}
+
+.taller-drawer-header {
+  padding: 20px 24px;
+  border-bottom: 1px solid #1e293b;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.taller-drawer-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.taller-drawer-icon {
+  font-size: 24px;
+}
+
+.taller-drawer-title h3 {
+  font-size: 18px;
+  font-weight: 900;
+  color: white;
+}
+
+.taller-drawer-close {
+  background: none;
+  border: none;
+  color: #94a3b8;
+  font-size: 20px;
+  cursor: pointer;
+}
+
+.taller-drawer-body {
+  padding: 24px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.taller-drawer-label {
+  font-size: 11px;
+  font-weight: 850;
+  color: #64748b;
+  letter-spacing: 0.5px;
+}
+
+.taller-drawer-status-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.taller-drawer-status-btn {
+  background-color: #1f2937;
+  border: 2px solid #374151;
+  border-radius: 10px;
+  padding: 12px;
+  color: white;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  transition: all 0.15s;
+}
+
+.taller-drawer-status-btn .bullet {
+  font-size: 18px;
+  margin-bottom: 4px;
+}
+
+.taller-drawer-status-btn strong {
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.taller-drawer-status-btn small {
+  font-size: 10px;
+  color: #64748b;
+}
+
+.taller-drawer-status-btn.active {
+  border-width: 2.5px;
+}
+
+.taller-drawer-status-btn.btn-state-ok.active {
+  border-color: #22c55e;
+  background-color: #064e3b;
+}
+.taller-drawer-status-btn.btn-state-review.active {
+  border-color: #eab308;
+  background-color: #713f12;
+}
+.taller-drawer-status-btn.btn-state-repair.active {
+  border-color: #ef4444;
+  background-color: #7f1d1d;
+}
+.taller-drawer-status-btn.btn-state-na.active {
+  border-color: #94a3b8;
+  background-color: #334155;
+}
+
+.taller-drawer-textarea {
+  background-color: #0b0f19;
+  border: 1px solid #374151;
+  border-radius: 8px;
+  color: white;
+  padding: 12px;
+  font-size: 13px;
+  min-height: 80px;
+  font-family: inherit;
+  resize: vertical;
+}
+
+.taller-drawer-btn-save {
+  background-color: #10b981;
+  color: #042f2e;
+  border: none;
+  border-radius: 10px;
+  padding: 16px;
+  font-weight: 900;
+  font-size: 14px;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(16,185,129,0.25);
+  margin-top: 10px;
+}
+
+.taller-drawer-btn-save:hover {
+  background-color: #059669;
+}
+
+/* Modales para Taller */
+.taller-modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0,0,0,0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1050;
+  padding: 16px;
+}
+
+.taller-modal {
+  background-color: #111827;
+  border: 1px solid #1e293b;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 500px;
+  max-height: 85vh;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+  display: flex;
+  flex-direction: column;
+}
+
+.taller-modal-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid #1e293b;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.taller-modal-header h3 {
+  font-size: 16px;
+  font-weight: 900;
+  color: white;
+}
+
+.taller-modal-close {
+  background: none;
+  border: none;
+  color: #94a3b8;
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.taller-modal-body {
+  padding: 20px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.taller-search-box input {
+  width: 100%;
+  background-color: #0b0f19;
+  border: 1px solid #374151;
+  border-radius: 8px;
+  color: white;
+  padding: 10px 14px;
+  font-size: 13px;
+}
+
+.taller-modal-table-wrapper {
+  max-height: 180px;
+  overflow-y: auto;
+  border: 1px solid #1e293b;
+  border-radius: 8px;
+}
+
+.taller-modal-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  text-align: left;
+}
+
+.taller-modal-table th {
+  background-color: #1f2937;
+  color: #94a3b8;
+  padding: 8px 12px;
+  font-weight: 800;
+}
+
+.taller-modal-table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid #1e293b;
+  color: #cbd5e1;
+}
+
+.taller-btn-seleccionar-repuesto {
+  background-color: #1e3a8a;
+  color: #bfdbfe;
+  border: none;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.taller-pedir-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.taller-divider {
+  border-color: #1e293b;
+  margin: 10px 0;
+}
+
+.taller-pedir-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.taller-counter-wrapper {
+  display: flex;
+  align-items: center;
+  background-color: #0b0f19;
+  border: 1px solid #374151;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.taller-btn-counter {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 20px;
+  width: 40px;
+  height: 40px;
+  cursor: pointer;
+}
+.taller-btn-counter:hover {
+  background-color: #1f2937;
+}
+
+#pedido-cantidad {
+  background: none;
+  border: none;
+  width: 50px;
+  height: 40px;
+  color: white;
+  text-align: center;
+  font-weight: 900;
+  font-size: 16px;
+}
+
+.taller-btn-submit-pedido {
+  background-color: #10b981;
+  color: #042f2e;
+  border: none;
+  border-radius: 8px;
+  padding: 14px;
+  font-weight: 900;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.hidden {
+  display: none !important;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}

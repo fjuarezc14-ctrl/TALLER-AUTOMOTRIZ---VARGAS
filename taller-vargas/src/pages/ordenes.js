@@ -1416,6 +1416,65 @@ function imprimirDocumento(tipo, o) {
     </tr>
   `).join('');
 
+  // Parsear diagnóstico para incluirlo visualmente en los documentos
+  let diag = null;
+  try {
+    if (o.diagnostico) {
+      diag = typeof o.diagnostico === 'string' ? JSON.parse(o.diagnostico) : o.diagnostico;
+    }
+  } catch (e) {
+    console.error('Error parseando diagnostico para impresion:', e);
+  }
+
+  let diagnosticoHtml = '';
+  if (diag && Object.keys(diag).length > 0) {
+    const ESTADOS_TEXT = {
+      ok: '🟢 OK',
+      review: '🟡 Revisión',
+      repair: '🔴 Crítico',
+      na: '⚫ N/A'
+    };
+    const NOMBRES_COMPONENTE = {
+      motor: 'Motor',
+      transmision: 'Transmisión',
+      direccion: 'Dirección',
+      electrico: 'Sis. Eléctrico',
+      frenos_del: 'Frenos Del.',
+      suspension_del: 'Susp. Delantera',
+      frenos_tras: 'Frenos Tras.',
+      suspension_tras: 'Susp. Trasera'
+    };
+
+    const rows = Object.entries(diag).map(([key, item]) => {
+      const compLabel = NOMBRES_COMPONENTE[key] || key;
+      const estadoLabel = ESTADOS_TEXT[item.estado] || ESTADOS_TEXT.na;
+      const notas = item.notes || item.notas || 'Inspeccionado.';
+      return `
+        <tr style="border-bottom:1px dashed #ccc;">
+          <td style="padding:4px 6px;"><strong>${compLabel}</strong></td>
+          <td style="padding:4px 6px;text-align:center;font-weight:bold;">${estadoLabel}</td>
+          <td style="padding:4px 6px;color:#333;font-size:10px;">${notas}</td>
+        </tr>
+      `;
+    }).join('');
+
+    diagnosticoHtml = `
+      <h4 style="margin:20px 0 5px;text-transform:uppercase;font-size:11px;border-bottom:1px solid #000;padding-bottom:2px;">Ficha de Diagnóstico e Inspección</h4>
+      <table class="print-table" style="font-size:10px; width:100%; border-collapse:collapse; margin-bottom:15px;">
+        <thead>
+          <tr style="background:#f3f4f6; border-bottom:1px solid #000;">
+            <th style="padding:4px;text-align:left;width:30%;">Componente</th>
+            <th style="padding:4px;text-align:center;width:30%;">Estado</th>
+            <th style="padding:4px;text-align:left;width:40%;">Notas / Observación</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows}
+        </tbody>
+      </table>
+    `;
+  }
+
   if (tipo === 'nota') {
     // 🎫 Ticket Cliente (Nota Interna de Entrega de Vehículo)
     printArea.innerHTML = `
@@ -1449,9 +1508,11 @@ function imprimirDocumento(tipo, o) {
         </tbody>
       </table>
 
-      <div style="text-align:right;margin-top:15px;font-size:14px;font-weight:bold;border-top:1px double #000;padding-top:8px;">
+      <div style="text-align:right;margin-top:15px;font-size:14px;font-weight:bold;border-top:1px double #000;padding-top:8px;margin-bottom:15px;">
         TOTAL ESTIMADO: S/ ${parseFloat(o.total_estimado || 0).toFixed(2)}
       </div>
+
+      ${diagnosticoHtml}
 
       <div style="font-size:10px;margin-top:30px;text-align:center;border-top:1px dashed #000;padding-top:10px;">
         <p>El vehículo se entrega a conformidad en sus componentes mecánicos y de carrocería reportados.</p>
@@ -1518,6 +1579,8 @@ function imprimirDocumento(tipo, o) {
           <p style="margin-top:3px;font-style:italic;">${o.repuestos_esperando}</p>
         </div>
       ` : ''}
+
+      ${diagnosticoHtml}
 
       <div style="margin-top:20px;border:1px solid #000;padding:12px;font-size:10px;">
         <strong>OBSERVACIONES Y NOTAS TÉCNICAS DEL MECÁNICO:</strong>

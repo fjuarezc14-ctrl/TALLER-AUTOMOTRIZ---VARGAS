@@ -66,6 +66,7 @@ export const updateOrden    = (id, data) => request(`/ordenes/${id}`, { method: 
 export const cambiarEstado  = (id, data) => request(`/ordenes/${id}/estado`, { method: 'PATCH', body: data });
 export const addItem        = (id, data) => request(`/ordenes/${id}/items`, { method: 'POST', body: data });
 export const deleteItem     = (oid, iid) => request(`/ordenes/${oid}/items/${iid}`, { method: 'DELETE' });
+export const guardarDiagnosticoOrden = (id, diagnostico) => request(`/ordenes/${id}/diagnostico`, { method: 'PATCH', body: { diagnostico } });
 
 // ── Almacén ───────────────────────────────────────────────
 export const getAlmacen       = ()           => request('/almacen');
@@ -77,6 +78,8 @@ export const deleteProducto   = (id)         => request(`/almacen/${id}`, { meth
 export const ajustarStock     = (id, data)   => request(`/almacen/${id}/stock`, { method: 'PATCH', body: data });
 export const getSolicitudesMecanico = ()     => request('/almacen/solicitudes');
 export const crearSolicitudMecanico = (data) => request('/almacen/solicitudes', { method: 'POST', body: data });
+export const confirmarSolicitudMecanico = (id) => request(`/almacen/solicitudes/${id}/confirmar`, { method: 'PATCH' });
+export const eliminarSolicitudMecanico = (id) => request(`/almacen/solicitudes/${id}`, { method: 'DELETE' });
 
 // ── Facturación ───────────────────────────────────────────
 export const getCobros    = ()         => request('/cobros');

@@ -206,5 +206,18 @@ router.patch("/:id/mecanico", async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// PATCH /ordenes/:id/diagnostico — guardar el diagnóstico JSON
+router.patch("/:id/diagnostico", async (req, res) => {
+  const { diagnostico } = req.body;
+  try {
+    const r = await query(
+      "UPDATE ordenes_servicio SET diagnostico=$1 WHERE id=$2 RETURNING *",
+      [diagnostico ? JSON.stringify(diagnostico) : null, req.params.id]
+    );
+    if (!r.rows.length) return res.status(404).json({ error: "Orden no encontrada" });
+    res.json(r.rows[0]);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 export default router;
 

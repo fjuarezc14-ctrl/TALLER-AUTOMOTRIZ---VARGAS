@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { query } from '../db.js';
+import { query, getClient } from '../db.js';
 
 const router = Router();
 
@@ -95,7 +95,9 @@ router.delete('/:id', async (req, res) => {
 
 // POST /api/almacen/solicitudes  (mecánico solicita repuestos)
 router.post('/solicitudes', async (req, res) => {
-  const { mecanico_id, orden_id, repuesto_id, cantidad, fecha_entrega } = req.body;
+  const { mecanico_id, orden_id, repuesto_id, cantidad, fecha_entrega, confirmado } = req.body;
+  const isConfirmado = confirmado === undefined ? false : !!confirmado;
+
   try {
     // Verificar stock suficiente
     const stockRes = await query('SELECT stock FROM almacen WHERE id=$1', [repuesto_id]);
@@ -104,15 +106,17 @@ router.post('/solicitudes', async (req, res) => {
       return res.status(400).json({ error: `Stock insuficiente. Disponible: ${stockRes.rows[0].stock}` });
     }
 
-    // Crear solicitud y descontar stock en una transacción
+    // Crear solicitud y descontar stock si está confirmado
     const result = await query(
       `INSERT INTO solicitudes_mecanico (mecanico_id, orden_id, repuesto_id, cantidad, fecha_entrega, confirmado)
-       VALUES ($1,$2,$3,$4,$5, TRUE) RETURNING *`,
-      [mecanico_id, orden_id || null, repuesto_id, cantidad, fecha_entrega]
+       VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
+      [mecanico_id, orden_id || null, repuesto_id, cantidad, fecha_entrega || null, isConfirmado]
     );
 
-    // Descontar stock directamente (confirmado=TRUE desde el inicio)
-    await query('UPDATE almacen SET stock = stock - $1 WHERE id=$2', [cantidad, repuesto_id]);
+    if (isConfirmado) {
+      // Descontar stock directamente (confirmado=TRUE desde el inicio)
+      await query('UPDATE almacen SET stock = stock - $1 WHERE id=$2', [cantidad, repuesto_id]);
+    }
 
     res.status(201).json(result.rows[0]);
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -132,6 +136,107 @@ router.get('/solicitudes', async (_req, res) => {
     `);
     res.json(result.rows);
   } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// PATCH /api/almacen/solicitudes/:id/confirmar
+router.patch('/solicitudes/:id/confirmar', async (req, res) => {
+  const { id } = req.params;
+  const client = await getClient();
+  try {
+    await client.query('BEGIN');
+    
+    // Obtener la solicitud
+    const solRes = await client.query('SELECT * FROM solicitudes_mecanico WHERE id = $1', [id]);
+    if (!solRes.rows.length) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Solicitud no encontrada' });
+    }
+    const sol = solRes.rows[0];
+    if (sol.confirmado) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'La solicitud ya ha sido confirmada anteriormente' });
+    }
+
+    // Obtener el repuesto del almacén
+    const repRes = await client.query('SELECT * FROM almacen WHERE id = $1', [sol.repuesto_id]);
+    if (!repRes.rows.length) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Repuesto no encontrado en el almacén' });
+    }
+    const rep = repRes.rows[0];
+
+    // Verificar stock
+    if (rep.stock < sol.cantidad) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: `Stock insuficiente. Disponible: ${rep.stock}, Solicitado: ${sol.cantidad}` });
+    }
+
+    // 1. Confirmar la solicitud
+    await client.query(
+      `UPDATE solicitudes_mecanico 
+       SET confirmado = TRUE, fecha_entrega = CURRENT_DATE 
+       WHERE id = $1`,
+      [id]
+    );
+
+    // 2. Descontar stock de almacén
+    await client.query(
+      `UPDATE almacen 
+       SET stock = stock - $1 
+       WHERE id = $2`,
+      [sol.cantidad, sol.repuesto_id]
+    );
+
+    // 3. Agregar repuesto a items_costo de la orden si tiene orden_id
+    if (sol.orden_id) {
+      await client.query(
+        `INSERT INTO items_costo (orden_id, tipo, descripcion, cantidad, precio_unitario, repuesto_cod)
+         VALUES ($1, 'almacen', $2, $3, $4, $5)`,
+        [sol.orden_id, rep.descripcion, sol.cantidad, rep.precio_venta, rep.codigo]
+      );
+
+      // 4. Recalcular total estimado de la orden
+      const totRes = await client.query(
+        `SELECT COALESCE(SUM(cantidad * precio_unitario), 0) AS t 
+         FROM items_costo 
+         WHERE orden_id = $1`,
+        [sol.orden_id]
+      );
+      await client.query(
+        `UPDATE ordenes_servicio 
+         SET total_estimado = $1 
+         WHERE id = $2`,
+        [parseFloat(totRes.rows[0].t), sol.orden_id]
+      );
+    }
+
+    await client.query('COMMIT');
+    res.json({ message: 'Solicitud confirmada exitosamente', solicitud_id: id });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
+  }
+});
+
+// DELETE /api/almacen/solicitudes/:id
+router.delete('/solicitudes/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const solRes = await query('SELECT * FROM solicitudes_mecanico WHERE id = $1', [id]);
+    if (!solRes.rows.length) {
+      return res.status(404).json({ error: 'Solicitud no encontrada' });
+    }
+    const sol = solRes.rows[0];
+    if (sol.confirmado) {
+      return res.status(400).json({ error: 'No se puede eliminar una solicitud ya confirmada.' });
+    }
+    await query('DELETE FROM solicitudes_mecanico WHERE id = $1', [id]);
+    res.json({ message: 'Solicitud eliminada/cancelada correctamente' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 export default router;

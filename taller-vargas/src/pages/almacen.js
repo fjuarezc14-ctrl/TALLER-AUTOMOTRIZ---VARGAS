@@ -1,7 +1,7 @@
 import { 
   getAlmacen, getAlmacenMecanico, createProducto, updateProducto, 
   deleteProducto, ajustarStock, getMecanicos, crearSolicitudMecanico,
-  getSolicitudesMecanico
+  getSolicitudesMecanico, confirmarSolicitudMecanico, eliminarSolicitudMecanico
 } from '../api.js';
 
 function safeFormatDate(dateVal, options = { day: '2-digit', month: 'short', year: 'numeric' }) {
@@ -29,11 +29,14 @@ let productosAdmin = [];
 let productosMecanico = [];
 let mecanicosList = [];
 let solicitudesList = [];
+let knownPendingIds = new Set();
+let pollingInterval = null;
 
 export async function init(container) {
   containerElement = container;
   container.innerHTML = `<div class="fade-in" id="almacen-root"></div>`;
   await cargarDatos();
+  startPolling();
 }
 
 async function cargarDatos() {
@@ -57,6 +60,8 @@ async function cargarDatos() {
     productosMecanico = pMec;
     mecanicosList = mecs;
     solicitudesList = sols;
+    // Guardar ids ya conocidos para no hacer sonar la campana con los históricos
+    sols.filter(s => !s.confirmado).forEach(s => knownPendingIds.add(s.id));
     renderPage();
     if (window.refreshStockAlerts) window.refreshStockAlerts();
   } catch (err) {
@@ -114,8 +119,8 @@ function renderPage() {
           <button class="btn-tab ${activeTab === 'mecanico' ? 'active-tab' : ''}" id="tab-mecanico" style="font-size:11px;padding:6px 12px;border:none;background:transparent;cursor:pointer;font-weight:700;border-radius:6px;">
             🔧 Retiro Taller
           </button>
-          <button class="btn-tab ${activeTab === 'solicitudes' ? 'active-tab' : ''}" id="tab-solicitudes" style="font-size:11px;padding:6px 12px;border:none;background:transparent;cursor:pointer;font-weight:700;border-radius:6px;">
-            📋 Historial${alertasTotal > 0 ? ` <span style="background:#ef4444;color:#fff;border-radius:99px;font-size:9px;padding:1px 5px;margin-left:3px;">${alertasTotal}</span>` : ''}
+          <button class="btn-tab ${activeTab === 'solicitudes' ? 'active-tab' : ''}" id="tab-solicitudes" style="font-size:11px;padding:6px 12px;border:none;background:transparent;cursor:pointer;font-weight:700;border-radius:6px;position:relative;">
+            📋 Historial${solicitudesList.filter(s => !s.confirmado).length > 0 ? ` <span style="background:#f59e0b;color:#1e293b;border-radius:99px;font-size:9px;font-weight:900;padding:1px 5px;margin-left:3px;animation: blink-amber 1s infinite alternate;">${solicitudesList.filter(s => !s.confirmado).length} PEND.</span>` : ''}
           </button>
         </div>
       </div>
@@ -147,6 +152,7 @@ function renderPage() {
     .badge-bajo { background:#fffbeb;color:#b45309;border:1px solid #fde68a; }
     .badge-normal { background:#f0fdf4;color:#15803d;border:1px solid #bbf7d0; }
     @keyframes pulse-badge { from { opacity: 0.7; } to { opacity: 1; } }
+    @keyframes blink-amber { 0% { opacity: 0.4; } 100% { opacity: 1; } }
     .stat-kpi { background:var(--white);border:1px solid var(--slate-8);border-radius:var(--radius-md);padding:16px 20px;display:flex;align-items:center;gap:14px;box-shadow:var(--shadow-sm);transition:transform 0.15s ease; }
     .stat-kpi:hover { transform:translateY(-2px); }
     .retiro-card { background:var(--white);border:1px solid var(--slate-7);border-radius:var(--radius-md);padding:14px;transition:all 0.15s; }
@@ -180,6 +186,21 @@ function renderPage() {
   } else if (activeTab === 'mecanico') {
     document.getElementById('search-mecanico').addEventListener('input', filtrarMecanico);
     document.getElementById('form-solicitud-mecanico').addEventListener('submit', guardarSolicitudMecanico);
+  } else if (activeTab === 'solicitudes') {
+    const listBody = document.getElementById('tabla-solicitudes-body');
+    if (listBody) {
+      listBody.addEventListener('click', async (e) => {
+        const confirmBtn = e.target.closest('.btn-confirmar-sol');
+        const rejectBtn = e.target.closest('.btn-rechazar-sol');
+        if (confirmBtn) {
+          const id = confirmBtn.dataset.id;
+          await confirmarEntregaSolicitud(id);
+        } else if (rejectBtn) {
+          const id = rejectBtn.dataset.id;
+          await rechazarSolicitud(id);
+        }
+      });
+    }
   }
 }
 
@@ -354,75 +375,142 @@ function renderMecanicoView() {
 }
 
 function renderSolicitudesView() {
-  if (solicitudesList.length === 0) {
-    return `
-      <div style="text-align:center;padding:80px 20px;background:var(--white);border-radius:var(--radius-lg);border:1px dashed var(--slate-7);">
-        <div style="font-size:48px;margin-bottom:16px;">📋</div>
-        <p style="font-size:16px;font-weight:800;color:var(--dark);margin-bottom:8px;">Sin historial de retiros</p>
-        <p style="font-size:13px;color:var(--slate-5);">Cuando un mecánico registre un retiro de insumos, aparecerá aquí.</p>
-      </div>`;
+  const pendientes = solicitudesList.filter(s => !s.confirmado);
+  const entregados = solicitudesList.filter(s => s.confirmado);
+
+  let html = '';
+
+  if (pendientes.length > 0) {
+    html += `
+      <!-- Alertas de Solicitudes Pendientes (Mecánicos) -->
+      <div class="card" style="border: 2px solid #f59e0b; margin-bottom: 20px; overflow: hidden; background: #fffbeb;">
+        <div style="background:#fde68a; padding:12px 20px; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #f59e0b;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="font-size:18px; animation: pulse-badge 1s infinite alternate;">⚠️</span>
+            <strong style="color:#78350f; font-size:13px;">PEDIDOS PENDIENTES DE MECÁNICOS (ENTREGA TALLER)</strong>
+          </div>
+          <span style="background:#f59e0b; color:#1e293b; font-weight:800; font-size:10px; padding:2px 8px; border-radius:99px;">
+            ${pendientes.length} POR ENTREGAR
+          </span>
+        </div>
+        <div style="overflow-x:auto;">
+          <table class="data-table" style="font-size:12px; background:transparent;">
+            <thead>
+              <tr style="background:rgba(253,230,138,0.4);">
+                <th>Mecánico</th>
+                <th>Repuesto Solicitado</th>
+                <th class="text-center">Cant.</th>
+                <th>Orden de Servicio</th>
+                <th class="text-center">Acciones de Despacho</th>
+              </tr>
+            </thead>
+            <tbody id="tabla-solicitudes-body">
+              ${pendientes.map(s => {
+                return `
+                  <tr style="border-bottom:1px solid #fde68a;">
+                    <td>
+                      <strong style="color:#78350f;">${s.mecanico_nombre || '—'}</strong>
+                    </td>
+                    <td>
+                      <strong style="display:block;">${s.repuesto_desc || '—'}</strong>
+                      <span style="font-family:monospace;font-size:10px;color:#b45309;">[${s.repuesto_cod || '—'}]</span>
+                    </td>
+                    <td class="text-center">
+                      <span style="background:#b45309;color:white;font-weight:800;padding:2px 8px;border-radius:99px;font-size:11px;">${s.cantidad}</span>
+                    </td>
+                    <td>
+                      ${s.orden_numero 
+                        ? `<span style="background:#fef3c7;color:#b45309;border:1px solid #fde68a;font-size:10px;font-weight:800;padding:3px 8px;border-radius:99px;font-family:monospace;">OS-${String(s.orden_numero).padStart(4, '0')}</span>` 
+                        : `<span style="color:#78350f;font-style:italic;font-size:11px;">Retiro directo</span>`}
+                    </td>
+                    <td class="text-center">
+                      <div style="display:flex;gap:6px;justify-content:center;align-items:center;">
+                        <button class="btn-confirmar-sol" data-id="${s.id}" style="background:#10b981;color:white;border:none;padding:5px 12px;border-radius:6px;font-weight:800;font-size:11px;cursor:pointer;box-shadow:0 2px 4px rgba(16,185,129,0.2); transition: all 0.1s;">
+                          ✓ Confirmar Entrega
+                        </button>
+                        <button class="btn-rechazar-sol" data-id="${s.id}" style="background:#ef4444;color:white;border:none;padding:5px 10px;border-radius:6px;font-weight:800;font-size:11px;cursor:pointer;box-shadow:0 2px 4px rgba(239,68,68,0.2); transition: all 0.1s;">
+                          ✕ Rechazar
+                        </button>
+                      </div>
+                    </td>
+                  </tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
   }
 
-  return `
-    <div class="card" style="overflow:hidden;">
-      <div style="padding:16px 20px;border-bottom:1px solid var(--slate-8);display:flex;justify-content:space-between;align-items:center;">
-        <div>
-          <span style="font-size:14px;font-weight:800;color:var(--dark);">Historial de Retiros de Almacén</span>
-          <p style="font-size:11px;color:var(--slate-5);margin-top:1px;">${solicitudesList.length} retiro${solicitudesList.length !== 1 ? 's' : ''} registrado${solicitudesList.length !== 1 ? 's' : ''}</p>
+  // Ahora el historial normal
+  if (entregados.length === 0) {
+    html += `
+      <div style="text-align:center;padding:80px 20px;background:var(--white);border-radius:var(--radius-lg);border:1px dashed var(--slate-7);">
+        <div style="font-size:48px;margin-bottom:16px;">📋</div>
+        <p style="font-size:16px;font-weight:800;color:var(--dark);margin-bottom:8px;">Sin historial de entregados</p>
+        <p style="font-size:13px;color:var(--slate-5);">Cuando se confirmen despachos de taller, aparecerán aquí.</p>
+      </div>`;
+  } else {
+    html += `
+      <div class="card" style="overflow:hidden;">
+        <div style="padding:16px 20px;border-bottom:1px solid var(--slate-8);display:flex;justify-content:space-between;align-items:center;">
+          <div>
+            <span style="font-size:14px;font-weight:800;color:var(--dark);">Historial de Retiros Entregados (Almacén)</span>
+            <p style="font-size:11px;color:var(--slate-5);margin-top:1px;">${entregados.length} retiro${entregados.length !== 1 ? 's' : ''} entregado${entregados.length !== 1 ? 's' : ''}</p>
+          </div>
+          <span style="background:#f0fdf4;color:#15803d;border:1px solid #bbf7d0;font-size:10px;font-weight:800;padding:4px 10px;border-radius:99px;">CONFIRMADOS</span>
         </div>
-        <span style="background:#f0fdf4;color:#15803d;border:1px solid #bbf7d0;font-size:10px;font-weight:800;padding:4px 10px;border-radius:99px;">CONFIRMADOS</span>
-      </div>
-      <div style="overflow-x:auto;">
-        <table class="data-table" style="font-size:12px;">
-          <thead>
-            <tr>
-              <th>Fecha Retiro</th>
-              <th>Mecánico</th>
-              <th>Repuesto / Insumo</th>
-              <th class="text-center">Cant.</th>
-              <th>OS Vinculada</th>
-              <th>Fecha Est. Trabajo</th>
-              <th class="text-center">Estado</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${solicitudesList.map(s => {
-              const fechaRetiro = safeFormatDate(s.created_at, { day: '2-digit', month: 'short', year: 'numeric' });
-              const fechaEntrega = safeFormatDate(s.fecha_entrega, { day: '2-digit', month: 'short', year: 'numeric' });
-              return `
-                <tr class="prod-row">
-                  <td style="color:var(--slate-5);font-size:11px;">${fechaRetiro}</td>
-                  <td>
-                    <div style="display:flex;align-items:center;gap:8px;">
-                      <div style="width:28px;height:28px;background:linear-gradient(135deg,#1e293b,#475569);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-                        <span style="color:white;font-size:11px;font-weight:800;">${(s.mecanico_nombre || '?')[0]}</span>
+        <div style="overflow-x:auto;">
+          <table class="data-table" style="font-size:12px;">
+            <thead>
+              <tr>
+                <th>Fecha Entrega</th>
+                <th>Mecánico</th>
+                <th>Repuesto / Insumo</th>
+                <th class="text-center">Cant.</th>
+                <th>OS Vinculada</th>
+                <th class="text-center">Estado</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${entregados.map(s => {
+                const fechaEntrega = safeFormatDate(s.fecha_entrega || s.created_at, { day: '2-digit', month: 'short', year: 'numeric' });
+                return `
+                  <tr class="prod-row">
+                    <td style="color:var(--slate-5);font-size:11px;">${fechaEntrega}</td>
+                    <td>
+                      <div style="display:flex;align-items:center;gap:8px;">
+                        <div style="width:28px;height:28px;background:linear-gradient(135deg,#1e293b,#475569);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                          <span style="color:white;font-size:11px;font-weight:800;">${(s.mecanico_nombre || '?')[0]}</span>
+                        </div>
+                        <strong>${s.mecanico_nombre || '—'}</strong>
                       </div>
-                      <strong>${s.mecanico_nombre || '—'}</strong>
-                    </div>
-                  </td>
-                  <td>
-                    <strong style="display:block;">${s.repuesto_desc || '—'}</strong>
-                    <span style="font-family:monospace;font-size:10px;color:var(--brand);">[${s.repuesto_cod || '—'}]</span>
-                  </td>
-                  <td class="text-center">
-                    <span style="background:#1e293b;color:white;font-weight:800;padding:3px 10px;border-radius:99px;font-size:11px;">${s.cantidad}</span>
-                  </td>
-                  <td>
-                    ${s.orden_numero 
-                      ? `<span style="background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;font-size:10px;font-weight:800;padding:3px 8px;border-radius:99px;font-family:monospace;">OS-${String(s.orden_numero).padStart(4, '0')}</span>` 
-                      : `<span style="color:var(--slate-5);font-style:italic;font-size:11px;">Retiro directo</span>`}
-                  </td>
-                  <td style="color:var(--slate-5);font-size:11px;">${fechaEntrega}</td>
-                  <td class="text-center">
-                    <span style="background:#f0fdf4;color:#15803d;border:1px solid #bbf7d0;font-size:10px;font-weight:700;padding:2px 8px;border-radius:99px;">✓ Entregado</span>
-                  </td>
-                </tr>`;
-            }).join('')}
-          </tbody>
-        </table>
+                    </td>
+                    <td>
+                      <strong style="display:block;">${s.repuesto_desc || '—'}</strong>
+                      <span style="font-family:monospace;font-size:10px;color:var(--brand);">[${s.repuesto_cod || '—'}]</span>
+                    </td>
+                    <td class="text-center">
+                      <span style="background:#1e293b;color:white;font-weight:800;padding:3px 10px;border-radius:99px;font-size:11px;">${s.cantidad}</span>
+                    </td>
+                    <td>
+                      ${s.orden_numero 
+                        ? `<span style="background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;font-size:10px;font-weight:800;padding:3px 8px;border-radius:99px;font-family:monospace;">OS-${String(s.orden_numero).padStart(4, '0')}</span>` 
+                        : `<span style="color:var(--slate-5);font-style:italic;font-size:11px;">Retiro directo</span>`}
+                    </td>
+                    <td class="text-center">
+                      <span style="background:#f0fdf4;color:#15803d;border:1px solid #bbf7d0;font-size:10px;font-weight:700;padding:2px 8px;border-radius:99px;">✓ Entregado</span>
+                    </td>
+                  </tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
       </div>
-    </div>
-  `;
+    `;
+  }
+
+  return html;
 }
 
 // ── FILAS DE TABLA ────────────────────────────────────────
@@ -780,4 +868,91 @@ async function guardarSolicitudMecanico(e) {
   }
 }
 
-export function destroy() {}
+export function destroy() {
+  if (pollingInterval) {
+    clearInterval(pollingInterval);
+    pollingInterval = null;
+  }
+  containerElement = null;
+}
+
+// ── AUXILIARES Y POLLING DE SOLICITUDES ────────────────────
+
+async function confirmarEntregaSolicitud(id) {
+  try {
+    await confirmarSolicitudMecanico(id);
+    alert('✅ Solicitud de repuesto confirmada. El stock fue descontado y cargado a la Orden de Servicio.');
+    await cargarDatos();
+  } catch (err) {
+    alert(`⚠️ Error al confirmar entrega: ${err.message}`);
+  }
+}
+
+async function rechazarSolicitud(id) {
+  const confirmar = confirm('¿Está seguro de rechazar/cancelar esta solicitud de repuesto?');
+  if (!confirmar) return;
+  try {
+    await eliminarSolicitudMecanico(id);
+    alert('❌ Solicitud rechazada y eliminada.');
+    await cargarDatos();
+  } catch (err) {
+    alert(`⚠️ Error al rechazar solicitud: ${err.message}`);
+  }
+}
+
+function playBellSound() {
+  try {
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = audioCtx.createOscillator();
+    const gainNode = audioCtx.createGain();
+    
+    osc.connect(gainNode);
+    gainNode.connect(audioCtx.destination);
+    
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(880, audioCtx.currentTime); // A5 note
+    
+    gainNode.gain.setValueAtTime(0.4, audioCtx.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 1.0);
+    
+    osc.start();
+    osc.stop(audioCtx.currentTime + 1.0);
+  } catch (err) {
+    console.error('AudioContext no soportado o bloqueado:', err);
+  }
+}
+
+function startPolling() {
+  if (pollingInterval) return;
+  
+  pollingInterval = setInterval(async () => {
+    try {
+      const sols = await getSolicitudesMecanico();
+      const pendings = sols.filter(s => !s.confirmado);
+      
+      let hasNew = false;
+      for (const s of pendings) {
+        if (!knownPendingIds.has(s.id)) {
+          knownPendingIds.add(s.id);
+          hasNew = true;
+        }
+      }
+
+      if (hasNew) {
+        playBellSound();
+        solicitudesList = sols;
+        if (activeTab === 'solicitudes') {
+          renderPage();
+        } else {
+          const tabSol = document.getElementById('tab-solicitudes');
+          if (tabSol) {
+            tabSol.style.border = '1px solid #f59e0b';
+            tabSol.style.animation = 'blink-amber 1s infinite alternate';
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Error en polling de solicitudes:', err);
+    }
+  }, 15000);
+}

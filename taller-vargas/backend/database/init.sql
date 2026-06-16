@@ -66,6 +66,7 @@ CREATE TABLE IF NOT EXISTS ordenes_servicio (
   fecha_ingreso DATE NOT NULL DEFAULT CURRENT_DATE,
   fecha_entrega DATE,
   nota_interna TEXT,
+  diagnostico JSONB DEFAULT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -101,7 +102,7 @@ CREATE TABLE IF NOT EXISTS solicitudes_mecanico (
   repuesto_id INTEGER NOT NULL REFERENCES almacen(id) ON DELETE CASCADE,
   cantidad INTEGER NOT NULL DEFAULT 1,
   fecha_entrega DATE,
-  confirmado BOOLEAN DEFAULT TRUE,
+  confirmado BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 

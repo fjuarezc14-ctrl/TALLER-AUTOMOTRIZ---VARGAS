@@ -12,6 +12,7 @@ const routes = {
   '/almacen':      () => import('./pages/almacen.js'),
   '/facturacion':  () => import('./pages/facturacion.js'),
   '/archivos':     () => import('./pages/archivos.js'),
+  '/taller':       () => import('./pages/taller.js'),
 };
 
 let currentModule = null;
@@ -79,6 +80,7 @@ const breadcrumbs = {
   '/almacen':      ['Almacén / Repuestos', 'Control de Inventario'],
   '/facturacion':  ['Finanzas', 'Facturación y Cobros'],
   '/archivos':     ['Documentos', 'Repositorio General'],
+  '/taller':       ['Modo Taller', 'Portal de Diagnóstico y Operaciones Mecánicas'],
 };
 
 function updateBreadcrumb(path) {
