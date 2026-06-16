@@ -303,7 +303,7 @@ async function renderFicha(cliente) {
       ${miniKpi('💰','Gasto Total',gastoFmt,'#10b981')}
       ${miniKpi('🔁','Servicios',numServ,'#6366f1')}
       ${miniKpi('📅','Última Visita',ultimaV,'#f59e0b')}
-      ${miniKpi('🎯','Ticket Prom.',ticketProm,'#ec4899')}
+      ${miniKpi('🎯','Ticket Promedio',ticketProm,'#ec4899')}
     </div>
 
     <!-- Vehículos y Alertas Predictivas -->
