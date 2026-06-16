@@ -97,12 +97,13 @@ async function cargarDatos() {
     
     mecanicosList = mecanicos.filter(m => m.activo);
     // Filtrar órdenes activas (no finalizadas)
-    ordenesList = ordenes.filter(o => o.estado !== 'Finalizado' && o.estado !== 'No realizo servicio');
+    const ESTADOS_ACTIVOS = ['Diagnostico', 'En Proceso', 'Esperando Repuestos'];
+    ordenesList = ordenes.filter(o => ESTADOS_ACTIVOS.includes(o.estado));
     repuestosAlmacen = repuestos;
 
-    // Si la orden seleccionada sigue activa, refrescar su información
+    // Si la orden seleccionada sigue activa, refrescar su información; si no, cerrarla
     if (selectedOrden) {
-      const actual = ordenes.find(o => o.id === selectedOrden.id);
+      const actual = ordenesList.find(o => o.id === selectedOrden.id);
       if (actual) {
         selectedOrden = actual;
       } else {
