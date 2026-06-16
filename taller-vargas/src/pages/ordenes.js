@@ -30,6 +30,9 @@ let vehiculosList = [];
 let mecanicosList = [];
 let almacenList = [];
 let clientesList = [];
+let filterEstadoVal = '';
+let filterMecanicoVal = '';
+let sortVal = 'recientes';
 
 export async function init(container) {
   containerElement = container;
@@ -81,10 +84,43 @@ function renderError(msg) {
 function renderPage() {
   const root = document.getElementById('ordenes-root');
 
-  // Filtrar según pestaña
-  const filtradas = activeTab === 'process' 
+  // 1. Filtrar según pestaña
+  let filtradas = activeTab === 'process' 
     ? ordenesList.filter(o => o.estado === 'En Proceso' || o.estado === 'Esperando Repuestos' || o.estado === 'Diagnostico')
     : ordenesList;
+
+  // 2. Filtrar por estado select
+  if (filterEstadoVal) {
+    filtradas = filtradas.filter(o => o.estado === filterEstadoVal);
+  }
+
+  // 3. Filtrar por mecánico select
+  if (filterMecanicoVal) {
+    filtradas = filtradas.filter(o => o.mecanico === filterMecanicoVal);
+  }
+
+  // 4. Aplicar ordenamiento
+  if (sortVal === 'recientes') {
+    filtradas.sort((a, b) => b.id - a.id);
+  } else if (sortVal === 'antiguas') {
+    filtradas.sort((a, b) => a.id - b.id);
+  } else if (sortVal === 'total-desc') {
+    filtradas.sort((a, b) => parseFloat(b.total_estimado || 0) - parseFloat(a.total_estimado || 0));
+  } else if (sortVal === 'total-asc') {
+    filtradas.sort((a, b) => parseFloat(a.total_estimado || 0) - parseFloat(b.total_estimado || 0));
+  }
+
+  // 5. Filtrar por buscador si ya tiene texto
+  const searchInput = document.getElementById('search-ordenes');
+  const q = searchInput ? searchInput.value.toLowerCase().trim() : '';
+  if (q) {
+    filtradas = filtradas.filter(o => 
+      o.id.toString().includes(q) ||
+      (o.placa && o.placa.toLowerCase().includes(q)) ||
+      (o.cliente && o.cliente.toLowerCase().includes(q)) ||
+      (o.vehiculo && o.vehiculo.toLowerCase().includes(q))
+    );
+  }
 
   root.innerHTML = `
     <!-- Header & Tabs -->
@@ -105,9 +141,30 @@ function renderPage() {
       </div>
     </div>
 
-    <!-- Search -->
-    <div class="mb-4 flex justify-end">
-      <input type="text" id="search-ordenes" placeholder="Buscar por placa, orden o cliente..." class="form-input" style="width:280px;" />
+    <!-- Search, Filter & Sort Row -->
+    <div class="mb-4 flex gap-3 justify-between items-center" style="flex-wrap:wrap;">
+      <div class="flex gap-2" style="flex-wrap:wrap; align-items:center;">
+        <select id="filter-orden-estado" class="form-select" style="width:170px; font-size:12px; padding:6px 10px; border-radius:8px;">
+          <option value="">Todos los Estados</option>
+          <option value="Diagnostico" ${filterEstadoVal === 'Diagnostico' ? 'selected' : ''}>🔍 Diagnóstico</option>
+          <option value="En Proceso" ${filterEstadoVal === 'En Proceso' ? 'selected' : ''}>⚙️ En Proceso</option>
+          <option value="Esperando Repuestos" ${filterEstadoVal === 'Esperando Repuestos' ? 'selected' : ''}>📦 Esperando Repuestos</option>
+          <option value="Finalizado" ${filterEstadoVal === 'Finalizado' ? 'selected' : ''}>✅ Finalizado</option>
+          <option value="Entregado" ${filterEstadoVal === 'Entregado' ? 'selected' : ''}>🟢 Entregado</option>
+          <option value="No realizo servicio" ${filterEstadoVal === 'No realizo servicio' ? 'selected' : ''}>⚫ Sin Servicio</option>
+        </select>
+        <select id="filter-orden-mecanico" class="form-select" style="width:170px; font-size:12px; padding:6px 10px; border-radius:8px;">
+          <option value="">Todos los Mecánicos</option>
+          ${mecanicosList.map(m => `<option value="${m.nombre}" ${filterMecanicoVal === m.nombre ? 'selected' : ''}>${m.nombre}</option>`).join('')}
+        </select>
+        <select id="sort-ordenes" class="form-select" style="width:170px; font-size:12px; padding:6px 10px; border-radius:8px;">
+          <option value="recientes" ${sortVal === 'recientes' ? 'selected' : ''}>📅 Más recientes primero</option>
+          <option value="antiguas" ${sortVal === 'antiguas' ? 'selected' : ''}>📅 Más antiguas primero</option>
+          <option value="total-desc" ${sortVal === 'total-desc' ? 'selected' : ''}>💰 Total: Mayor a menor</option>
+          <option value="total-asc" ${sortVal === 'total-asc' ? 'selected' : ''}>💰 Total: Menor a mayor</option>
+        </select>
+      </div>
+      <input type="text" id="search-ordenes" placeholder="Buscar por placa, orden o cliente..." value="${q}" class="form-input" style="width:260px;" />
     </div>
 
     <!-- Table Card -->
@@ -160,6 +217,9 @@ function renderPage() {
   document.getElementById('tab-ord-all').addEventListener('click', () => { activeTab = 'all'; renderPage(); });
   document.getElementById('tab-ord-proc').addEventListener('click', () => { activeTab = 'process'; renderPage(); });
   document.getElementById('search-ordenes').addEventListener('input', filtrarOrdenes);
+  document.getElementById('filter-orden-estado').addEventListener('change', () => { filterEstadoVal = document.getElementById('filter-orden-estado').value; filtrarOrdenes(); });
+  document.getElementById('filter-orden-mecanico').addEventListener('change', () => { filterMecanicoVal = document.getElementById('filter-orden-mecanico').value; filtrarOrdenes(); });
+  document.getElementById('sort-ordenes').addEventListener('change', () => { sortVal = document.getElementById('sort-ordenes').value; filtrarOrdenes(); });
   document.getElementById('btn-nueva-orden-header').addEventListener('click', abrirModalNuevaOrden);
 
   // Registrar cierres de modales
@@ -203,6 +263,12 @@ function renderPage() {
     else if (costBtn) abrirModalCostos(costBtn.dataset.id);
     else if (statusBtn) abrirModalEstado(statusBtn.dataset.id);
   });
+
+  // Auto-abrir modal si se solicitó desde el Dashboard
+  if (window.autoOpenNuevaOrden) {
+    window.autoOpenNuevaOrden = false;
+    abrirModalNuevaOrden();
+  }
 }
 
 function renderTableRows(ordenes) {
@@ -258,12 +324,46 @@ function renderTableRows(ordenes) {
 
 function filtrarOrdenes() {
   const q = document.getElementById('search-ordenes').value.toLowerCase().trim();
-  const filtradas = ordenesList.filter(o => 
-    o.id.toString().includes(q) ||
-    (o.placa && o.placa.toLowerCase().includes(q)) ||
-    (o.cliente && o.cliente.toLowerCase().includes(q)) ||
-    (o.vehiculo && o.vehiculo.toLowerCase().includes(q))
-  );
+  filterEstadoVal = document.getElementById('filter-orden-estado').value;
+  filterMecanicoVal = document.getElementById('filter-orden-mecanico').value;
+  sortVal = document.getElementById('sort-ordenes').value;
+
+  // 1. Filtrar por pestaña
+  let filtradas = activeTab === 'process' 
+    ? ordenesList.filter(o => o.estado === 'En Proceso' || o.estado === 'Esperando Repuestos' || o.estado === 'Diagnostico')
+    : ordenesList;
+
+  // 2. Filtrar por buscador
+  if (q) {
+    filtradas = filtradas.filter(o => 
+      o.id.toString().includes(q) ||
+      (o.placa && o.placa.toLowerCase().includes(q)) ||
+      (o.cliente && o.cliente.toLowerCase().includes(q)) ||
+      (o.vehiculo && o.vehiculo.toLowerCase().includes(q))
+    );
+  }
+
+  // 3. Filtrar por estado select
+  if (filterEstadoVal) {
+    filtradas = filtradas.filter(o => o.estado === filterEstadoVal);
+  }
+
+  // 4. Filtrar por mecánico select
+  if (filterMecanicoVal) {
+    filtradas = filtradas.filter(o => o.mecanico === filterMecanicoVal);
+  }
+
+  // 5. Aplicar ordenamiento
+  if (sortVal === 'recientes') {
+    filtradas.sort((a, b) => b.id - a.id);
+  } else if (sortVal === 'antiguas') {
+    filtradas.sort((a, b) => a.id - b.id);
+  } else if (sortVal === 'total-desc') {
+    filtradas.sort((a, b) => parseFloat(b.total_estimado || 0) - parseFloat(a.total_estimado || 0));
+  } else if (sortVal === 'total-asc') {
+    filtradas.sort((a, b) => parseFloat(a.total_estimado || 0) - parseFloat(b.total_estimado || 0));
+  }
+
   document.getElementById('tabla-ordenes-body').innerHTML = renderTableRows(filtradas);
 }
 

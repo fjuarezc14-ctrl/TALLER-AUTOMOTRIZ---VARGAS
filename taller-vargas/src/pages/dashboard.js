@@ -437,7 +437,7 @@ function renderDashboard(data) {
         </h1>
         <p style="font-size:13px; color:var(--slate-5); margin-top:2px;">Centro de control y analítica comercial • <strong>${date}</strong></p>
       </div>
-      <button class="btn-primary" onclick="navigate('/ordenes')">
+      <button class="btn-primary" onclick="window.autoOpenNuevaOrden = true; navigate('/ordenes')">
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" style="margin-right:6px;"><path d="M12 5v14M5 12h14"/></svg>
         Nueva Orden
       </button>
