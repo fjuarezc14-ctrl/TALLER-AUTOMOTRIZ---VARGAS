@@ -533,51 +533,23 @@ function generarNombreCopia(filename) {
   return n === 1 ? `${base} (Copia)${ext}` : `${base} (Copia ${n})${ext}`;
 }
 
-function mostrarDialogoDuplicado(duplicado, data, file) {
-  const copyName = generarNombreCopia(file.name);
-  document.getElementById('dup-filename-label').textContent = file.name;
-  document.getElementById('dup-copy-name').textContent      = copyName;
-  document.getElementById('modal-duplicado').classList.add('active');
-
-  // Reemplazar: eliminar el antiguo, subir el nuevo con el mismo nombre
-  document.getElementById('btn-dup-reemplazar').onclick = async () => {
-    document.getElementById('modal-duplicado').classList.remove('active');
-    try {
-      await deleteArchivo(duplicado.id);
-      await subirArchivo(data, file);
-    } catch (err) { alert(err.message); }
-  };
-
-  // Subir como copia con nombre nuevo
-  document.getElementById('btn-dup-copia').onclick = async () => {
-    document.getElementById('modal-duplicado').classList.remove('active');
-    await subirArchivo({ ...data, filename: copyName, titulo: data.titulo + ' (Copia)' }, file);
-  };
-
-  document.getElementById('btn-dup-cancelar').onclick = () => {
-    document.getElementById('modal-duplicado').classList.remove('active');
-  };
-}
-
-async function subirArchivo(data, file) {
-  const btn = document.getElementById('btn-save-archivo');
-  if (btn) { btn.disabled = true; btn.textContent = 'Guardando...'; }
-  try {
-    // Leer el archivo como Base64 e inyectarlo
-    const fileData = await readFileAsBase64(file);
-    await createArchivo({ ...data, fileData });
-    cerrarModalSubir();
-    await cargarDatos();
-  } catch (err) {
-    alert(err.message);
-  } finally {
-    if (btn) { btn.disabled = false; btn.textContent = 'Guardar Archivo'; }
-  }
-}
-
-/* ══════════════════════════════════════════════════════════
+func/* ══════════════════════════════════════════════════════════
    ACCIONES DE TABLA Y PREVISUALIZACIÓN
    ══════════════════════════════════════════════════════════ */
+function loadScript(url) {
+  return new Promise((resolve, reject) => {
+    if (document.querySelector(`script[src="${url}"]`)) {
+      resolve();
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = url;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error(`No se pudo cargar el script: ${url}`));
+    document.head.appendChild(script);
+  });
+}
+
 function descargarArchivo(filename) {
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
   const url = `${API_URL}/uploads/${filename}`;
@@ -589,7 +561,73 @@ function descargarArchivo(filename) {
   document.body.removeChild(a);
 }
 
-function abrirPreview(fileId) {
+function renderExcelSheet(workbook, sheetName) {
+  const worksheet = workbook.Sheets[sheetName];
+  const html = window.XLSX.utils.sheet_to_html(worksheet, { 
+    editable: false,
+    header: '',
+    footer: ''
+  });
+  
+  return `
+    <div class="excel-table-wrapper" style="background:white; border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,0.05); overflow:hidden; border:1px solid var(--slate-8); margin:0 auto; display:inline-block; min-width:100%;">
+      <style>
+        .excel-table-wrapper table { border-collapse: collapse; width: 100%; font-family: sans-serif; font-size: 13px; }
+        .excel-table-wrapper th, .excel-table-wrapper td { border: 1px solid #e2e8f0; padding: 8px 12px; text-align: left; }
+        .excel-table-wrapper tr:nth-child(even) { background-color: #f8fafc; }
+        .excel-table-wrapper tr:first-child { background-color: #f1f5f9; font-weight: bold; }
+      </style>
+      ${html}
+    </div>
+  `;
+}
+
+function renderFallbackCard(archivo, cfg, docCliente, docVehiculo) {
+  const previewBody = document.getElementById('preview-body');
+  previewBody.style.padding = '32px 24px';
+  previewBody.style.overflowY = 'auto';
+  previewBody.innerHTML = `
+    <div style="max-width:550px; width:100%; background:var(--white); border-radius:16px; box-shadow:0 15px 35px rgba(0,0,0,0.1); border:1px solid var(--slate-8); padding:32px; text-align:center; margin:auto;">
+      <div style="width:80px; height:80px; border-radius:20px; background:${cfg.bg}; color:${cfg.color}; font-size:40px; display:flex; align-items:center; justify-content:center; margin:0 auto 20px;">
+        ${cfg.icon}
+      </div>
+      <h3 style="font-size:18px; font-weight:900; color:var(--dark); margin-bottom:6px;">${archivo.titulo}</h3>
+      <p style="font-size:12px; color:var(--slate-5); font-family:monospace; margin-bottom:20px;">${archivo.filename}</p>
+
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; text-align:left; margin-bottom:24px;">
+        <div style="background:var(--slate-9); padding:10px 14px; border-radius:8px;">
+          <span style="display:block; font-size:10px; text-transform:uppercase; color:var(--slate-5); font-weight:700;">Área / Destino</span>
+          <span style="font-weight:700; color:var(--dark); font-size:12px;">${archivo.area}</span>
+        </div>
+        <div style="background:var(--slate-9); padding:10px 14px; border-radius:8px;">
+          <span style="display:block; font-size:10px; text-transform:uppercase; color:var(--slate-5); font-weight:700;">Subido Por</span>
+          <span style="font-weight:700; color:var(--dark); font-size:12px;">${archivo.subido_por}</span>
+        </div>
+      </div>
+
+      ${docCliente || docVehiculo ? `
+        <div style="display:grid; grid-template-columns:${docCliente && docVehiculo ? '1fr 1fr' : '1fr'}; gap:12px; text-align:left; margin-bottom:24px;">
+          ${docCliente}
+          ${docVehiculo}
+        </div>
+      ` : ''}
+
+      ${archivo.notas ? `
+        <div style="text-align:left; background:#fffbeb; border:1px solid #fde68a; padding:14px; border-radius:10px; margin-bottom:28px;">
+          <span style="display:block; font-size:10px; text-transform:uppercase; color:#b45309; font-weight:800; margin-bottom:4px;">📝 Notas y Comentarios</span>
+          <p style="font-size:12.5px; color:#78350f; font-style:italic; margin:0; line-height:1.4;">"${archivo.notas}"</p>
+        </div>
+      ` : ''}
+
+      <button onclick="descargarArchivo('${archivo.filename}')" class="btn-primary" style="width:100%; padding:14px; font-weight:800; font-size:14px; display:flex; align-items:center; justify-content:center; gap:8px;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 3v12"/></svg>
+        Descargar Documento
+      </button>
+    </div>
+  `;
+}
+
+async function abrirPreview(fileId) {
   const archivo = archivosList.find(a => String(a.id) === String(fileId));
   if (!archivo) return;
 
@@ -608,6 +646,26 @@ function abrirPreview(fileId) {
   const previewBody = document.getElementById('preview-body');
   previewBody.innerHTML = '';
 
+  const docCliente = archivo.cliente_nombre
+    ? `<div style="display:flex; align-items:center; gap:8px; background:var(--white); border:1px solid var(--slate-8); padding:12px; border-radius:8px;">
+         <span style="font-size:20px;">👤</span>
+         <div>
+           <span style="display:block; font-size:10px; text-transform:uppercase; color:var(--slate-5); font-weight:700;">Cliente Vinculado</span>
+           <span style="font-weight:700; color:var(--dark); font-size:13px;">${archivo.cliente_nombre}</span>
+         </div>
+       </div>`
+    : '';
+
+  const docVehiculo = archivo.vehiculo_placa
+    ? `<div style="display:flex; align-items:center; gap:8px; background:var(--white); border:1px solid var(--slate-8); padding:12px; border-radius:8px;">
+         <span style="font-size:20px;">🚗</span>
+         <div>
+           <span style="display:block; font-size:10px; text-transform:uppercase; color:var(--slate-5); font-weight:700;">Vehículo Vinculado</span>
+           <span style="font-weight:700; color:var(--dark); font-size:13px;">${archivo.vehiculo_placa} — ${archivo.vehiculo_modelo || ''}</span>
+         </div>
+       </div>`
+    : '';
+
   const tipoLower = archivo.tipo?.toLowerCase();
   if (tipoLower === 'img') {
     previewBody.style.padding = '20px';
@@ -623,70 +681,94 @@ function abrirPreview(fileId) {
     previewBody.innerHTML = `
       <iframe src="${fileUrl}" style="width:100%; height:100%; border:none;" title="${archivo.titulo}"></iframe>
     `;
-  } else {
-    // Word, Excel, u otros
-    previewBody.style.padding = '32px 24px';
+  } else if (tipoLower === 'word' || tipoLower === 'docx') {
+    // Intentar renderizar Word (.docx) usando Mammoth
+    previewBody.style.padding = '20px';
     previewBody.style.overflowY = 'auto';
-
-    const docCliente = archivo.cliente_nombre
-      ? `<div style="display:flex; align-items:center; gap:8px; background:var(--white); border:1px solid var(--slate-8); padding:12px; border-radius:8px;">
-           <span style="font-size:20px;">👤</span>
-           <div>
-             <span style="display:block; font-size:10px; text-transform:uppercase; color:var(--slate-5); font-weight:700;">Cliente Vinculado</span>
-             <span style="font-weight:700; color:var(--dark); font-size:13px;">${archivo.cliente_nombre}</span>
-           </div>
-         </div>`
-      : '';
-
-    const docVehiculo = archivo.vehiculo_placa
-      ? `<div style="display:flex; align-items:center; gap:8px; background:var(--white); border:1px solid var(--slate-8); padding:12px; border-radius:8px;">
-           <span style="font-size:20px;">🚗</span>
-           <div>
-             <span style="display:block; font-size:10px; text-transform:uppercase; color:var(--slate-5); font-weight:700;">Vehículo Vinculado</span>
-             <span style="font-weight:700; color:var(--dark); font-size:13px;">${archivo.vehiculo_placa} — ${archivo.vehiculo_modelo || ''}</span>
-           </div>
-         </div>`
-      : '';
-
     previewBody.innerHTML = `
-      <div style="max-width:550px; width:100%; background:var(--white); border-radius:16px; box-shadow:0 15px 35px rgba(0,0,0,0.1); border:1px solid var(--slate-8); padding:32px; text-align:center; margin:auto;">
-        <div style="width:80px; height:80px; border-radius:20px; background:${cfg.bg}; color:${cfg.color}; font-size:40px; display:flex; align-items:center; justify-content:center; margin:0 auto 20px;">
-          ${cfg.icon}
-        </div>
-        <h3 style="font-size:18px; font-weight:900; color:var(--dark); margin-bottom:6px;">${archivo.titulo}</h3>
-        <p style="font-size:12px; color:var(--slate-5); font-family:monospace; margin-bottom:20px;">${archivo.filename}</p>
-
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; text-align:left; margin-bottom:24px;">
-          <div style="background:var(--slate-9); padding:10px 14px; border-radius:8px;">
-            <span style="display:block; font-size:10px; text-transform:uppercase; color:var(--slate-5); font-weight:700;">Área / Destino</span>
-            <span style="font-weight:700; color:var(--dark); font-size:12px;">${archivo.area}</span>
-          </div>
-          <div style="background:var(--slate-9); padding:10px 14px; border-radius:8px;">
-            <span style="display:block; font-size:10px; text-transform:uppercase; color:var(--slate-5); font-weight:700;">Subido Por</span>
-            <span style="font-weight:700; color:var(--dark); font-size:12px;">${archivo.subido_por}</span>
-          </div>
-        </div>
-
-        ${docCliente || docVehiculo ? `
-          <div style="display:grid; grid-template-columns:${docCliente && docVehiculo ? '1fr 1fr' : '1fr'}; gap:12px; text-align:left; margin-bottom:24px;">
-            ${docCliente}
-            ${docVehiculo}
-          </div>
-        ` : ''}
-
-        ${archivo.notas ? `
-          <div style="text-align:left; background:#fffbeb; border:1px solid #fde68a; padding:14px; border-radius:10px; margin-bottom:28px;">
-            <span style="display:block; font-size:10px; text-transform:uppercase; color:#b45309; font-weight:800; margin-bottom:4px;">📝 Notas y Comentarios</span>
-            <p style="font-size:12.5px; color:#78350f; font-style:italic; margin:0; line-height:1.4;">"${archivo.notas}"</p>
-          </div>
-        ` : ''}
-
-        <button onclick="descargarArchivo('${archivo.filename}')" class="btn-primary" style="width:100%; padding:14px; font-weight:800; font-size:14px; display:flex; align-items:center; justify-content:center; gap:8px;">
-          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 3v12"/></svg>
-          Descargar Documento
-        </button>
+      <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:40px; margin:auto;">
+        <div class="w-10 h-10 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+        <p class="text-slate-400 text-sm font-medium">Procesando vista previa del documento...</p>
       </div>
     `;
+
+    try {
+      await loadScript('https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js');
+      const res = await fetch(fileUrl);
+      if (!res.ok) throw new Error('Error al cargar archivo');
+      const arrayBuffer = await res.arrayBuffer();
+      
+      const result = await window.mammoth.convertToHtml({ arrayBuffer });
+      const html = result.value || '<p style="color:var(--slate-5); text-align:center;">El documento está vacío.</p>';
+      
+      previewBody.innerHTML = `
+        <div class="docx-preview-container" style="width:100%; max-width:800px; margin:0 auto; padding:40px; background:white; color:#333; text-align:left; border-radius:12px; box-shadow:0 4px 20px rgba(0,0,0,0.08); font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif; line-height:1.6; min-height:60vh;">
+          ${html}
+        </div>
+      `;
+    } catch (err) {
+      console.warn('[archivos] No se pudo renderizar DOCX en el cliente, mostrando ficha.', err.message);
+      renderFallbackCard(archivo, cfg, docCliente, docVehiculo);
+    }
+  } else if (tipoLower === 'excel' || tipoLower === 'xlsx') {
+    // Intentar renderizar Excel (.xlsx) usando SheetJS
+    previewBody.style.padding = '20px';
+    previewBody.style.overflow = 'auto';
+    previewBody.innerHTML = `
+      <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:40px; margin:auto;">
+        <div class="w-10 h-10 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+        <p class="text-slate-400 text-sm font-medium">Procesando vista previa de la hoja de cálculo...</p>
+      </div>
+    `;
+
+    try {
+      await loadScript('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js');
+      const res = await fetch(fileUrl);
+      if (!res.ok) throw new Error('Error al cargar archivo');
+      const arrayBuffer = await res.arrayBuffer();
+      
+      const data = new Uint8Array(arrayBuffer);
+      const workbook = window.XLSX.read(data, { type: 'array' });
+      
+      const sheetTabs = workbook.SheetNames.map((name, i) => `
+        <button class="sheet-tab ${i===0?'active':''}" data-sheet-index="${i}" style="padding:6px 12px; font-size:12px; font-weight:700; border:none; border-bottom:2px solid ${i===0?'var(--brand)':'transparent'}; background:none; cursor:pointer; color:${i===0?'var(--brand)':'var(--slate-4)'}; transition:all 0.15s;">
+          ${name}
+        </button>
+      `).join('');
+
+      previewBody.innerHTML = `
+        <div style="width:100%; max-width:100%; display:flex; flex-direction:column; height:100%; min-height:60vh;">
+          ${workbook.SheetNames.length > 1 ? `
+            <div class="sheet-tabs-container" style="display:flex; gap:8px; border-bottom:1px solid var(--slate-8); padding:8px 16px; background:var(--white); border-radius:8px 8px 0 0;">
+              ${sheetTabs}
+            </div>
+          ` : ''}
+          <div id="excel-table-container" style="flex:1; overflow:auto; padding:20px; background:var(--slate-10); border-radius:${workbook.SheetNames.length > 1 ? '0 0 8px 8px' : '8px'};">
+            ${renderExcelSheet(workbook, workbook.SheetNames[0])}
+          </div>
+        </div>
+      `;
+
+      previewBody.querySelectorAll('.sheet-tab').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          previewBody.querySelectorAll('.sheet-tab').forEach(b => {
+            b.style.color = 'var(--slate-4)';
+            b.style.borderBottomColor = 'transparent';
+          });
+          e.target.style.color = 'var(--brand)';
+          e.target.style.borderBottomColor = 'var(--brand)';
+          const idx = parseInt(e.target.dataset.sheetIndex);
+          document.getElementById('excel-table-container').innerHTML = renderExcelSheet(workbook, workbook.SheetNames[idx]);
+        });
+      });
+
+    } catch (err) {
+      console.warn('[archivos] No se pudo renderizar XLSX en el cliente, mostrando ficha.', err.message);
+      renderFallbackCard(archivo, cfg, docCliente, docVehiculo);
+    }
+  } else {
+    // Otros archivos: Ficha de metadatos directa
+    renderFallbackCard(archivo, cfg, docCliente, docVehiculo);
   }
 
   // Activar modal
