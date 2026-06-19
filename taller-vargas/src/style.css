@@ -133,6 +133,16 @@ body {
   display: flex;
   align-items: center;
   gap: 10px;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease, transform 0.1s ease;
+}
+.sidebar-stock-alert:hover {
+  background: rgba(239, 68, 68, 0.22);
+  border-color: rgba(239, 68, 68, 0.5);
+  transform: translateY(-1px);
+}
+.sidebar-stock-alert:active {
+  transform: translateY(0);
 }
 .alert-icon { font-size: 16px; }
 .alert-title { font-size: 12px; font-weight: 700; color: #fca5a5; text-transform: uppercase; }

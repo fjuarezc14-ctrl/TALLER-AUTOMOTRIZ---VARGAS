@@ -169,6 +169,13 @@ function renderPage() {
     const btnNew = document.getElementById('btn-nuevo-producto-header');
     if (btnNew) btnNew.addEventListener('click', () => abrirModalProducto());
     document.getElementById('search-almacen').addEventListener('input', filtrarAlmacen);
+    const btnClearFilter = document.getElementById('btn-clear-stock-filter');
+    if (btnClearFilter) {
+      btnClearFilter.addEventListener('click', () => {
+        window.autoFilterStockAlert = false;
+        renderPage();
+      });
+    }
     document.getElementById('btn-close-prod-x').addEventListener('click', cerrarModalProducto);
     document.getElementById('btn-close-prod-cancel').addEventListener('click', cerrarModalProducto);
     document.getElementById('form-producto').addEventListener('submit', guardarProducto);
@@ -208,6 +215,10 @@ function renderPage() {
 
 function renderAdminView(total, bajo, critico, valorCosto, valorVenta) {
   const margenTotal = valorVenta - valorCosto;
+  const listToRender = window.autoFilterStockAlert
+    ? productosAdmin.filter(p => p.stock <= p.stock_min)
+    : productosAdmin;
+
   return `
     <!-- KPI Cards -->
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px;margin-bottom:24px;">
@@ -255,9 +266,17 @@ function renderAdminView(total, bajo, critico, valorCosto, valorVenta) {
 
     <!-- Buscador -->
     <div class="flex justify-between items-center mb-4" style="flex-wrap:wrap;gap:10px;">
-      <span style="font-size:12px;font-weight:700;color:var(--slate-5);text-transform:uppercase;letter-spacing:.5px;">
-        ${productosAdmin.length} producto${productosAdmin.length !== 1 ? 's' : ''} en inventario
-      </span>
+      <div class="flex items-center gap-3" style="flex-wrap:wrap;">
+        <span style="font-size:12px;font-weight:700;color:var(--slate-5);text-transform:uppercase;letter-spacing:.5px;">
+          ${productosAdmin.length} producto${productosAdmin.length !== 1 ? 's' : ''} en inventario
+        </span>
+        ${window.autoFilterStockAlert ? `
+          <span style="background:rgba(239,68,68,0.1);color:#ef4444;font-size:11px;font-weight:800;padding:4px 10px;border-radius:99px;display:inline-flex;align-items:center;gap:6px;border:1px solid rgba(239,68,68,0.2);">
+            ⚠️ Filtrado: Stock Bajo Mínimo (${listToRender.length})
+            <button id="btn-clear-stock-filter" style="background:transparent;border:none;color:#ef4444;cursor:pointer;font-weight:900;font-size:13px;padding:0;line-height:1;margin-left:4px;display:inline-flex;align-items:center;" title="Quitar filtro">✕</button>
+          </span>
+        ` : ''}
+      </div>
       <input type="text" id="search-almacen" placeholder="🔍 Buscar por código o descripción..." class="form-input" style="width:290px;font-size:12px;" />
     </div>
 
@@ -277,7 +296,7 @@ function renderAdminView(total, bajo, critico, valorCosto, valorVenta) {
             </tr>
           </thead>
           <tbody id="tabla-almacen-body">
-            ${renderAdminTableRows(productosAdmin)}
+            ${renderAdminTableRows(listToRender)}
           </tbody>
         </table>
       </div>
@@ -594,7 +613,10 @@ function renderMecanicoTableRows(productos) {
 
 function filtrarAlmacen() {
   const q = document.getElementById('search-almacen').value.toLowerCase().trim();
-  const filtrados = productosAdmin.filter(p =>
+  const baseList = window.autoFilterStockAlert
+    ? productosAdmin.filter(p => p.stock <= p.stock_min)
+    : productosAdmin;
+  const filtrados = baseList.filter(p =>
     p.codigo.toLowerCase().includes(q) ||
     p.descripcion.toLowerCase().includes(q) ||
     p.categoria.toLowerCase().includes(q)
@@ -874,6 +896,7 @@ export function destroy() {
     pollingInterval = null;
   }
   containerElement = null;
+  window.autoFilterStockAlert = false;
 }
 
 // ── AUXILIARES Y POLLING DE SOLICITUDES ────────────────────

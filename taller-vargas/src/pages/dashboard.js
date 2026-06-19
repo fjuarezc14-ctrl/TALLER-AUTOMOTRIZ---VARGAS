@@ -726,7 +726,7 @@ function renderDashboard(data) {
       <div class="card">
         <div class="card-header">
           <span class="card-title">Alertas Críticas de Stock</span>
-          <button class="btn-ghost" style="font-size:12px; padding:5px 10px;" onclick="navigate('/almacen')">Ver almacén →</button>
+          <button class="btn-ghost" style="font-size:12px; padding:5px 10px;" onclick="window.autoFilterStockAlert = false; navigate('/almacen')">Ver almacén →</button>
         </div>
         <div class="card-body" style="padding:16px;">
           ${alertas_stock.length === 0
