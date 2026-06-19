@@ -1,6 +1,7 @@
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
+import path from "path";
 
 import clientesRouter   from "./routes/clientes.js";
 import vehiculosRouter  from "./routes/vehiculos.js";
@@ -16,6 +17,9 @@ const PORT = process.env.PORT || 3001;
 
 app.use(cors({ origin: process.env.CORS_ORIGIN || "*" }));
 app.use(express.json({ limit: "25mb" }));
+
+// Servir archivos estáticos subidos
+app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 
 // Desactivar caché en todas las respuestas de la API
 app.use((req, res, next) => {

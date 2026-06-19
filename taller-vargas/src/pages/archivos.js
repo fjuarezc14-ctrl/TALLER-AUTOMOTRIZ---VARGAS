@@ -261,6 +261,34 @@ function renderArchivos() {
         </div>
       </div>
     </div>
+
+    <!-- Modal de Previsualización Premium -->
+    <div id="modal-preview" class="modal-overlay">
+      <div class="modal modal-lg" style="max-width:900px; display:flex; flex-direction:column; height:85vh;">
+        <div class="modal-header" style="background:var(--slate-9); border-bottom:1px solid var(--slate-8);">
+          <div class="flex items-center gap-3">
+            <div class="modal-header-icon" id="preview-icon-container" style="font-size:18px;">
+              📄
+            </div>
+            <div>
+              <span class="modal-title" id="preview-title" style="display:block; font-size:15px; font-weight:800;">Previsualización de Documento</span>
+              <span id="preview-filename" style="font-size:11px; color:var(--slate-5); font-family:monospace;">archivo.pdf</span>
+            </div>
+          </div>
+          <div class="flex items-center gap-2">
+            <button id="btn-preview-download" class="btn-ghost flex items-center gap-1" style="font-size:12px; padding:6px 12px;" title="Descargar archivo">
+              📥 Descargar
+            </button>
+            <button class="modal-close" id="btn-close-preview-x">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="modal-body flex-1" id="preview-body" style="padding:0; overflow:hidden; background:var(--slate-10); display:flex; align-items:center; justify-content:center;">
+          <!-- Contenido de previsualización -->
+        </div>
+      </div>
+    </div>
   `;
 
   // ── Eventos ──────────────────────────────────────────────
@@ -281,6 +309,9 @@ function renderArchivos() {
   document.getElementById('btn-close-subir-x').addEventListener('click', cerrarModalSubir);
   document.getElementById('btn-close-subir-cancel').addEventListener('click', cerrarModalSubir);
   document.getElementById('form-subir').addEventListener('submit', guardarArchivo);
+
+  // Eventos de previsualización
+  document.getElementById('btn-close-preview-x').addEventListener('click', cerrarPreview);
 
   // Filtrar vehículos al seleccionar cliente
   document.getElementById('arc-cliente').addEventListener('change', (e) => {
@@ -316,8 +347,10 @@ function renderArchivos() {
   document.getElementById('tabla-archivos-body').addEventListener('click', (e) => {
     const delBtn = e.target.closest('.btn-delete-file');
     const dlBtn  = e.target.closest('.btn-download-file');
+    const pvBtn  = e.target.closest('.btn-preview-file');
     if (delBtn) eliminarArchivo(delBtn.dataset.id);
     if (dlBtn)  descargarArchivo(dlBtn.dataset.filename);
+    if (pvBtn)  abrirPreview(pvBtn.dataset.id);
   });
 }
 
@@ -381,6 +414,10 @@ function renderTableRows(archivos) {
         <td><strong style="font-size:12px;">${a.subido_por}</strong></td>
         <td class="text-right">
           <div class="flex justify-end gap-1">
+            <button class="btn-action-ord btn-preview-file" data-id="${a.id}" title="Previsualizar" style="background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;">
+              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.644C3.805 7.721 8.24 5 13 5c4.757 0 9.193 2.721 10.965 6.678 0.174 0.354 0.174 0.778 0 1.132C22.2 16.279 17.757 19 13 19c-4.757 0-9.193-2.721-10.965-6.678Z"/><circle cx="13" cy="12" r="3"/></svg>
+              Ver
+            </button>
             <button class="btn-action-ord btn-download-file" data-filename="${a.filename}" title="Descargar" style="background:#f0fdf4;color:#16a34a;border:1px solid #bbf7d0;">
               <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 3v12"/></svg>
               Bajar
@@ -440,6 +477,18 @@ function detectarExtension(filename) {
 /* ══════════════════════════════════════════════════════════
    GUARDAR ARCHIVO (con detección de duplicados)
    ══════════════════════════════════════════════════════════ */
+function readFileAsBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64 = reader.result.split(',')[1];
+      resolve(base64);
+    };
+    reader.onerror = (error) => reject(error);
+    reader.readAsDataURL(file);
+  });
+}
+
 async function guardarArchivo(e) {
   e.preventDefault();
 
@@ -458,7 +507,7 @@ async function guardarArchivo(e) {
     return;
   }
 
-  await subirArchivo(data);
+  await subirArchivo(data, file);
 }
 
 function buildArchivoData(file, filenameOverride = null) {
@@ -495,14 +544,14 @@ function mostrarDialogoDuplicado(duplicado, data, file) {
     document.getElementById('modal-duplicado').classList.remove('active');
     try {
       await deleteArchivo(duplicado.id);
-      await subirArchivo(data);
+      await subirArchivo(data, file);
     } catch (err) { alert(err.message); }
   };
 
   // Subir como copia con nombre nuevo
   document.getElementById('btn-dup-copia').onclick = async () => {
     document.getElementById('modal-duplicado').classList.remove('active');
-    await subirArchivo({ ...data, filename: copyName, titulo: data.titulo + ' (Copia)' });
+    await subirArchivo({ ...data, filename: copyName, titulo: data.titulo + ' (Copia)' }, file);
   };
 
   document.getElementById('btn-dup-cancelar').onclick = () => {
@@ -510,11 +559,13 @@ function mostrarDialogoDuplicado(duplicado, data, file) {
   };
 }
 
-async function subirArchivo(data) {
+async function subirArchivo(data, file) {
   const btn = document.getElementById('btn-save-archivo');
   if (btn) { btn.disabled = true; btn.textContent = 'Guardando...'; }
   try {
-    await createArchivo(data);
+    // Leer el archivo como Base64 e inyectarlo
+    const fileData = await readFileAsBase64(file);
+    await createArchivo({ ...data, fileData });
     cerrarModalSubir();
     await cargarDatos();
   } catch (err) {
@@ -525,10 +576,126 @@ async function subirArchivo(data) {
 }
 
 /* ══════════════════════════════════════════════════════════
-   ACCIONES DE TABLA
+   ACCIONES DE TABLA Y PREVISUALIZACIÓN
    ══════════════════════════════════════════════════════════ */
 function descargarArchivo(filename) {
-  alert(`Descargando: ${filename}\n(Simulación de descarga desde el almacén de archivos del taller).`);
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+  const url = `${API_URL}/uploads/${filename}`;
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
+function abrirPreview(fileId) {
+  const archivo = archivosList.find(a => String(a.id) === String(fileId));
+  if (!archivo) return;
+
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+  const fileUrl = `${API_URL}/uploads/${archivo.filename}`;
+  const cfg = getFileIconConfig(archivo.tipo);
+
+  // Actualizar encabezados
+  document.getElementById('preview-icon-container').textContent = cfg.icon;
+  document.getElementById('preview-title').textContent = archivo.titulo;
+  document.getElementById('preview-filename').textContent = `${archivo.filename} (${parseFloat(archivo.size_mb || 0).toFixed(1)} MB)`;
+
+  // Botón descargar en la cabecera
+  document.getElementById('btn-preview-download').onclick = () => descargarArchivo(archivo.filename);
+
+  const previewBody = document.getElementById('preview-body');
+  previewBody.innerHTML = '';
+
+  const tipoLower = archivo.tipo?.toLowerCase();
+  if (tipoLower === 'img') {
+    previewBody.style.padding = '20px';
+    previewBody.style.overflow = 'auto';
+    previewBody.innerHTML = `
+      <div style="max-height:100%; max-width:100%; display:flex; align-items:center; justify-content:center;">
+        <img src="${fileUrl}" alt="${archivo.titulo}" style="max-height:60vh; max-width:100%; object-fit:contain; border-radius:8px; box-shadow:0 10px 25px rgba(0,0,0,0.15);" />
+      </div>
+    `;
+  } else if (tipoLower === 'pdf') {
+    previewBody.style.padding = '0';
+    previewBody.style.overflow = 'hidden';
+    previewBody.innerHTML = `
+      <iframe src="${fileUrl}" style="width:100%; height:100%; border:none;" title="${archivo.titulo}"></iframe>
+    `;
+  } else {
+    // Word, Excel, u otros
+    previewBody.style.padding = '32px 24px';
+    previewBody.style.overflowY = 'auto';
+
+    const docCliente = archivo.cliente_nombre
+      ? `<div style="display:flex; align-items:center; gap:8px; background:var(--white); border:1px solid var(--slate-8); padding:12px; border-radius:8px;">
+           <span style="font-size:20px;">👤</span>
+           <div>
+             <span style="display:block; font-size:10px; text-transform:uppercase; color:var(--slate-5); font-weight:700;">Cliente Vinculado</span>
+             <span style="font-weight:700; color:var(--dark); font-size:13px;">${archivo.cliente_nombre}</span>
+           </div>
+         </div>`
+      : '';
+
+    const docVehiculo = archivo.vehiculo_placa
+      ? `<div style="display:flex; align-items:center; gap:8px; background:var(--white); border:1px solid var(--slate-8); padding:12px; border-radius:8px;">
+           <span style="font-size:20px;">🚗</span>
+           <div>
+             <span style="display:block; font-size:10px; text-transform:uppercase; color:var(--slate-5); font-weight:700;">Vehículo Vinculado</span>
+             <span style="font-weight:700; color:var(--dark); font-size:13px;">${archivo.vehiculo_placa} — ${archivo.vehiculo_modelo || ''}</span>
+           </div>
+         </div>`
+      : '';
+
+    previewBody.innerHTML = `
+      <div style="max-width:550px; width:100%; background:var(--white); border-radius:16px; box-shadow:0 15px 35px rgba(0,0,0,0.1); border:1px solid var(--slate-8); padding:32px; text-align:center; margin:auto;">
+        <div style="width:80px; height:80px; border-radius:20px; background:${cfg.bg}; color:${cfg.color}; font-size:40px; display:flex; align-items:center; justify-content:center; margin:0 auto 20px;">
+          ${cfg.icon}
+        </div>
+        <h3 style="font-size:18px; font-weight:900; color:var(--dark); margin-bottom:6px;">${archivo.titulo}</h3>
+        <p style="font-size:12px; color:var(--slate-5); font-family:monospace; margin-bottom:20px;">${archivo.filename}</p>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; text-align:left; margin-bottom:24px;">
+          <div style="background:var(--slate-9); padding:10px 14px; border-radius:8px;">
+            <span style="display:block; font-size:10px; text-transform:uppercase; color:var(--slate-5); font-weight:700;">Área / Destino</span>
+            <span style="font-weight:700; color:var(--dark); font-size:12px;">${archivo.area}</span>
+          </div>
+          <div style="background:var(--slate-9); padding:10px 14px; border-radius:8px;">
+            <span style="display:block; font-size:10px; text-transform:uppercase; color:var(--slate-5); font-weight:700;">Subido Por</span>
+            <span style="font-weight:700; color:var(--dark); font-size:12px;">${archivo.subido_por}</span>
+          </div>
+        </div>
+
+        ${docCliente || docVehiculo ? `
+          <div style="display:grid; grid-template-columns:${docCliente && docVehiculo ? '1fr 1fr' : '1fr'}; gap:12px; text-align:left; margin-bottom:24px;">
+            ${docCliente}
+            ${docVehiculo}
+          </div>
+        ` : ''}
+
+        ${archivo.notas ? `
+          <div style="text-align:left; background:#fffbeb; border:1px solid #fde68a; padding:14px; border-radius:10px; margin-bottom:28px;">
+            <span style="display:block; font-size:10px; text-transform:uppercase; color:#b45309; font-weight:800; margin-bottom:4px;">📝 Notas y Comentarios</span>
+            <p style="font-size:12.5px; color:#78350f; font-style:italic; margin:0; line-height:1.4;">"${archivo.notas}"</p>
+          </div>
+        ` : ''}
+
+        <button onclick="descargarArchivo('${archivo.filename}')" class="btn-primary" style="width:100%; padding:14px; font-weight:800; font-size:14px; display:flex; align-items:center; justify-content:center; gap:8px;">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 3v12"/></svg>
+          Descargar Documento
+        </button>
+      </div>
+    `;
+  }
+
+  // Activar modal
+  document.getElementById('modal-preview').classList.add('active');
+}
+
+function cerrarPreview() {
+  document.getElementById('modal-preview').classList.remove('active');
+  document.getElementById('preview-body').innerHTML = '';
 }
 
 async function eliminarArchivo(id) {
