@@ -533,7 +533,48 @@ function generarNombreCopia(filename) {
   return n === 1 ? `${base} (Copia)${ext}` : `${base} (Copia ${n})${ext}`;
 }
 
-func/* ══════════════════════════════════════════════════════════
+function mostrarDialogoDuplicado(duplicado, data, file) {
+  const copyName = generarNombreCopia(file.name);
+  document.getElementById('dup-filename-label').textContent = file.name;
+  document.getElementById('dup-copy-name').textContent      = copyName;
+  document.getElementById('modal-duplicado').classList.add('active');
+
+  // Reemplazar: eliminar el antiguo, subir el nuevo con el mismo nombre
+  document.getElementById('btn-dup-reemplazar').onclick = async () => {
+    document.getElementById('modal-duplicado').classList.remove('active');
+    try {
+      await deleteArchivo(duplicado.id);
+      await subirArchivo(data, file);
+    } catch (err) { alert(err.message); }
+  };
+
+  // Subir como copia con nombre nuevo
+  document.getElementById('btn-dup-copia').onclick = async () => {
+    document.getElementById('modal-duplicado').classList.remove('active');
+    await subirArchivo({ ...data, filename: copyName, titulo: data.titulo + ' (Copia)' }, file);
+  };
+
+  document.getElementById('btn-dup-cancelar').onclick = () => {
+    document.getElementById('modal-duplicado').classList.remove('active');
+  };
+}
+
+async function subirArchivo(data, file) {
+  const btn = document.getElementById('btn-save-archivo');
+  if (btn) { btn.disabled = true; btn.textContent = 'Guardando...'; }
+  try {
+    const fileData = await readFileAsBase64(file);
+    await createArchivo({ ...data, fileData });
+    cerrarModalSubir();
+    await cargarDatos();
+  } catch (err) {
+    alert(err.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Guardar Archivo'; }
+  }
+}
+
+/* ══════════════════════════════════════════════════════════
    ACCIONES DE TABLA Y PREVISUALIZACIÓN
    ══════════════════════════════════════════════════════════ */
 function loadScript(url) {
