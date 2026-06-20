@@ -2521,3 +2521,25 @@ html[data-theme="dark"] [style*="background:var(--dark)"] {
     margin: 0 auto 2px auto !important;
   }
 }
+
+/* Ajustes responsivos para dispositivos móviles muy angostos */
+@media (max-width: 480px) {
+  .stepper-header {
+    gap: 4px !important;
+  }
+  .step-indicator {
+    font-size: 0 !important; /* Oculta la etiqueta del paso en móviles */
+  }
+  .step-indicator .step-num {
+    margin-right: 0 !important;
+  }
+  .modal-body {
+    padding: 12px 14px !important;
+  }
+  .modal-header {
+    padding: 12px 16px !important;
+  }
+  .modal-footer {
+    padding: 12px 16px !important;
+  }
+}

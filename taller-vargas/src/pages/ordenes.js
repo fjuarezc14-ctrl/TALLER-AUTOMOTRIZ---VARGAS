@@ -351,12 +351,16 @@ function renderPage() {
     const canvas = document.getElementById('signature-canvas');
     if (!canvas) return;
     
+    // Clonar el canvas para limpiar controladores antiguos
+    const newCanvas = canvas.cloneNode(true);
+    canvas.replaceWith(newCanvas);
+    
     setTimeout(() => {
-      const rect = canvas.getBoundingClientRect();
-      canvas.width = rect.width;
-      canvas.height = 120;
+      const rect = newCanvas.getBoundingClientRect();
+      newCanvas.width = rect.width;
+      newCanvas.height = 120;
       
-      const ctx = canvas.getContext('2d');
+      const ctx = newCanvas.getContext('2d');
       ctx.strokeStyle = '#0f172a';
       ctx.lineWidth = 3;
       ctx.lineCap = 'round';
@@ -366,7 +370,7 @@ function renderPage() {
       let lastPos = { x: 0, y: 0 };
       
       const getMousePos = (e) => {
-        const r = canvas.getBoundingClientRect();
+        const r = newCanvas.getBoundingClientRect();
         const clientX = e.touches ? e.touches[0].clientX : e.clientX;
         const clientY = e.touches ? e.touches[0].clientY : e.clientY;
         return {
@@ -397,17 +401,6 @@ function renderPage() {
         drawing = false;
       };
       
-      // Clonar el canvas para limpiar controladores antiguos
-      const oldCanvas = document.getElementById('signature-canvas');
-      const newCanvas = oldCanvas.cloneNode(true);
-      oldCanvas.replaceWith(newCanvas);
-      
-      const newCtx = newCanvas.getContext('2d');
-      newCtx.strokeStyle = '#0f172a';
-      newCtx.lineWidth = 3;
-      newCtx.lineCap = 'round';
-      newCtx.lineJoin = 'round';
-
       newCanvas.addEventListener('mousedown', startDrawing);
       newCanvas.addEventListener('mousemove', draw);
       window.addEventListener('mouseup', stopDrawing);
@@ -417,7 +410,7 @@ function renderPage() {
       newCanvas.addEventListener('touchend', stopDrawing);
       
       document.getElementById('btn-clear-signature').onclick = () => {
-        newCtx.clearRect(0, 0, newCanvas.width, newCanvas.height);
+        ctx.clearRect(0, 0, newCanvas.width, newCanvas.height);
         isCanvasSigned = false;
       };
     }, 150);
@@ -684,7 +677,7 @@ function renderModales() {
               <div class="form-section-title" style="margin:0;">Síntomas & Trabajos Solicitados</div>
               
               <!-- Checkboxes de Fallas Comunes -->
-              <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; background:var(--slate-9); padding:12px; border-radius:8px; border:1px solid var(--slate-8);">
+              <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(180px, 1fr)); gap:10px; background:var(--slate-9); padding:12px; border-radius:8px; border:1px solid var(--slate-8);">
                 ${['Demora al encender', 'Falta de potencia', 'Vibraciones inusuales', 'Sobrecalentamiento', 'Problemas de transmisión', 'Luces del tablero encendidas', 'Problemas de dirección', 'Fugas o consumo de líquidos', 'Problemas de frenado', 'Problemas de suspensión', 'Humo de colores', 'Olores inusuales'].map(sint => `
                   <label style="display:flex; align-items:center; gap:8px; font-size:11px; color:var(--dark); cursor:pointer;">
                     <input type="checkbox" class="sintomas-checkbox" data-sintoma="${sint}" style="width:14px; height:14px; accent-color:var(--brand);" />
@@ -699,7 +692,7 @@ function renderModales() {
               </div>
 
               <div class="form-section-title" style="margin:4px 0 0 0;">Servicios Adicionales</div>
-              <div style="display:flex; justify-content:space-between; gap:10px; background:var(--slate-9); padding:10px; border-radius:8px; border:1px solid var(--slate-8);">
+              <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(180px, 1fr)); gap:10px; background:var(--slate-9); padding:10px; border-radius:8px; border:1px solid var(--slate-8);">
                 <label style="display:flex; align-items:center; gap:8px; font-size:11px; color:var(--dark); cursor:pointer;">
                   <input type="checkbox" id="add-lavado" style="width:14px; height:14px; accent-color:var(--brand);" />
                   Lavado de vehículo
