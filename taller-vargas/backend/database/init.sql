@@ -187,9 +187,10 @@ END $$;
 CREATE OR REPLACE VIEW v_ordenes_completas AS
 SELECT os.id, os.estado, os.kilometraje, os.nivel_combustible, os.falla_reportada,
   os.repuestos_esperando, os.total_estimado, os.fecha_ingreso, os.fecha_entrega,
-  os.nota_interna, os.created_at,
+  os.nota_interna, os.created_at, os.diagnostico,
   v.placa, v.marca_modelo AS vehiculo, v.anio,
-  c.nombre AS cliente, c.telefono, c.num_doc, c.tipo_doc,
+  v.n_motor AS vehiculo_motor, v.color AS vehiculo_color, v.tipo_vehiculo AS vehiculo_clase,
+  c.nombre AS cliente, c.telefono, c.telefono AS cliente_telefono, c.num_doc, c.tipo_doc, c.direccion AS cliente_direccion,
   m.nombre AS mecanico,
   co.id AS cobro_id, co.estado AS cobro_estado
 FROM ordenes_servicio os

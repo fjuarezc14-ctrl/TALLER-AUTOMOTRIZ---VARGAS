@@ -2,6 +2,7 @@ import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import path from "path";
+import { query } from "./db.js";
 
 import clientesRouter   from "./routes/clientes.js";
 import vehiculosRouter  from "./routes/vehiculos.js";
@@ -11,6 +12,32 @@ import almacenRouter    from "./routes/almacen.js";
 import cobrosRouter     from "./routes/cobros.js";
 import archivosRouter   from "./routes/archivos.js";
 import dashboardRouter  from "./routes/dashboard.js";
+
+// Redefinir la vista v_ordenes_completas para incluir la columna diagnostico y cliente_telefono
+async function runDbMigrations() {
+  try {
+    await query(`
+      CREATE OR REPLACE VIEW v_ordenes_completas AS
+      SELECT os.id, os.estado, os.kilometraje, os.nivel_combustible, os.falla_reportada,
+        os.repuestos_esperando, os.total_estimado, os.fecha_ingreso, os.fecha_entrega,
+        os.nota_interna, os.created_at, os.diagnostico,
+        v.placa, v.marca_modelo AS vehiculo, v.anio,
+        v.n_motor AS vehiculo_motor, v.color AS vehiculo_color, v.tipo_vehiculo AS vehiculo_clase,
+        c.nombre AS cliente, c.telefono, c.telefono AS cliente_telefono, c.num_doc, c.tipo_doc, c.direccion AS cliente_direccion,
+        m.nombre AS mecanico,
+        co.id AS cobro_id, co.estado AS cobro_estado
+      FROM ordenes_servicio os
+      LEFT JOIN vehiculos v ON os.vehiculo_id = v.id
+      LEFT JOIN clientes c ON os.cliente_id = c.id
+      LEFT JOIN mecanicos m ON os.mecanico_id = m.id
+      LEFT JOIN cobros co ON co.orden_id = os.id;
+    `);
+    console.log("[DB] Vista v_ordenes_completas actualizada satisfactoriamente");
+  } catch (err) {
+    console.error("[DB ERROR] Error al ejecutar migración de la vista v_ordenes_completas:", err.message);
+  }
+}
+runDbMigrations();
 
 const app = express();
 const PORT = process.env.PORT || 3001;

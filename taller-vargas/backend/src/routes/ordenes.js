@@ -24,10 +24,10 @@ router.get("/:id", async (req, res) => {
 });
 
 router.post("/", async (req, res) => {
-  const { vehiculo_id, cliente_id, mecanico_id, kilometraje, nivel_combustible, falla_reportada } = req.body;
+  const { vehiculo_id, cliente_id, mecanico_id, kilometraje, nivel_combustible, falla_reportada, diagnostico } = req.body;
   try {
-    const r = await query("INSERT INTO ordenes_servicio (vehiculo_id,cliente_id,mecanico_id,kilometraje,nivel_combustible,falla_reportada,estado) VALUES ($1,$2,$3,$4,$5,$6,'Diagnostico') RETURNING *",
-      [vehiculo_id,cliente_id,mecanico_id||null,kilometraje,nivel_combustible,falla_reportada||""]);
+    const r = await query("INSERT INTO ordenes_servicio (vehiculo_id,cliente_id,mecanico_id,kilometraje,nivel_combustible,falla_reportada,estado,diagnostico) VALUES ($1,$2,$3,$4,$5,$6,'Diagnostico',$7) RETURNING *",
+      [vehiculo_id,cliente_id,mecanico_id||null,kilometraje,nivel_combustible,falla_reportada||"",diagnostico ? JSON.stringify(diagnostico) : null]);
     
     let kmVal = null;
     if (kilometraje) {

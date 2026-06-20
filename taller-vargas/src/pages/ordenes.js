@@ -222,6 +222,213 @@ function renderPage() {
   document.getElementById('sort-ordenes').addEventListener('change', () => { sortVal = document.getElementById('sort-ordenes').value; filtrarOrdenes(); });
   document.getElementById('btn-nueva-orden-header').addEventListener('click', abrirModalNuevaOrden);
 
+  // --- EVENTOS DEL STEPPER DE RECEPCIÓN ---
+  let currentStep = 1;
+  let isCanvasSigned = false;
+
+  window.toggleInvAccordion = function(header) {
+    const content = header.nextElementSibling;
+    content.classList.toggle('active');
+    header.classList.toggle('active');
+  };
+
+  window.checkAllCategory = function(btn, event) {
+    event.stopPropagation();
+    const content = btn.parentElement.nextElementSibling;
+    const checkboxes = content.querySelectorAll('.inv-checkbox');
+    checkboxes.forEach(cb => cb.checked = true);
+  };
+
+  function updateStepIndicators() {
+    document.querySelectorAll('.stepper-header .step-indicator').forEach(el => {
+      const stepNum = parseInt(el.dataset.step);
+      el.classList.toggle('active', stepNum === currentStep);
+    });
+    
+    // Mostrar/ocultar pasos
+    document.querySelectorAll('.stepper-step').forEach((el, idx) => {
+      el.classList.toggle('active', idx === currentStep - 1);
+    });
+
+    const prevBtn = document.getElementById('btn-step-prev');
+    const nextBtn = document.getElementById('btn-step-next');
+    const saveBtn = document.getElementById('btn-save-ord');
+
+    if (currentStep === 1) {
+      prevBtn.style.visibility = 'hidden';
+    } else {
+      prevBtn.style.visibility = 'visible';
+    }
+
+    if (currentStep === 4) {
+      nextBtn.classList.add('hidden');
+      saveBtn.classList.remove('hidden');
+    } else {
+      nextBtn.classList.remove('hidden');
+      saveBtn.classList.add('hidden');
+    }
+  }
+
+  function validarPaso(step) {
+    if (step === 1) {
+      const cli = document.getElementById('cli-select-id').value;
+      const veh = document.getElementById('veh-select-id').value;
+      const km = document.getElementById('ord-km').value;
+      if (!cli) { alert('Por favor, selecciona un cliente.'); return false; }
+      if (!veh) { alert('Por favor, selecciona un vehículo.'); return false; }
+      if (!km || parseInt(km) <= 0) { alert('Por favor, ingresa un kilometraje válido.'); return false; }
+    }
+    return true;
+  }
+
+  document.getElementById('btn-step-next').addEventListener('click', () => {
+    if (validarPaso(currentStep)) {
+      currentStep++;
+      updateStepIndicators();
+      if (currentStep === 4) {
+        initSignatureCanvas();
+      }
+    }
+  });
+
+  document.getElementById('btn-step-prev').addEventListener('click', () => {
+    currentStep--;
+    updateStepIndicators();
+  });
+
+  // Selector táctil de combustible
+  document.querySelectorAll('.fuel-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const val = e.target.dataset.val;
+      document.getElementById('ord-combustible').value = val;
+      document.querySelectorAll('.fuel-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.val === val);
+        if (b.dataset.val === val) {
+          b.style.background = 'var(--white)';
+          b.style.color = 'var(--dark)';
+          b.style.fontWeight = '800';
+        } else {
+          b.style.background = 'transparent';
+          b.style.color = 'var(--slate-4)';
+          b.style.fontWeight = '700';
+        }
+      });
+    });
+  });
+
+  // Botones de prueba de ruta
+  document.getElementById('btn-pruebaruta-si').addEventListener('click', () => {
+    document.getElementById('ord-pruebaruta').value = 'SI';
+    document.getElementById('btn-pruebaruta-si').className = 'active';
+    document.getElementById('btn-pruebaruta-si').style.background = 'var(--white)';
+    document.getElementById('btn-pruebaruta-si').style.color = 'var(--dark)';
+    document.getElementById('btn-pruebaruta-si').style.fontWeight = '800';
+    document.getElementById('btn-pruebaruta-si').style.boxShadow = 'var(--shadow-sm)';
+
+    document.getElementById('btn-pruebaruta-no').className = '';
+    document.getElementById('btn-pruebaruta-no').style.background = 'transparent';
+    document.getElementById('btn-pruebaruta-no').style.color = 'var(--slate-4)';
+    document.getElementById('btn-pruebaruta-no').style.fontWeight = '700';
+    document.getElementById('btn-pruebaruta-no').style.boxShadow = 'none';
+  });
+
+  document.getElementById('btn-pruebaruta-no').addEventListener('click', () => {
+    document.getElementById('ord-pruebaruta').value = 'NO';
+    document.getElementById('btn-pruebaruta-no').className = 'active';
+    document.getElementById('btn-pruebaruta-no').style.background = 'var(--white)';
+    document.getElementById('btn-pruebaruta-no').style.color = 'var(--dark)';
+    document.getElementById('btn-pruebaruta-no').style.fontWeight = '800';
+    document.getElementById('btn-pruebaruta-no').style.boxShadow = 'var(--shadow-sm)';
+
+    document.getElementById('btn-pruebaruta-si').className = '';
+    document.getElementById('btn-pruebaruta-si').style.background = 'transparent';
+    document.getElementById('btn-pruebaruta-si').style.color = 'var(--slate-4)';
+    document.getElementById('btn-pruebaruta-si').style.fontWeight = '700';
+    document.getElementById('btn-pruebaruta-si').style.boxShadow = 'none';
+  });
+
+  function initSignatureCanvas() {
+    const canvas = document.getElementById('signature-canvas');
+    if (!canvas) return;
+    
+    setTimeout(() => {
+      const rect = canvas.getBoundingClientRect();
+      canvas.width = rect.width;
+      canvas.height = 120;
+      
+      const ctx = canvas.getContext('2d');
+      ctx.strokeStyle = '#0f172a';
+      ctx.lineWidth = 3;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      
+      let drawing = false;
+      let lastPos = { x: 0, y: 0 };
+      
+      const getMousePos = (e) => {
+        const r = canvas.getBoundingClientRect();
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+        return {
+          x: clientX - r.left,
+          y: clientY - r.top
+        };
+      };
+      
+      const startDrawing = (e) => {
+        drawing = true;
+        lastPos = getMousePos(e);
+        isCanvasSigned = true;
+        e.preventDefault();
+      };
+      
+      const draw = (e) => {
+        if (!drawing) return;
+        const pos = getMousePos(e);
+        ctx.beginPath();
+        ctx.moveTo(lastPos.x, lastPos.y);
+        ctx.lineTo(pos.x, pos.y);
+        ctx.stroke();
+        lastPos = pos;
+        e.preventDefault();
+      };
+      
+      const stopDrawing = () => {
+        drawing = false;
+      };
+      
+      // Clonar el canvas para limpiar controladores antiguos
+      const oldCanvas = document.getElementById('signature-canvas');
+      const newCanvas = oldCanvas.cloneNode(true);
+      oldCanvas.replaceWith(newCanvas);
+      
+      const newCtx = newCanvas.getContext('2d');
+      newCtx.strokeStyle = '#0f172a';
+      newCtx.lineWidth = 3;
+      newCtx.lineCap = 'round';
+      newCtx.lineJoin = 'round';
+
+      newCanvas.addEventListener('mousedown', startDrawing);
+      newCanvas.addEventListener('mousemove', draw);
+      window.addEventListener('mouseup', stopDrawing);
+      
+      newCanvas.addEventListener('touchstart', startDrawing, { passive: false });
+      newCanvas.addEventListener('touchmove', draw, { passive: false });
+      newCanvas.addEventListener('touchend', stopDrawing);
+      
+      document.getElementById('btn-clear-signature').onclick = () => {
+        newCtx.clearRect(0, 0, newCanvas.width, newCanvas.height);
+        isCanvasSigned = false;
+      };
+    }, 150);
+  }
+
+  window.resetStepperForm = function() {
+    currentStep = 1;
+    isCanvasSigned = false;
+    updateStepIndicators();
+  };
+
   // Registrar cierres de modales
   document.getElementById('btn-close-ord-x').addEventListener('click', cerrarModalNuevaOrden);
   document.getElementById('btn-close-ord-cancel').addEventListener('click', cerrarModalNuevaOrden);
@@ -388,72 +595,267 @@ function renderModales() {
           </button>
         </div>
         <form id="form-nueva-orden">
-          <div class="modal-body" style="display:flex;flex-direction:column;gap:14px;">
-            
-            <div class="form-section-title">Recepción de Unidad</div>
+          <!-- Barra de Progreso Stepper -->
+          <div class="stepper-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; padding-bottom:12px; border-bottom:1px solid var(--slate-8);">
+            <div class="step-indicator active" data-step="1" style="font-size:11px; font-weight:800; color:var(--brand); display:flex; align-items:center; gap:6px;">
+              <span class="step-num" style="width:20px; height:20px; background:var(--brand); color:var(--dark); border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:10px; transition: all 0.2s;">1</span>
+              Vehículo
+            </div>
+            <div style="flex:1; height:1px; background:var(--slate-8); margin:0 8px;"></div>
+            <div class="step-indicator" data-step="2" style="font-size:11px; font-weight:800; color:var(--slate-5); display:flex; align-items:center; gap:6px;">
+              <span class="step-num" style="width:20px; height:20px; background:var(--slate-8); color:var(--slate-5); border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:10px; transition: all 0.2s;">2</span>
+              Fallas
+            </div>
+            <div style="flex:1; height:1px; background:var(--slate-8); margin:0 8px;"></div>
+            <div class="step-indicator" data-step="3" style="font-size:11px; font-weight:800; color:var(--slate-5); display:flex; align-items:center; gap:6px;">
+              <span class="step-num" style="width:20px; height:20px; background:var(--slate-8); color:var(--slate-5); border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:10px; transition: all 0.2s;">3</span>
+              Inventario
+            </div>
+            <div style="flex:1; height:1px; background:var(--slate-8); margin:0 8px;"></div>
+            <div class="step-indicator" data-step="4" style="font-size:11px; font-weight:800; color:var(--slate-5); display:flex; align-items:center; gap:6px;">
+              <span class="step-num" style="width:20px; height:20px; background:var(--slate-8); color:var(--slate-5); border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:10px; transition: all 0.2s;">4</span>
+              Firma
+            </div>
+          </div>
 
-            <!-- Buscador de cliente con filtrado bidireccional -->
-            <div style="background:var(--slate-9);border:1px solid var(--slate-8);border-radius:var(--radius-md);padding:12px;display:flex;flex-direction:column;gap:10px;">
-              <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px;">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="var(--brand)" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-                <span style="font-size:11px;font-weight:800;color:var(--slate-4);text-transform:uppercase;letter-spacing:.5px;">Buscar y seleccionar</span>
-              </div>
-              <div class="grid grid-cols-2 gap-3">
-                <div class="form-group" style="margin:0;">
-                  <label class="form-label">Cliente</label>
-                  <input type="text" id="cli-search-input" class="form-input" placeholder="🔍 Escribir nombre del cliente..." autocomplete="off" style="font-size:12px;" />
-                  <select id="cli-select-id" class="form-select" required style="margin-top:6px;">
-                    <option value="">-- Seleccionar cliente --</option>
-                    ${clientesList.map(c => `<option value="${c.id}">${c.nombre} (${c.num_doc})</option>`).join('')}
-                  </select>
+          <div class="modal-body" style="display:flex; flex-direction:column; gap:14px; min-height:360px; overflow-y:auto; max-height:calc(80vh - 150px);">
+            
+            <!-- PASO 1: CLIENTE Y VEHICULO -->
+            <div class="stepper-step active" id="step-1">
+              <div class="form-section-title" style="margin:0;">Recepción de Unidad</div>
+              
+              <!-- Buscador de cliente con filtrado bidireccional -->
+              <div style="background:var(--slate-9);border:1px solid var(--slate-8);border-radius:var(--radius-md);padding:12px;display:flex;flex-direction:column;gap:10px;">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px;">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="var(--brand)" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                  <span style="font-size:11px;font-weight:800;color:var(--slate-4);text-transform:uppercase;letter-spacing:.5px;">Buscar y seleccionar</span>
                 </div>
-                <div class="form-group" style="margin:0;">
-                  <label class="form-label">Vehículo / Placa</label>
-                  <select id="veh-select-id" class="form-select" required>
-                    <option value="">-- Primero selecciona un cliente --</option>
-                    ${vehiculosList.map(v => `<option value="${v.id}" data-cliente-id="${v.cliente_id}" data-km="${v.km_actual || 0}">${v.placa} — ${v.marca_modelo}</option>`).join('')}
-                  </select>
-                  <div id="km-anterior-hint" style="display:none;margin-top:5px;font-size:11px;background:#ecfdf5;border:1px solid #a7f3d0;color:#065f46;padding:5px 10px;border-radius:6px;font-weight:600;">
-                    📍 Km anterior: <span id="km-anterior-valor">—</span>
+                <div class="grid grid-cols-2 gap-3">
+                  <div class="form-group" style="margin:0;">
+                    <label class="form-label">Cliente</label>
+                    <input type="text" id="cli-search-input" class="form-input" placeholder="🔍 Escribir nombre del cliente..." autocomplete="off" style="font-size:12px;" />
+                    <select id="cli-select-id" class="form-select" required style="margin-top:6px;">
+                      <option value="">-- Seleccionar cliente --</option>
+                      ${clientesList.map(c => `<option value="${c.id}">${c.nombre} (${c.num_doc})</option>`).join('')}
+                    </select>
+                  </div>
+                  <div class="form-group" style="margin:0;">
+                    <label class="form-label">Vehículo / Placa</label>
+                    <select id="veh-select-id" class="form-select" required>
+                      <option value="">-- Primero selecciona un cliente --</option>
+                      ${vehiculosList.map(v => `<option value="${v.id}" data-cliente-id="${v.cliente_id}" data-km="${v.km_actual || 0}">${v.placa} — ${v.marca_modelo}</option>`).join('')}
+                    </select>
+                    <div id="km-anterior-hint" style="display:none;margin-top:5px;font-size:11px;background:#ecfdf5;border:1px solid #a7f3d0;color:#065f46;padding:5px 10px;border-radius:6px;font-weight:600;">
+                      📍 Km anterior: <span id="km-anterior-valor">—</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-3 gap-3">
+                <div class="form-group">
+                  <label class="form-label">Kilometraje</label>
+                  <input type="number" id="ord-km" class="form-input text-center font-bold" required placeholder="Km" />
+                </div>
+                <div class="form-group col-span-2">
+                  <label class="form-label">Nivel Combustible</label>
+                  <input type="hidden" id="ord-combustible" value="1/2" />
+                  <div class="fuel-selector-wrap" style="display:flex; justify-content:space-between; background:var(--slate-8); padding:4px; border-radius:10px; border:1px solid var(--slate-7);">
+                    <button type="button" class="fuel-btn" data-val="Vacio" style="flex:1; padding:8px; border:none; background:transparent; font-size:11px; font-weight:700; color:var(--slate-4); border-radius:6px; cursor:pointer;">E</button>
+                    <button type="button" class="fuel-btn" data-val="1/4" style="flex:1; padding:8px; border:none; background:transparent; font-size:11px; font-weight:700; color:var(--slate-4); border-radius:6px; cursor:pointer;">1/4</button>
+                    <button type="button" class="fuel-btn active" data-val="1/2" style="flex:1; padding:8px; border:none; background:var(--white); font-size:11px; font-weight:800; color:var(--dark); border-radius:6px; cursor:pointer; box-shadow:var(--shadow-sm);">1/2</button>
+                    <button type="button" class="fuel-btn" data-val="3/4" style="flex:1; padding:8px; border:none; background:transparent; font-size:11px; font-weight:700; color:var(--slate-4); border-radius:6px; cursor:pointer;">3/4</button>
+                    <button type="button" class="fuel-btn" data-val="Lleno" style="flex:1; padding:8px; border:none; background:transparent; font-size:11px; font-weight:700; color:var(--slate-4); border-radius:6px; cursor:pointer;">F</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Mecánico Asignado (Opcional)</label>
+                <select id="ord-mecanico" class="form-select">
+                  <option value="">-- Sin asignar --</option>
+                  ${mecanicosList.map(m => `<option value="${m.id}">${m.nombre}</option>`).join('')}
+                </select>
+              </div>
+            </div>
+
+            <!-- PASO 2: FALLAS Y SERVICIOS SOLICITADOS -->
+            <div class="stepper-step" id="step-2">
+              <div class="form-section-title" style="margin:0;">Síntomas & Trabajos Solicitados</div>
+              
+              <!-- Checkboxes de Fallas Comunes -->
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; background:var(--slate-9); padding:12px; border-radius:8px; border:1px solid var(--slate-8);">
+                ${['Demora al encender', 'Falta de potencia', 'Vibraciones inusuales', 'Sobrecalentamiento', 'Problemas de transmisión', 'Luces del tablero encendidas', 'Problemas de dirección', 'Fugas o consumo de líquidos', 'Problemas de frenado', 'Problemas de suspensión', 'Humo de colores', 'Olores inusuales'].map(sint => `
+                  <label style="display:flex; align-items:center; gap:8px; font-size:11px; color:var(--dark); cursor:pointer;">
+                    <input type="checkbox" class="sintomas-checkbox" data-sintoma="${sint}" style="width:14px; height:14px; accent-color:var(--brand);" />
+                    ${sint}
+                  </label>
+                `).join('')}
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Otros / Especificaciones</label>
+                <textarea id="ord-falla" class="form-textarea" rows="2" placeholder="Especifica fallas adicionales aquí..."></textarea>
+              </div>
+
+              <div class="form-section-title" style="margin:4px 0 0 0;">Servicios Adicionales</div>
+              <div style="display:flex; justify-content:space-between; gap:10px; background:var(--slate-9); padding:10px; border-radius:8px; border:1px solid var(--slate-8);">
+                <label style="display:flex; align-items:center; gap:8px; font-size:11px; color:var(--dark); cursor:pointer;">
+                  <input type="checkbox" id="add-lavado" style="width:14px; height:14px; accent-color:var(--brand);" />
+                  Lavado de vehículo
+                </label>
+                <label style="display:flex; align-items:center; gap:8px; font-size:11px; color:var(--dark); cursor:pointer;">
+                  <input type="checkbox" id="add-retiro-rep" style="width:14px; height:14px; accent-color:var(--brand);" />
+                  Retiro de repuestos usados
+                </label>
+                <label style="display:flex; align-items:center; gap:8px; font-size:11px; color:var(--dark); cursor:pointer;">
+                  <input type="checkbox" id="add-cliente-inv" style="width:14px; height:14px; accent-color:var(--brand);" />
+                  Cliente participa en inventario
+                </label>
+              </div>
+
+              <div class="grid grid-cols-3 gap-3">
+                <div class="form-group">
+                  <label class="form-label">Fecha Est. Entrega</label>
+                  <input type="date" id="ord-fecha-entrega-est" class="form-input" />
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Hora Est. Entrega</label>
+                  <input type="time" id="ord-hora-entrega-est" class="form-input" />
+                </div>
+                <div class="form-group">
+                  <label class="form-label">N° de Comprobante</label>
+                  <input type="text" id="ord-comprobante-num" class="form-input font-mono" placeholder="Ej: F001-0002" />
+                </div>
+              </div>
+            </div>
+
+            <!-- PASO 3: INVENTARIO DE ENTRADA -->
+            <div class="stepper-step" id="step-3" style="gap: 10px;">
+              <div class="form-section-title" style="margin: 0; display: flex; justify-content: space-between; align-items: center;">
+                <span>📋 Inventario de Unidad</span>
+                <span style="font-size: 10px; color: var(--slate-5); font-weight: 500;">Usa "Todo OK" para marcar rápido</span>
+              </div>
+
+              <!-- Acordeón 1: Documentación y Llaves -->
+              <div class="inv-accordion">
+                <div class="inv-accordion-header" onclick="toggleInvAccordion(this)">
+                  <span>📁 1. Documentación y Llaves</span>
+                  <button type="button" class="btn-ghost" onclick="checkAllCategory(this, event)" style="font-size: 10px; padding: 2px 6px; background:#10b981; color:#fff; border:none; border-radius:4px; font-weight:800;">Todo OK</button>
+                </div>
+                <div class="inv-accordion-content active">
+                  <div class="inv-grid">
+                    ${['Llave principal', 'Llavero', 'Tarjeta de Propiedad', 'SOAT', 'Manual del vehículo', 'Llave de repuesto', 'Control de alarma', 'Permiso lunas'].map(item => `
+                      <label class="inv-item-label">
+                        <input type="checkbox" class="inv-checkbox" data-item="${item}" checked />
+                        ${item}
+                      </label>
+                    `).join('')}
+                  </div>
+                </div>
+              </div>
+
+              <!-- Acordeón 2: Accesorios e Interior -->
+              <div class="inv-accordion">
+                <div class="inv-accordion-header" onclick="toggleInvAccordion(this)">
+                  <span>🛋️ 2. Accesorios e Interior</span>
+                  <button type="button" class="btn-ghost" onclick="checkAllCategory(this, event)" style="font-size: 10px; padding: 2px 6px; background:#10b981; color:#fff; border:none; border-radius:4px; font-weight:800;">Todo OK</button>
+                </div>
+                <div class="inv-accordion-content">
+                  <div class="inv-grid">
+                    ${['Pisos delanteros', 'Pisos posteriores', 'Espejo retrovisor', 'Claxon', 'Alarma', 'Radio base estación', 'Medidor de presión', 'Encendedor', 'Cargador Usb', 'Cenicero', 'Linterna', 'Autoradio', 'Soporte de celular', 'Adornos colgantes', 'Ambientadores', 'Respaldo de asiento', 'Tapasoles', 'Cámara de retroceso', 'Amplificador de sonido'].map(item => `
+                      <label class="inv-item-label">
+                        <input type="checkbox" class="inv-checkbox" data-item="${item}" checked />
+                        ${item}
+                      </label>
+                    `).join('')}
+                  </div>
+                </div>
+              </div>
+
+              <!-- Acordeón 3: Exterior e Iluminación -->
+              <div class="inv-accordion">
+                <div class="inv-accordion-header" onclick="toggleInvAccordion(this)">
+                  <span>💡 3. Exterior e Iluminación</span>
+                  <button type="button" class="btn-ghost" onclick="checkAllCategory(this, event)" style="font-size: 10px; padding: 2px 6px; background:#10b981; color:#fff; border:none; border-radius:4px; font-weight:800;">Todo OK</button>
+                </div>
+                <div class="inv-accordion-content">
+                  <div class="inv-grid">
+                    ${['Espejos laterales', 'Brazos y plumillas', 'Manijas de puertas', 'Luz de freno', 'Faros delanteros', 'Luz faros delanteros', 'Faros posteriores', 'Luz faros posteriores', 'Faros neblineros', 'Luz faros neblineros', 'Luz de placa', 'Antena', 'Antena de radio', 'Emblema delantero', 'Emblema posterior', 'Parabrisas delantero', 'Parabrisas posterior', 'Lunas delanteras', 'Lunas posteriores', 'Lunas de esquina', 'Tapa radiador', 'Tapa combustible'].map(item => `
+                      <label class="inv-item-label">
+                        <input type="checkbox" class="inv-checkbox" data-item="${item}" checked />
+                        ${item}
+                      </label>
+                    `).join('')}
+                  </div>
+                </div>
+              </div>
+
+              <!-- Acordeón 4: Seguridad y Herramientas -->
+              <div class="inv-accordion">
+                <div class="inv-accordion-header" onclick="toggleInvAccordion(this)">
+                  <span>🛠️ 4. Seguridad y Herramientas</span>
+                  <button type="button" class="btn-ghost" onclick="checkAllCategory(this, event)" style="font-size: 10px; padding: 2px 6px; background:#10b981; color:#fff; border:none; border-radius:4px; font-weight:800;">Todo OK</button>
+                </div>
+                <div class="inv-accordion-content">
+                  <div class="inv-grid">
+                    ${['Batería', 'Computadora', 'Gata y palanca', 'Kit de herramientas', 'Llanta de repuesto', 'Triángulos de seguridad', 'Conos de seguridad', 'Cables de batería', 'Cable de remolque', 'Sogas/Eslingas', 'Bola de remolque', 'Extintor', 'Botiquín', 'Circulina', 'Sirena', 'Pértiga', 'Seguro de ruedas', 'Tacos de seguridad', 'Tapa fusibles'].map(item => `
+                      <label class="inv-item-label">
+                        <input type="checkbox" class="inv-checkbox" data-item="${item}" checked />
+                        ${item}
+                      </label>
+                    `).join('')}
                   </div>
                 </div>
               </div>
             </div>
 
-            <div class="grid grid-cols-3 gap-3">
+            <!-- PASO 4: INSPECCION Y FIRMA DIGITAL -->
+            <div class="stepper-step" id="step-4">
+              <div class="form-section-title" style="margin:0;">Inspección de Daños & Firma</div>
+              
+              <div class="grid grid-cols-2 gap-3">
+                <div class="form-group" style="margin:0;">
+                  <label class="form-label">Prueba de Ruta</label>
+                  <input type="hidden" id="ord-pruebaruta" value="NO" />
+                  <div style="display:flex; border:1px solid var(--slate-8); border-radius:8px; overflow:hidden; background:var(--slate-9); padding:3px; gap:2px;">
+                    <button type="button" id="btn-pruebaruta-si" style="flex:1; padding:6px; border:none; background:transparent; border-radius:6px; font-size:11px; font-weight:700; color:var(--slate-4); cursor:pointer; transition:all 0.1s;">SÍ</button>
+                    <button type="button" id="btn-pruebaruta-no" class="active" style="flex:1; padding:6px; border:none; background:var(--white); border-radius:6px; font-size:11px; font-weight:800; color:var(--dark); cursor:pointer; box-shadow:var(--shadow-sm); transition:all 0.1s;">NO</button>
+                  </div>
+                </div>
+                <div class="form-group" style="margin:0; justify-content:center; display:flex; flex-direction:column;">
+                  <div style="font-size:10px; color:var(--slate-5); font-weight:600; line-height:1.4;">
+                    * Quiñado (*) | Abollado (◯)
+                    <br>
+                    * Rallado (🪶) | Faltante (F)
+                  </div>
+                </div>
+              </div>
+
               <div class="form-group">
-                <label class="form-label">Kilometraje</label>
-                <input type="number" id="ord-km" class="form-input text-center font-bold" required placeholder="Km" />
+                <label class="form-label">Observaciones de Carrocería</label>
+                <textarea id="ord-observaciones" class="form-textarea" rows="2" placeholder="Ej: Abolladura leve en parachoques posterior..."></textarea>
               </div>
-              <div class="form-group col-span-2">
-                <label class="form-label">Nivel Combustible</label>
-                <select id="ord-combustible" class="form-select" required>
-                  <option value="Vacio">Vacío</option>
-                  <option value="1/4">1/4 Tanque</option>
-                  <option value="1/2">1/2 Tanque</option>
-                  <option value="3/4">3/4 Tanque</option>
-                  <option value="Lleno">Lleno</option>
-                </select>
+
+              <div class="form-group">
+                <label class="form-label" style="display:flex; justify-content:space-between; align-items:center; margin:0 0 4px 0;">
+                  <span>✍️ Firma del Cliente (Conformidad)</span>
+                  <button type="button" id="btn-clear-signature" style="font-size:9px; background:var(--slate-8); border:1px solid var(--slate-7); color:var(--dark); font-weight:800; padding:2px 8px; border-radius:4px; cursor:pointer; transition: background 0.1s;">Limpiar</button>
+                </label>
+                <div style="border:2px dashed var(--slate-7); border-radius:8px; background:var(--slate-9); height:120px; position:relative; overflow:hidden;">
+                  <canvas id="signature-canvas" style="width:100%; height:120px; cursor:crosshair; display:block; background:#fff;"></canvas>
+                </div>
               </div>
-            </div>
-
-            <div class="form-group">
-              <label class="form-label">Mecánico Asignado (Opcional)</label>
-              <select id="ord-mecanico" class="form-select">
-                <option value="">-- Sin asignar --</option>
-                ${mecanicosList.map(m => `<option value="${m.id}">${m.nombre}</option>`).join('')}
-              </select>
-            </div>
-
-            <div class="form-group">
-              <label class="form-label">Síntomas / Falla Reportada</label>
-              <textarea id="ord-falla" class="form-textarea" rows="3" required placeholder="Escribe el diagnóstico preliminar o fallas indicadas por el cliente..."></textarea>
             </div>
 
           </div>
-          <div class="modal-footer">
-            <button type="button" class="btn-ghost" id="btn-close-ord-cancel">Cancelar</button>
-            <button type="submit" class="btn-primary" id="btn-save-ord">Registrar Recepción</button>
+          <div class="modal-footer" style="justify-content:space-between; flex-shrink: 0; background: var(--white); padding: 12px 24px;">
+            <button type="button" class="btn-ghost" id="btn-step-prev" style="visibility:hidden; padding: 8px 16px;">🠴 Atrás</button>
+            <div style="display:flex; gap:10px;">
+              <button type="button" class="btn-ghost" id="btn-close-ord-cancel" style="padding: 8px 16px;">Cancelar</button>
+              <button type="button" class="btn-primary" id="btn-step-next" style="padding: 8px 16px;">Siguiente 🠲</button>
+              <button type="submit" class="btn-primary hidden" id="btn-save-ord" style="padding: 8px 16px;">Registrar Recepción</button>
+            </div>
           </div>
         </form>
       </div>
@@ -728,6 +1130,7 @@ function abrirModalNuevaOrden() {
   const form = document.getElementById('form-nueva-orden');
   form.reset();
   document.getElementById('cli-select-id').disabled = false;
+  if (window.resetStepperForm) window.resetStepperForm();
   modal.classList.add('active');
 }
 
@@ -817,13 +1220,53 @@ function autoAsignarClienteYKm() {
 
 async function guardarNuevaOrden(e) {
   e.preventDefault();
+
+  const sintomas = [];
+  document.querySelectorAll('.sintomas-checkbox:checked').forEach(cb => {
+    sintomas.push(cb.dataset.sintoma);
+  });
+
+  const addServices = [];
+  if (document.getElementById('add-lavado').checked) addServices.push('Lavado de vehículo');
+  if (document.getElementById('add-retiro-rep').checked) addServices.push('Retiro de repuestos usados');
+  if (document.getElementById('add-cliente-inv').checked) addServices.push('Cliente participa en inventario');
+
+  const inventario = {};
+  document.querySelectorAll('.inv-checkbox').forEach(cb => {
+    inventario[cb.dataset.item] = cb.checked;
+  });
+
+  const canvas = document.getElementById('signature-canvas');
+  const firma_cliente = isCanvasSigned && canvas ? canvas.toDataURL() : null;
+
+  const otros_sintomas = document.getElementById('ord-falla').value.trim();
+
+  const diagnosticoObj = {
+    sintomas,
+    otros_sintomas,
+    servicios_adicionales: addServices,
+    inventario,
+    prueba_ruta: document.getElementById('ord-pruebaruta').value,
+    observaciones: document.getElementById('ord-observaciones').value.trim(),
+    firma_cliente,
+    fecha_estimada: document.getElementById('ord-fecha-entrega-est').value,
+    hora_estimada: document.getElementById('ord-hora-entrega-est').value,
+    comprobante_num: document.getElementById('ord-comprobante-num').value.trim()
+  };
+
+  const fallasText = [
+    sintomas.length > 0 ? `SÍNTOMAS: ${sintomas.join(', ')}` : '',
+    otros_sintomas ? `DETALLE: ${otros_sintomas}` : ''
+  ].filter(Boolean).join('\n') || 'Ninguno indicado';
+
   const data = {
     vehiculo_id: parseInt(document.getElementById('veh-select-id').value),
     cliente_id: parseInt(document.getElementById('cli-select-id').value),
     mecanico_id: parseInt(document.getElementById('ord-mecanico').value) || null,
     kilometraje: parseInt(document.getElementById('ord-km').value),
     nivel_combustible: document.getElementById('ord-combustible').value,
-    falla_reportada: document.getElementById('ord-falla').value.trim()
+    falla_reportada: fallasText,
+    diagnostico: diagnosticoObj
   };
 
   try {
@@ -1527,7 +1970,7 @@ function imprimirDocumento(tipo, o) {
   }
 
   let diagnosticoHtml = '';
-  if (diag && Object.keys(diag).length > 0) {
+  if (diag && Object.keys(diag).length > 0 && tipo === 'nota') {
     const ESTADOS_TEXT = {
       ok: '🟢 OK',
       review: '🟡 Revisión',
@@ -1546,9 +1989,12 @@ function imprimirDocumento(tipo, o) {
     };
 
     const rows = Object.entries(diag).map(([key, item]) => {
+      if (['sintomas', 'otros_sintomas', 'servicios_adicionales', 'inventario', 'prueba_ruta', 'observaciones', 'firma_cliente', 'fecha_estimada', 'hora_estimada', 'comprobante_num'].includes(key)) {
+        return '';
+      }
       const compLabel = NOMBRES_COMPONENTE[key] || key;
-      const estadoLabel = ESTADOS_TEXT[item.estado] || ESTADOS_TEXT.na;
-      const notas = item.notes || item.notas || 'Inspeccionado.';
+      const estadoLabel = item && item.estado ? (ESTADOS_TEXT[item.estado] || ESTADOS_TEXT.na) : ESTADOS_TEXT.na;
+      const notas = item ? (item.notes || item.notas || 'Inspeccionado.') : 'Inspeccionado.';
       return `
         <tr style="border-bottom:1px dashed #ccc;">
           <td style="padding:4px 6px;"><strong>${compLabel}</strong></td>
@@ -1556,23 +2002,25 @@ function imprimirDocumento(tipo, o) {
           <td style="padding:4px 6px;color:#333;font-size:10px;">${notas}</td>
         </tr>
       `;
-    }).join('');
+    }).filter(Boolean).join('');
 
-    diagnosticoHtml = `
-      <h4 style="margin:20px 0 5px;text-transform:uppercase;font-size:11px;border-bottom:1px solid #000;padding-bottom:2px;">Ficha de Diagnóstico e Inspección</h4>
-      <table class="print-table" style="font-size:10px; width:100%; border-collapse:collapse; margin-bottom:15px;">
-        <thead>
-          <tr style="background:#f3f4f6; border-bottom:1px solid #000;">
-            <th style="padding:4px;text-align:left;width:30%;">Componente</th>
-            <th style="padding:4px;text-align:center;width:30%;">Estado</th>
-            <th style="padding:4px;text-align:left;width:40%;">Notas / Observación</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${rows}
-        </tbody>
-      </table>
-    `;
+    if (rows) {
+      diagnosticoHtml = `
+        <h4 style="margin:20px 0 5px;text-transform:uppercase;font-size:11px;border-bottom:1px solid #000;padding-bottom:2px;">Ficha de Diagnóstico e Inspección</h4>
+        <table class="print-table" style="font-size:10px; width:100%; border-collapse:collapse; margin-bottom:15px;">
+          <thead>
+            <tr style="background:#f3f4f6; border-bottom:1px solid #000;">
+              <th style="padding:4px;text-align:left;width:30%;">Componente</th>
+              <th style="padding:4px;text-align:center;width:30%;">Estado</th>
+              <th style="padding:4px;text-align:left;width:40%;">Notas / Observación</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows}
+          </tbody>
+        </table>
+      `;
+    }
   }
 
   if (tipo === 'nota') {
@@ -1626,70 +2074,198 @@ function imprimirDocumento(tipo, o) {
     `;
   } else {
     // 🖨️ Hoja Técnica de Taller (Orden de Servicio)
+    const categoriasInventario = [
+      {
+        nombre: "Documentación y Llaves",
+        items: ['Llave principal', 'Llavero', 'Tarjeta de Propiedad', 'SOAT', 'Manual del vehículo', 'Llave de repuesto', 'Control de alarma', 'Permiso lunas']
+      },
+      {
+        nombre: "Accesorios e Interior",
+        items: ['Pisos delanteros', 'Pisos posteriores', 'Espejo retrovisor', 'Claxon', 'Alarma', 'Radio base estación', 'Medidor de presión', 'Encendedor', 'Cargador Usb', 'Cenicero', 'Linterna', 'Autoradio', 'Soporte de celular', 'Adornos colgantes', 'Ambientadores', 'Respaldo de asiento', 'Tapasoles', 'Cámara de retroceso', 'Amplificador de sonido']
+      },
+      {
+        nombre: "Exterior e Iluminación",
+        items: ['Espejos laterales', 'Brazos y plumillas', 'Manijas de puertas', 'Luz de freno', 'Faros delanteros', 'Luz faros delanteros', 'Faros posteriores', 'Luz faros posteriores', 'Faros neblineros', 'Luz faros neblineros', 'Luz de placa', 'Antena', 'Antena de radio', 'Emblema delantero', 'Emblema posterior', 'Parabrisas delantero', 'Parabrisas posterior', 'Lunas delanteras', 'Lunas posteriores', 'Lunas de esquina', 'Tapa radiador', 'Tapa combustible']
+      },
+      {
+        nombre: "Seguridad y Herramientas",
+        items: ['Batería', 'Computadora', 'Gata y palanca', 'Kit de herramientas', 'Llanta de repuesto', 'Triángulos de seguridad', 'Conos de seguridad', 'Cables de batería', 'Cable de remolque', 'Sogas/Eslingas', 'Bola de remolque', 'Extintor', 'Botiquín', 'Circulina', 'Sirena', 'Pértiga', 'Seguro de ruedas', 'Tacos de seguridad', 'Tapa fusibles']
+      }
+    ];
+
+    const invItemsHtml = categoriasInventario.map(cat => {
+      return cat.items.map(item => {
+        const isChecked = (diag && diag.inventario && diag.inventario[item] === true);
+        const checkSymbol = isChecked ? 'X' : '&nbsp;';
+        return `
+          <div class="vargas-print-inv-item">
+            <span class="vargas-print-checkbox">${checkSymbol}</span>
+            <span>${item}</span>
+          </div>
+        `;
+      }).join('');
+    }).join('');
+
+    const chassisSvg = `
+      <svg viewBox="0 0 560 200" class="vargas-print-chassis-svg" xmlns="http://www.w3.org/2000/svg">
+        <!-- Carrocería del auto (silueta lateral minimalista) -->
+        <g fill="none" stroke="#475569" stroke-width="1.5">
+          <!-- Cuerpo principal -->
+          <path d="M80,140 L80,110 Q100,70 160,60 L320,60 Q380,60 420,80 L460,110 L460,140 Z" />
+          <!-- Ventanas -->
+          <path d="M170,65 L170,100 L310,100 L310,65 Q300,62 270,62 L200,62 Z" stroke-width="1" opacity=".7"/>
+          <!-- Ruedas -->
+          <circle cx="160" cy="148" r="28" opacity=".6"/>
+          <circle cx="160" cy="148" r="18"/>
+          <circle cx="380" cy="148" r="28" opacity=".6"/>
+          <circle cx="380" cy="148" r="18"/>
+          <!-- Faro delantero -->
+          <path d="M460,115 L480,115 L480,125 L460,125 Z" stroke-width="1"/>
+          <!-- Faro trasero -->
+          <path d="M78,115 L60,115 L60,125 L78,125 Z" stroke-width="1"/>
+          <!-- Motor (capó) -->
+          <path d="M400,70 L460,110" stroke-width="1" opacity=".5"/>
+          <!-- Techo -->
+          <path d="M170,62 Q240,42 330,62" stroke-width="1" opacity=".5"/>
+        </g>
+        <text x="10" y="15" font-size="8" fill="#475569" font-family="'Courier New',monospace" font-weight="800">VARGAS ERP — DIAGNÓSTICO DE CARROCERÍA</text>
+      </svg>
+    `;
+
     printArea.innerHTML = `
-      <div class="print-header">
-        <h2 style="margin:0;text-transform:uppercase;font-size:16px;">Hoja de Taller - Orden de Servicio</h2>
-        <p style="margin:4px 0 0;font-size:11px;font-weight:bold;">TALLER VARGAS ERP - MÓDULO OPERATIVO</p>
-        <h3 style="margin:12px 0 0;font-size:13px;border-top:1px solid #000;padding-top:8px;">ORDEN DE SERVICIO #OS-${o.id}</h3>
-      </div>
-
-      <div style="font-size:11px;line-height:1.6;display:grid;grid-template-columns:1fr 1fr;gap:20px;">
-        <div>
-          <p><strong>Unidad Vehicular:</strong> ${o.vehiculo}</p>
-          <p><strong>Placa del Auto:</strong> ${o.placa}</p>
-          <p><strong>Kilometraje Ingreso:</strong> ${o.kilometraje.toLocaleString()} Km</p>
-          <p><strong>Nivel de Combustible:</strong> ${o.nivel_combustible}</p>
+      <!-- Cabecera Corporativa -->
+      <div class="vargas-print-header">
+        <div class="vargas-print-logo-wrap">
+          <div>
+            <h2 class="vargas-print-title">INVERSIONES Y SERVICIOS VARGAS E.I.R.L.</h2>
+            <p class="vargas-print-contact">
+              📞 076-366683 | 📱 931 163 369 - 976 864 137<br>
+              📍 Jr. Reyna Farge N° 648 - Cajamarca | ✉️ inversionesyserviciosvargas@gmail.com
+            </p>
+          </div>
         </div>
-        <div>
-          <p><strong>Propietario / Cliente:</strong> ${o.cliente}</p>
-          <p><strong>Mecánico Asignado:</strong> ${o.mecanico || '—'}</p>
-          <p><strong>Fecha Recepción:</strong> ${dateFormatted}</p>
-          <p><strong>Estado Actual:</strong> ${o.estado}</p>
+        <div class="vargas-print-number">
+          <h3 style="margin: 0; font-size: 11px; text-transform: uppercase;">ORDEN DE SERVICIO</h3>
+          <h3 style="color: #ef4444; font-size: 14px; font-weight: 900; margin-top: 2px;">N°: 001 - ${String(o.id).padStart(7, '0')}</h3>
         </div>
       </div>
 
-      <div style="margin-top:15px;border:1px solid #000;padding:10px;border-radius:4px;font-size:11px;">
-        <strong>SÍNTOMAS Y DIAGNÓSTICO REPORTADO (FALLA):</strong>
-        <p style="margin-top:5px;font-style:italic;white-space:pre-line;">${o.falla_reportada || 'Ninguno indicado'}</p>
+      <!-- Datos Cliente y Vehículo -->
+      <div class="vargas-print-section-title">Datos del Cliente y Vehículo</div>
+      <table class="vargas-print-table" style="margin-bottom: 8px;">
+        <tbody>
+          <tr>
+            <td style="width: 50%;"><strong>Nombre / RS:</strong> ${o.cliente || '—'}</td>
+            <td style="width: 50%;"><strong>Clase/Tipo:</strong> ${o.vehiculo_clase || '—'}</td>
+          </tr>
+          <tr>
+            <td><strong>Dirección:</strong> ${o.cliente_direccion || '—'}</td>
+            <td><strong>Color:</strong> ${o.vehiculo_color || '—'}</td>
+          </tr>
+          <tr>
+            <td><strong>DNI / RUC:</strong> ${o.num_doc || '—'}</td>
+            <td><strong>Kilometraje:</strong> ${o.kilometraje ? o.kilometraje.toLocaleString() : '0'} Km</td>
+          </tr>
+          <tr>
+            <td><strong>Teléfono:</strong> ${o.cliente_telefono || '—'}</td>
+            <td><strong>Marca / Modelo:</strong> ${o.vehiculo || '—'}</td>
+          </tr>
+          <tr>
+            <td><strong>Fecha Ingreso:</strong> ${dateFormatted}</td>
+            <td><strong>Año / N° Motor:</strong> ${o.anio || '—'} / ${o.vehiculo_motor || '—'}</td>
+          </tr>
+          <tr>
+            <td><strong>Mecánico Asignado:</strong> ${o.mecanico || '—'}</td>
+            <td><strong>Placa:</strong> <strong style="font-family: monospace; font-size: 11px;">${o.placa || '—'}</strong></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- Inventario de Entrada -->
+      <div class="vargas-print-section-title">Inventario de Entrada (Recepcionado)</div>
+      <div class="vargas-print-inv-grid">
+        ${invItemsHtml}
       </div>
 
-      <h4 style="margin:20px 0 5px;text-transform:uppercase;font-size:11px;border-bottom:1px solid #000;padding-bottom:2px;">Lista de Tareas e Insumos Solicitados</h4>
-      <table class="print-table" style="font-size:11px;">
+      <!-- Daños, Combustible, Ruta y Síntomas -->
+      <div class="vargas-print-section-title">Inspección de Carrocería & Diagnóstico</div>
+      <div class="vargas-print-chassis-wrap">
+        <div style="font-size: 9px; display: flex; flex-direction: column; gap: 4px;">
+          <div>
+            <strong>SÍNTOMAS / FALLA REPORTADA:</strong>
+            <p style="margin: 2px 0 0 0; font-style: italic; white-space: pre-line; line-height: 1.25;">${o.falla_reportada || 'Ninguno indicado'}</p>
+          </div>
+          <div style="margin-top: 4px;">
+            <strong>SERVICIOS ADICIONALES:</strong>
+            <p style="margin: 2px 0 0 0;">${(diag && diag.servicios_adicionales && diag.servicios_adicionales.length > 0) ? diag.servicios_adicionales.join(', ') : 'Ninguno'}</p>
+          </div>
+          <div style="margin-top: 4px; display: flex; gap: 15px;">
+            <div><strong>Prueba de Ruta Autorizada:</strong> ${(diag && diag.prueba_ruta) || 'NO'}</div>
+            <div><strong>Combustible:</strong> ${o.nivel_combustible || '—'}</div>
+          </div>
+        </div>
+        <div>
+          ${chassisSvg}
+          <div style="font-size: 7px; color: #475569; text-align: center; margin-top: 1px; font-weight: bold;">
+            Leyenda: Quiñado (*) | Abollado (◯) | Rallado (🪶) | Faltante (F)
+          </div>
+          <div style="font-size: 8.5px; margin-top: 3px; line-height: 1.2;">
+            <strong>Obs. Carrocería:</strong> ${ (diag && diag.observaciones) || 'Sin observaciones de carrocería.' }
+          </div>
+        </div>
+      </div>
+
+      <!-- Trabajos y Presupuesto -->
+      <div class="vargas-print-section-title">Presupuesto Estimado de Trabajos y Repuestos</div>
+      <table class="vargas-print-table" style="margin-bottom: 6px;">
         <thead>
           <tr>
-            <th>Concepto / Repuesto</th>
-            <th style="text-align:center;">Tipo de Trabajo</th>
-            <th style="text-align:center;">Cantidad Requerida</th>
+            <th style="text-align: left;">Descripción</th>
+            <th style="text-align: center; width: 15%;">Tipo</th>
+            <th style="text-align: center; width: 10%;">Cant.</th>
+            <th style="text-align: right; width: 15%;">P. Unit.</th>
+            <th style="text-align: right; width: 15%;">Total</th>
           </tr>
         </thead>
         <tbody>
           ${o.items.map(it => `
             <tr>
               <td>${it.descripcion} ${it.repuesto_cod ? `[${it.repuesto_cod}]` : ''}</td>
-              <td style="text-align:center;">${it.tipo === 'almacen' ? 'Insumo Taller' : 'Mano de Obra'}</td>
-              <td style="text-align:center;font-weight:bold;">${it.cantidad}</td>
+              <td style="text-align: center;">${it.tipo === 'almacen' ? 'Repuesto' : 'Mano Obra'}</td>
+              <td style="text-align: center; font-weight: bold;">${it.cantidad}</td>
+              <td style="text-align: right;">S/ ${parseFloat(it.precio_unitario).toFixed(2)}</td>
+              <td style="text-align: right; font-weight: bold;">S/ ${(it.cantidad * parseFloat(it.precio_unitario)).toFixed(2)}</td>
             </tr>
-          `).join('') || '<tr><td colspan="3" style="text-align:center;">No se han listado insumos de almacén.</td></tr>'}
+          `).join('') || '<tr><td colspan="5" style="text-align: center;">No se han listado servicios ni repuestos aún.</td></tr>'}
+          <tr>
+            <td colspan="4" style="text-align: right; font-weight: bold; border-top: 1px double #000; padding: 3px 6px;">TOTAL ESTIMADO:</td>
+            <td style="text-align: right; font-weight: bold; font-size: 10px; border-top: 1px double #000; padding: 3px 6px;">S/ ${parseFloat(o.total_estimado || 0).toFixed(2)}</td>
+          </tr>
         </tbody>
       </table>
 
-      ${o.estado === 'Esperando Repuestos' && o.repuestos_esperando ? `
-        <div style="margin-top:15px;background:#f1f5f9;border:1px solid #cbd5e1;padding:8px;font-size:11px;">
-          <strong>PENDIENTES POR COMPRAR / EN ESPERA:</strong>
-          <p style="margin-top:3px;font-style:italic;">${o.repuestos_esperando}</p>
-        </div>
-      ` : ''}
-
-      ${diagnosticoHtml}
-
-      <div style="margin-top:20px;border:1px solid #000;padding:12px;font-size:10px;">
-        <strong>OBSERVACIONES Y NOTAS TÉCNICAS DEL MECÁNICO:</strong>
-        <div style="height:80px;"></div>
+      <!-- Cláusulas Legales y Términos -->
+      <div class="vargas-print-disclaimer">
+        <div>* Autorizo las reparaciones descritas en la orden de servicio.</div>
+        <div>* Autorizo las pruebas de ruta necesarias para evaluar el rendimiento y seguridad del vehículo.</div>
+        <div>* Acepto que después de 48 horas después de realizarse los trabajos y no retirar la unidad, se pagará la suma de S/ 7.00 (siete con 00/100 soles) al día por el concepto de cochera.</div>
+        <div>* Acepto que la empresa no se hace responsable de artículos no declarados.</div>
+        <div><strong>* Declaro haber leído y aceptado los términos y condiciones al firmar la orden de servicio.</strong></div>
+        <div>* Cualquier trabajo adicional requerirá mi previa aprobación.</div>
       </div>
 
-      <div class="print-signatures" style="margin-top:60px;">
-        <div class="signature-box">Firma Mecánico Responsable</div>
-        <div class="signature-box">Firma Control de Calidad Taller</div>
+      <!-- Firmas -->
+      <div class="vargas-print-signatures">
+        <div class="vargas-print-sig-box">
+          ${diag && diag.firma_cliente ? `<img src="${diag.firma_cliente}" class="vargas-print-sig-img" alt="Firma Cliente" />` : '<div style="height: 35px;"></div>'}
+          Firma de Conformidad Cliente<br>
+          <strong>DNI/RUC:</strong> ${o.num_doc || '___________________'}
+        </div>
+        <div class="vargas-print-sig-box">
+          <div style="height: 35px;"></div>
+          Firma Mecánico Responsable<br>
+          <strong>Inversiones y Servicios Vargas</strong>
+        </div>
       </div>
     `;
   }
