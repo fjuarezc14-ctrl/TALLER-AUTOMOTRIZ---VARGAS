@@ -1819,6 +1819,13 @@ async function abrirEditarOrden(id) {
     const cliSearch = document.getElementById('cli-search-input');
     if (cliSearch) {
       cliSearch.value = o.cliente || '';
+      // Filtrar visualmente la lista de opciones sin auto-seleccionar
+      const q = cliSearch.value.toLowerCase().trim();
+      if (cliSelect) {
+        Array.from(cliSelect.options).forEach(opt => {
+          opt.style.display = (!q || opt.textContent.toLowerCase().includes(q) || !opt.value) ? '' : 'none';
+        });
+      }
     }
     
     // Filtrar vehículos para ese cliente y setear el vehículo
