@@ -2506,7 +2506,7 @@ html[data-theme="dark"] [style*="background:var(--dark)"] {
   .vargas-print-signatures {
     display: flex !important;
     justify-content: space-between !important;
-    margin-top: 25px !important;
+    margin-top: 45px !important;
     gap: 20px !important;
   }
   .vargas-print-sig-box {

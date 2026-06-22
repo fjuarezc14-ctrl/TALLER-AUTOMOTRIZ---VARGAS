@@ -35,6 +35,7 @@ let filterMecanicoVal = '';
 let sortVal = 'recientes';
 let currentStep = 1;
 let isCanvasSigned = false;
+let isSignatureModified = false;
 let editingOrderId = null;
 
 // Colores para cada tipo de daño
@@ -275,6 +276,7 @@ export async function init(container) {
   containerElement = container;
   container.innerHTML = `<div class="fade-in" id="ordenes-root"></div>`;
   editingOrderId = null;
+  isSignatureModified = false;
   
   await cargarDatos();
 }
@@ -811,6 +813,25 @@ function renderPage() {
       let drawing = false;
       let lastPos = { x: 0, y: 0 };
       
+      // Dibujar la firma existente si estamos editando
+      if (editingOrderId) {
+        const oExistente = ordenesList.find(item => item.id == editingOrderId);
+        if (oExistente && oExistente.diagnostico) {
+          try {
+            const diagExistente = typeof oExistente.diagnostico === 'string' ? JSON.parse(oExistente.diagnostico) : oExistente.diagnostico;
+            const firmaExistente = diagExistente && diagExistente.firma_cliente;
+            if (firmaExistente) {
+              const img = new Image();
+              img.onload = () => {
+                ctx.drawImage(img, 0, 0, newCanvas.width, newCanvas.height);
+              };
+              img.src = firmaExistente;
+              isCanvasSigned = true;
+            }
+          } catch (_) {}
+        }
+      }
+      
       const getMousePos = (e) => {
         const r = newCanvas.getBoundingClientRect();
         const clientX = e.touches ? e.touches[0].clientX : e.clientX;
@@ -825,6 +846,7 @@ function renderPage() {
         drawing = true;
         lastPos = getMousePos(e);
         isCanvasSigned = true;
+        isSignatureModified = true;
         e.preventDefault();
       };
       
@@ -855,6 +877,7 @@ function renderPage() {
       if (clearBtn) clearBtn.onclick = () => {
         ctx.clearRect(0, 0, newCanvas.width, newCanvas.height);
         isCanvasSigned = false;
+        isSignatureModified = true;
       };
     }, 150);
   }
@@ -1785,6 +1808,7 @@ function abrirModalNuevaOrden() {
 function cerrarModalNuevaOrden() {
   document.getElementById('modal-nueva-orden').classList.remove('active');
   editingOrderId = null;
+  isSignatureModified = false;
   const titleEl = document.getElementById('modal-nueva-orden-title');
   if (titleEl) titleEl.textContent = 'Registrar Orden de Servicio';
   const saveBtn = document.getElementById('btn-save-ord');
@@ -1800,6 +1824,7 @@ async function abrirEditarOrden(id) {
     cerrarModalDetalle();
 
     editingOrderId = o.id;
+    isSignatureModified = false;
 
     // Actualizar título y botón
     const titleEl = document.getElementById('modal-nueva-orden-title');
@@ -2078,7 +2103,9 @@ async function guardarNuevaOrden(e) {
       firmaExistente = diagExistente && diagExistente.firma_cliente;
     } catch (_) {}
   }
-  const firma_cliente = isCanvasSigned && canvas ? canvas.toDataURL() : (firmaExistente || null);
+  const firma_cliente = isSignatureModified
+    ? (isCanvasSigned && canvas ? canvas.toDataURL() : null)
+    : (firmaExistente || null);
 
   const otros_sintomas = document.getElementById('ord-falla')?.value.trim() || '';
 
@@ -3128,12 +3155,12 @@ function imprimirDocumento(tipo, o) {
       <!-- Firmas -->
       <div class="vargas-print-signatures">
         <div class="vargas-print-sig-box">
-          ${diag && diag.firma_cliente ? `<img src="${diag.firma_cliente}" class="vargas-print-sig-img" alt="Firma Cliente" />` : '<div style="height: 35px;"></div>'}
+          ${diag && diag.firma_cliente ? `<img src="${diag.firma_cliente}" class="vargas-print-sig-img" alt="Firma Cliente" />` : '<div style="height: 55px;"></div>'}
           Firma de Conformidad Cliente<br>
           <strong>DNI/RUC:</strong> ${o.num_doc || '___________________'}
         </div>
         <div class="vargas-print-sig-box">
-          <div style="height: 35px;"></div>
+          <div style="height: 55px;"></div>
           Firma Mecánico Responsable<br>
           <strong>Inversiones y Servicios Vargas</strong>
         </div>
