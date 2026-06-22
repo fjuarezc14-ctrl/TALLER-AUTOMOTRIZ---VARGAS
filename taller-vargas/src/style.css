@@ -2511,11 +2511,13 @@ html[data-theme="dark"] [style*="background:var(--dark)"] {
   }
   .vargas-print-sig-box {
     flex: 1 !important;
-    border-top: 1px solid #000000 !important;
     text-align: center !important;
     font-size: 8.5px !important;
-    padding-top: 4px !important;
     margin-top: 25px !important;
+  }
+  .vargas-print-sig-line {
+    border-top: 1px solid #000000 !important;
+    padding-top: 4px !important;
   }
   
   /* Contenedor de firma digital en impresión */

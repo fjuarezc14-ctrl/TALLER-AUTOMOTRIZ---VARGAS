@@ -3156,13 +3156,17 @@ function imprimirDocumento(tipo, o) {
       <div class="vargas-print-signatures">
         <div class="vargas-print-sig-box">
           ${diag && diag.firma_cliente ? `<img src="${diag.firma_cliente}" class="vargas-print-sig-img" alt="Firma Cliente" />` : '<div style="height: 55px;"></div>'}
-          Firma de Conformidad Cliente<br>
-          <strong>DNI/RUC:</strong> ${o.num_doc || '___________________'}
+          <div class="vargas-print-sig-line">
+            Firma de Conformidad Cliente<br>
+            <strong>DNI/RUC:</strong> ${o.num_doc || '___________________'}
+          </div>
         </div>
         <div class="vargas-print-sig-box">
           <div style="height: 55px;"></div>
-          Firma Mecánico Responsable<br>
-          <strong>Inversiones y Servicios Vargas</strong>
+          <div class="vargas-print-sig-line">
+            Firma Mecánico Responsable<br>
+            <strong>Inversiones y Servicios Vargas</strong>
+          </div>
         </div>
       </div>
     `;
