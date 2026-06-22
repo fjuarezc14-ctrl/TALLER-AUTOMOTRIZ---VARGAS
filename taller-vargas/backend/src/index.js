@@ -16,8 +16,9 @@ import dashboardRouter  from "./routes/dashboard.js";
 // Redefinir la vista v_ordenes_completas para incluir la columna diagnostico y cliente_telefono
 async function runDbMigrations() {
   try {
+    await query(`DROP VIEW IF EXISTS v_ordenes_completas CASCADE;`);
     await query(`
-      CREATE OR REPLACE VIEW v_ordenes_completas AS
+      CREATE VIEW v_ordenes_completas AS
       SELECT os.id, os.estado, os.kilometraje, os.nivel_combustible, os.falla_reportada,
         os.repuestos_esperando, os.total_estimado, os.fecha_ingreso, os.fecha_entrega,
         os.nota_interna, os.created_at, os.diagnostico,
