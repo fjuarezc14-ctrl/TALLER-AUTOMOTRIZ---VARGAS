@@ -290,6 +290,7 @@ function renderPage() {
       updateStepIndicators();
       if (currentStep === 4) {
         initSignatureCanvas();
+        initDamageCanvas();
       }
       window.guardarBorradorEnLocalStorage();
     }
@@ -534,6 +535,7 @@ function renderPage() {
 
       if (currentStep === 4) {
         initSignatureCanvas();
+        initDamageCanvas();
       }
 
       return true;
@@ -554,7 +556,7 @@ function renderPage() {
     setTimeout(() => {
       const rect = newCanvas.getBoundingClientRect();
       newCanvas.width = rect.width;
-      newCanvas.height = 120;
+      newCanvas.height = 110;
       
       const ctx = newCanvas.getContext('2d');
       ctx.strokeStyle = '#0f172a';
@@ -605,11 +607,215 @@ function renderPage() {
       newCanvas.addEventListener('touchmove', draw, { passive: false });
       newCanvas.addEventListener('touchend', stopDrawing);
       
-      document.getElementById('btn-clear-signature').onclick = () => {
+      const clearBtn = document.getElementById('btn-clear-signature');
+      if (clearBtn) clearBtn.onclick = () => {
         ctx.clearRect(0, 0, newCanvas.width, newCanvas.height);
         isCanvasSigned = false;
       };
     }, 150);
+  }
+
+  function initDamageCanvas() {
+    const canvas = document.getElementById('damage-canvas');
+    if (!canvas) return;
+
+    // Colores por tipo de daño
+    const dmgColors = { Q: '#ef4444', A: '#f97316', R: '#8b5cf6', F: '#64748b' };
+    let activeDmgType = 'Q';
+    let damagePoints = [];
+
+    // Selector de tipo activo
+    document.querySelectorAll('.dmg-type-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        activeDmgType = btn.dataset.type;
+        document.querySelectorAll('.dmg-type-btn').forEach(b => {
+          const color = dmgColors[b.dataset.type];
+          if (b === btn) {
+            b.style.opacity = '1';
+            b.style.transform = 'scale(1.05)';
+            b.style.boxShadow = `0 0 0 2px ${color}40`;
+          } else {
+            b.style.opacity = '0.6';
+            b.style.transform = 'scale(1)';
+            b.style.boxShadow = 'none';
+          }
+        });
+      });
+    });
+
+    setTimeout(() => {
+      const rect = canvas.getBoundingClientRect();
+      const W = rect.width;
+      const H = Math.round(W * 0.55);
+      canvas.width = W;
+      canvas.height = H;
+
+      const ctx = canvas.getContext('2d');
+
+      function drawCarDiagram() {
+        ctx.clearRect(0, 0, W, H);
+
+        // Dibujar silueta del auto (vista superior) de forma sencilla pero reconocible
+        const cx = W / 2;
+        const car_w = W * 0.48;
+        const car_h = H * 0.72;
+        const car_x = cx - car_w / 2;
+        const car_y = H * 0.14;
+
+        // Sombra del carro
+        ctx.shadowColor = 'rgba(0,0,0,0.12)';
+        ctx.shadowBlur = 10;
+        ctx.shadowOffsetY = 4;
+
+        // Cuerpo principal
+        ctx.fillStyle = '#e2e8f0';
+        ctx.strokeStyle = '#94a3b8';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.roundRect(car_x, car_y, car_w, car_h, 12);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.shadowColor = 'transparent';
+        ctx.shadowBlur = 0;
+
+        // Cabina (techo)
+        const cab_w = car_w * 0.65;
+        const cab_x = cx - cab_w / 2;
+        const cab_y = car_y + car_h * 0.25;
+        const cab_h = car_h * 0.45;
+        ctx.fillStyle = '#cbd5e1';
+        ctx.strokeStyle = '#94a3b8';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.roundRect(cab_x, cab_y, cab_w, cab_h, 8);
+        ctx.fill();
+        ctx.stroke();
+
+        // Parabrisa delantero
+        ctx.fillStyle = 'rgba(186,230,253,0.6)';
+        ctx.strokeStyle = '#7dd3fc';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.roundRect(cab_x + 8, cab_y - 10, cab_w - 16, 18, 4);
+        ctx.fill();
+        ctx.stroke();
+
+        // Parabrisa trasero
+        ctx.fillStyle = 'rgba(186,230,253,0.6)';
+        ctx.beginPath();
+        ctx.roundRect(cab_x + 8, cab_y + cab_h - 8, cab_w - 16, 18, 4);
+        ctx.fill();
+        ctx.stroke();
+
+        // Ruedas
+        const wheel_w = car_w * 0.13;
+        const wheel_h = car_h * 0.12;
+        const wheelPositions = [
+          { x: car_x - wheel_w * 0.4, y: car_y + car_h * 0.1 },       // FL
+          { x: car_x + car_w - wheel_w * 0.6, y: car_y + car_h * 0.1 }, // FR
+          { x: car_x - wheel_w * 0.4, y: car_y + car_h * 0.78 },      // RL
+          { x: car_x + car_w - wheel_w * 0.6, y: car_y + car_h * 0.78 }  // RR
+        ];
+        ctx.fillStyle = '#1e293b';
+        ctx.strokeStyle = '#0f172a';
+        ctx.lineWidth = 1;
+        wheelPositions.forEach(w => {
+          ctx.beginPath();
+          ctx.roundRect(w.x, w.y, wheel_w, wheel_h, 4);
+          ctx.fill();
+          ctx.stroke();
+        });
+
+        // Etiquetas de zonas
+        ctx.fillStyle = '#64748b';
+        ctx.font = '9px system-ui, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('FRENTE', cx, car_y - 4);
+        ctx.fillText('TRASERA', cx, car_y + car_h + 12);
+        ctx.textAlign = 'left';
+        ctx.fillText('IZQ.', car_x - 2, car_y + car_h * 0.5);
+        ctx.textAlign = 'right';
+        ctx.fillText('DER.', car_x + car_w + 2, car_y + car_h * 0.5);
+        ctx.textAlign = 'center';
+      }
+
+      function renderDamagePoints() {
+        damagePoints.forEach(pt => {
+          const color = dmgColors[pt.type] || '#ef4444';
+          // Circulo de fondo
+          ctx.fillStyle = color + '30';
+          ctx.strokeStyle = color;
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(pt.x, pt.y, 14, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+          // Letra del tipo
+          ctx.fillStyle = color;
+          ctx.font = 'bold 11px system-ui, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(pt.type, pt.x, pt.y);
+          ctx.textBaseline = 'alphabetic';
+        });
+      }
+
+      function redraw() {
+        drawCarDiagram();
+        renderDamagePoints();
+      }
+
+      redraw();
+
+      // Click para agregar o quitar punto
+      const getPos = (e) => {
+        const r = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / r.width;
+        const scaleY = canvas.height / r.height;
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+        return {
+          x: (clientX - r.left) * scaleX,
+          y: (clientY - r.top) * scaleY
+        };
+      };
+
+      canvas.addEventListener('click', (e) => {
+        const pos = getPos(e);
+        // Comprobar si hay un punto cercano para eliminarlo
+        const idx = damagePoints.findIndex(pt => Math.hypot(pt.x - pos.x, pt.y - pos.y) < 18);
+        if (idx !== -1) {
+          damagePoints.splice(idx, 1);
+        } else {
+          damagePoints.push({ x: pos.x, y: pos.y, type: activeDmgType });
+        }
+        // Guardar en campo oculto
+        document.getElementById('ord-damage-data').value = JSON.stringify(damagePoints);
+        redraw();
+      });
+
+      canvas.addEventListener('touchend', (e) => {
+        e.preventDefault();
+        const pos = getPos(e.changedTouches ? { clientX: e.changedTouches[0].clientX, clientY: e.changedTouches[0].clientY } : e);
+        const idx = damagePoints.findIndex(pt => Math.hypot(pt.x - pos.x, pt.y - pos.y) < 18);
+        if (idx !== -1) {
+          damagePoints.splice(idx, 1);
+        } else {
+          damagePoints.push({ x: pos.x, y: pos.y, type: activeDmgType });
+        }
+        document.getElementById('ord-damage-data').value = JSON.stringify(damagePoints);
+        redraw();
+      }, { passive: false });
+
+      // Botón limpiar daños
+      const clearDmgBtn = document.getElementById('btn-clear-damage');
+      if (clearDmgBtn) clearDmgBtn.onclick = () => {
+        damagePoints = [];
+        document.getElementById('ord-damage-data').value = '[]';
+        redraw();
+      };
+    }, 200);
   }
 
   window.resetStepperForm = function() {
@@ -621,7 +827,8 @@ function renderPage() {
   // Registrar cierres de modales
   document.getElementById('btn-close-ord-x').addEventListener('click', cerrarModalNuevaOrden);
   document.getElementById('btn-close-ord-cancel').addEventListener('click', cerrarModalNuevaOrden);
-  document.getElementById('form-nueva-orden').addEventListener('submit', guardarNuevaOrden);
+  // Usar click en botón directamente en lugar de form submit para mayor compatibilidad
+  document.getElementById('btn-save-ord').addEventListener('click', guardarNuevaOrden);
   document.getElementById('form-nueva-orden').addEventListener('input', () => window.guardarBorradorEnLocalStorage());
   document.getElementById('form-nueva-orden').addEventListener('change', () => window.guardarBorradorEnLocalStorage());
   document.getElementById('veh-select-id').addEventListener('change', autoAsignarClienteYKm);
@@ -915,8 +1122,11 @@ function renderModales() {
                   <input type="time" id="ord-hora-entrega-est" class="form-input" />
                 </div>
                 <div class="form-group">
-                  <label class="form-label">N° de Comprobante</label>
-                  <input type="text" id="ord-comprobante-num" class="form-input font-mono" placeholder="Ej: F001-0002" />
+                  <label class="form-label" style="display:flex; align-items:center; gap:4px;">
+                    N° de Comprobante
+                    <span style="font-size:9px; background:#ecfdf5; color:#059669; padding:1px 5px; border-radius:4px; font-weight:700;">AUTO</span>
+                  </label>
+                  <input type="text" id="ord-comprobante-num" class="form-input font-mono" placeholder="OS-0001" style="background:#f0fdf4; border-color:#bbf7d0;" />
                 </div>
               </div>
             </div>
@@ -1005,8 +1215,8 @@ function renderModales() {
             <div class="stepper-step" id="step-4">
               <div class="form-section-title" style="margin:0;">Inspección de Daños & Firma</div>
               
-              <div class="grid grid-cols-2 gap-3">
-                <div class="form-group" style="margin:0;">
+              <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                <div class="form-group" style="margin:0; min-width:140px;">
                   <label class="form-label">Prueba de Ruta</label>
                   <input type="hidden" id="ord-pruebaruta" value="NO" />
                   <div style="display:flex; border:1px solid var(--slate-8); border-radius:8px; overflow:hidden; background:var(--slate-9); padding:3px; gap:2px;">
@@ -1014,27 +1224,48 @@ function renderModales() {
                     <button type="button" id="btn-pruebaruta-no" class="active" style="flex:1; padding:6px; border:none; background:var(--white); border-radius:6px; font-size:11px; font-weight:800; color:var(--dark); cursor:pointer; box-shadow:var(--shadow-sm); transition:all 0.1s;">NO</button>
                   </div>
                 </div>
-                <div class="form-group" style="margin:0; justify-content:center; display:flex; flex-direction:column;">
-                  <div style="font-size:10px; color:var(--slate-5); font-weight:600; line-height:1.4;">
-                    * Quiñado (*) | Abollado (◯)
-                    <br>
-                    * Rallado (🪶) | Faltante (F)
+                <!-- Leyenda de tipos de daño -->
+                <div style="font-size:10px; color:var(--slate-5); font-weight:600; line-height:1.8; background:var(--slate-9); border:1px solid var(--slate-8); border-radius:8px; padding:8px 12px; flex:1; min-width:180px;">
+                  <div style="font-size:10px; font-weight:800; color:var(--dark); text-transform:uppercase; letter-spacing:.5px; margin-bottom:4px;">🔍 Tipo de Daño</div>
+                  <div style="display:grid; grid-template-columns:1fr 1fr; gap:2px 12px;">
+                    <span><strong style="color:#ef4444;">Q</strong> — Quiñado</span>
+                    <span><strong style="color:#f97316;">A</strong> — Abollado</span>
+                    <span><strong style="color:#8b5cf6;">R</strong> — Rayado</span>
+                    <span><strong style="color:#64748b;">F</strong> — Faltante</span>
                   </div>
+                </div>
+                <div style="display:flex; flex-direction:column; gap:4px; min-width:100px;">
+                  <button type="button" id="btn-clear-damage" style="font-size:10px; background:var(--slate-8); border:1px solid var(--slate-7); color:var(--dark); font-weight:700; padding:4px 8px; border-radius:6px; cursor:pointer;">🗑 Limpiar Daños</button>
+                  <div style="font-size:9px; color:var(--slate-5); text-align:center;">Click en zona = marcar</div>
                 </div>
               </div>
 
-              <div class="form-group">
+              <!-- Inspector 2D de daños en vehículo -->
+              <div style="background:var(--slate-9); border:1px solid var(--slate-8); border-radius:10px; padding:10px; position:relative;">
+                <div style="font-size:10px; font-weight:700; color:var(--slate-5); text-transform:uppercase; letter-spacing:.5px; margin-bottom:6px; text-align:center;">🚗 Inspector de Daños — Haz clic en la zona afectada</div>
+                <!-- Selector de tipo activo -->
+                <div style="display:flex; justify-content:center; gap:6px; margin-bottom:8px;" id="damage-type-selector">
+                  <button type="button" class="dmg-type-btn active" data-type="Q" style="padding:4px 10px; font-size:11px; font-weight:800; border-radius:6px; border:2px solid #ef4444; background:#fef2f2; color:#ef4444; cursor:pointer;">Q Quiñado</button>
+                  <button type="button" class="dmg-type-btn" data-type="A" style="padding:4px 10px; font-size:11px; font-weight:800; border-radius:6px; border:2px solid #f97316; background:#fff7ed; color:#f97316; cursor:pointer;">A Abollado</button>
+                  <button type="button" class="dmg-type-btn" data-type="R" style="padding:4px 10px; font-size:11px; font-weight:800; border-radius:6px; border:2px solid #8b5cf6; background:#f5f3ff; color:#8b5cf6; cursor:pointer;">R Rayado</button>
+                  <button type="button" class="dmg-type-btn" data-type="F" style="padding:4px 10px; font-size:11px; font-weight:800; border-radius:6px; border:2px solid #64748b; background:#f8fafc; color:#64748b; cursor:pointer;">F Faltante</button>
+                </div>
+                <canvas id="damage-canvas" style="width:100%; max-width:480px; display:block; margin:0 auto; cursor:crosshair; border-radius:8px; border:1px dashed var(--slate-7); background:#fff;"></canvas>
+                <input type="hidden" id="ord-damage-data" value="[]" />
+              </div>
+
+              <div class="form-group" style="margin:0;">
                 <label class="form-label">Observaciones de Carrocería</label>
                 <textarea id="ord-observaciones" class="form-textarea" rows="2" placeholder="Ej: Abolladura leve en parachoques posterior..."></textarea>
               </div>
 
-              <div class="form-group">
+              <div class="form-group" style="margin:0;">
                 <label class="form-label" style="display:flex; justify-content:space-between; align-items:center; margin:0 0 4px 0;">
                   <span>✍️ Firma del Cliente (Conformidad)</span>
                   <button type="button" id="btn-clear-signature" style="font-size:9px; background:var(--slate-8); border:1px solid var(--slate-7); color:var(--dark); font-weight:800; padding:2px 8px; border-radius:4px; cursor:pointer; transition: background 0.1s;">Limpiar</button>
                 </label>
-                <div style="border:2px dashed var(--slate-7); border-radius:8px; background:var(--slate-9); height:120px; position:relative; overflow:hidden;">
-                  <canvas id="signature-canvas" style="width:100%; height:120px; cursor:crosshair; display:block; background:#fff;"></canvas>
+                <div style="border:2px dashed var(--slate-7); border-radius:8px; background:var(--slate-9); height:110px; position:relative; overflow:hidden;">
+                  <canvas id="signature-canvas" style="width:100%; height:110px; cursor:crosshair; display:block; background:#fff;"></canvas>
                 </div>
               </div>
             </div>
@@ -1045,7 +1276,7 @@ function renderModales() {
             <div style="display:flex; gap:10px;">
               <button type="button" class="btn-ghost" id="btn-close-ord-cancel" style="padding: 8px 16px;">Cancelar</button>
               <button type="button" class="btn-primary" id="btn-step-next" style="padding: 8px 16px;">Siguiente 🠲</button>
-              <button type="submit" class="btn-primary hidden" id="btn-save-ord" style="padding: 8px 16px;">Registrar Recepción</button>
+              <button type="button" class="btn-primary hidden" id="btn-save-ord" style="padding: 8px 16px;">✅ Registrar Recepción</button>
             </div>
           </div>
         </form>
@@ -1358,6 +1589,16 @@ function abrirModalNuevaOrden() {
   if (window.resetStepperForm) window.resetStepperForm();
   modal.classList.add('active');
 
+  // Auto-generar N° de Comprobante (OS-XXXX basado en el ID siguiente estimado)
+  setTimeout(() => {
+    const comprobanteInput = document.getElementById('ord-comprobante-num');
+    if (comprobanteInput && !comprobanteInput.value) {
+      const maxId = ordenesList.length > 0 ? Math.max(...ordenesList.map(o => o.id)) : 0;
+      const nextId = maxId + 1;
+      comprobanteInput.value = `OS-${String(nextId).padStart(4, '0')}`;
+    }
+  }, 50);
+
   // Preguntar si restaurar borrador
   if (localStorage.getItem('vargas_nueva_orden_draft')) {
     setTimeout(() => {
@@ -1455,20 +1696,23 @@ function autoAsignarClienteYKm() {
 }
 
 async function guardarNuevaOrden(e) {
-  e.preventDefault();
+  // Funciona como click handler de botón (no como form submit)
+  if (e && e.preventDefault) e.preventDefault();
 
-  // Al estar usando novalidate en el form, forzamos validación final del Paso 1
-  // Para asegurar que cliente, vehículo y kilometraje estén presentes
+  // Validación final del Paso 1: cliente, vehículo y kilometraje
   const cli = document.getElementById('cli-select-id').value;
   const veh = document.getElementById('veh-select-id').value;
   const km = document.getElementById('ord-km').value;
   if (!cli || !veh || !km || parseInt(km) <= 0) {
     alert('Por favor, completa los datos requeridos en el Paso 1 (Cliente, Vehículo y Kilometraje).');
-    // Forzar regreso al paso 1
-    if (window.resetStepperForm) {
-      window.resetStepperForm();
-    }
+    if (window.resetStepperForm) window.resetStepperForm();
     return;
+  }
+
+  const saveBtn = document.getElementById('btn-save-ord');
+  if (saveBtn) {
+    saveBtn.disabled = true;
+    saveBtn.textContent = '⏳ Guardando...';
   }
 
   const sintomas = [];
@@ -1477,9 +1721,9 @@ async function guardarNuevaOrden(e) {
   });
 
   const addServices = [];
-  if (document.getElementById('add-lavado').checked) addServices.push('Lavado de vehículo');
-  if (document.getElementById('add-retiro-rep').checked) addServices.push('Retiro de repuestos usados');
-  if (document.getElementById('add-cliente-inv').checked) addServices.push('Cliente participa en inventario');
+  if (document.getElementById('add-lavado')?.checked) addServices.push('Lavado de vehículo');
+  if (document.getElementById('add-retiro-rep')?.checked) addServices.push('Retiro de repuestos usados');
+  if (document.getElementById('add-cliente-inv')?.checked) addServices.push('Cliente participa en inventario');
 
   const inventario = {};
   document.querySelectorAll('.inv-checkbox').forEach(cb => {
@@ -1489,19 +1733,35 @@ async function guardarNuevaOrden(e) {
   const canvas = document.getElementById('signature-canvas');
   const firma_cliente = isCanvasSigned && canvas ? canvas.toDataURL() : null;
 
-  const otros_sintomas = document.getElementById('ord-falla').value.trim();
+  const otros_sintomas = document.getElementById('ord-falla')?.value.trim() || '';
+
+  // Datos del inspector de daños
+  let damageData = [];
+  try {
+    const dmgRaw = document.getElementById('ord-damage-data')?.value || '[]';
+    damageData = JSON.parse(dmgRaw);
+  } catch (_) { damageData = []; }
+
+  // Capturar imagen del canvas de daños si tiene puntos
+  let damageImage = null;
+  const damageCanvas = document.getElementById('damage-canvas');
+  if (damageData.length > 0 && damageCanvas) {
+    damageImage = damageCanvas.toDataURL();
+  }
 
   const diagnosticoObj = {
     sintomas,
     otros_sintomas,
     servicios_adicionales: addServices,
     inventario,
-    prueba_ruta: document.getElementById('ord-pruebaruta').value,
-    observaciones: document.getElementById('ord-observaciones').value.trim(),
+    prueba_ruta: document.getElementById('ord-pruebaruta')?.value || 'NO',
+    observaciones: document.getElementById('ord-observaciones')?.value.trim() || '',
     firma_cliente,
-    fecha_estimada: document.getElementById('ord-fecha-entrega-est').value,
-    hora_estimada: document.getElementById('ord-hora-entrega-est').value,
-    comprobante_num: document.getElementById('ord-comprobante-num').value.trim()
+    fecha_estimada: document.getElementById('ord-fecha-entrega-est')?.value || '',
+    hora_estimada: document.getElementById('ord-hora-entrega-est')?.value || '',
+    comprobante_num: document.getElementById('ord-comprobante-num')?.value.trim() || '',
+    damage_points: damageData,
+    damage_image: damageImage
   };
 
   const fallasText = [
@@ -1525,9 +1785,14 @@ async function guardarNuevaOrden(e) {
     cerrarModalNuevaOrden();
     await cargarDatos();
   } catch (err) {
-    alert(err.message);
+    alert(`Error al registrar la orden: ${err.message}`);
+    if (saveBtn) {
+      saveBtn.disabled = false;
+      saveBtn.textContent = '✅ Registrar Recepción';
+    }
   }
 }
+
 
 async function verDetalleOrden(id) {
   try {
