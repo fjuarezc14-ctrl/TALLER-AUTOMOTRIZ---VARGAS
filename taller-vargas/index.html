@@ -17,9 +17,8 @@
     })();
   </script>
   <style media="print">
-    body > * { display: none !important; }
-    #print-area, #print-area * { display: block !important; visibility: visible !important; }
-    #print-area { position: absolute; left: 0; top: 0; width: 100%; }
+    body > *:not(#print-area) { display: none !important; }
+    #print-area { display: block !important; position: absolute; left: 0; top: 0; width: 100%; }
   </style>
 </head>
 <body class="flex h-screen overflow-hidden">
