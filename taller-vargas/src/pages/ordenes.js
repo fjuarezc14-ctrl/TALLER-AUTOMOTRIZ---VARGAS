@@ -33,6 +33,8 @@ let clientesList = [];
 let filterEstadoVal = '';
 let filterMecanicoVal = '';
 let sortVal = 'recientes';
+let currentStep = 1;
+let isCanvasSigned = false;
 
 export async function init(container) {
   containerElement = container;
@@ -223,8 +225,8 @@ function renderPage() {
   document.getElementById('btn-nueva-orden-header').addEventListener('click', abrirModalNuevaOrden);
 
   // --- EVENTOS DEL STEPPER DE RECEPCIÓN ---
-  let currentStep = 1;
-  let isCanvasSigned = false;
+  currentStep = 1;
+  isCanvasSigned = false;
 
   window.toggleInvAccordion = function(header) {
     const content = header.nextElementSibling;
@@ -1464,8 +1466,7 @@ async function guardarNuevaOrden(e) {
     alert('Por favor, completa los datos requeridos en el Paso 1 (Cliente, Vehículo y Kilometraje).');
     // Forzar regreso al paso 1
     if (window.resetStepperForm) {
-      currentStep = 1;
-      updateStepIndicators();
+      window.resetStepperForm();
     }
     return;
   }
