@@ -36,6 +36,238 @@ let sortVal = 'recientes';
 let currentStep = 1;
 let isCanvasSigned = false;
 
+// Colores para cada tipo de daño
+const dmgColors = {
+  Q: '#ef4444',
+  A: '#f97316',
+  R: '#8b5cf6',
+  F: '#64748b'
+};
+
+// Siluetas vectoriales de las 5 vistas
+const leftSilhouette = `
+  <!-- Ground reference -->
+  <line x1="20" y1="200" x2="380" y2="200" stroke="#cbd5e1" stroke-width="1.5" stroke-dasharray="4 4" />
+  
+  <!-- Body Silhouette -->
+  <path d="M 30,175 C 30,165 40,150 70,148 L 110,140 L 160,105 Q 210,95 270,105 L 310,135 L 360,138 C 370,138 375,150 375,175 C 375,185 365,190 355,190 L 320,190 L 260,190 H 140 L 80,190 Z" fill="#f1f5f9" stroke="#475569" stroke-width="2" stroke-linejoin="round" />
+  
+  <!-- Windows -->
+  <path d="M 165,110 L 210,110 L 210,135 L 150,135 Z" fill="#e2e8f0" stroke="#475569" stroke-width="1.5" />
+  <path d="M 215,110 L 265,110 L 295,135 L 215,135 Z" fill="#e2e8f0" stroke="#475569" stroke-width="1.5" />
+  
+  <!-- Door seams -->
+  <path d="M 210,110 L 210,190" stroke="#94a3b8" stroke-width="1.5" />
+  <path d="M 148,135 L 148,190" stroke="#94a3b8" stroke-width="1.5" />
+  <path d="M 270,115 C 275,135 275,190 275,190" stroke="#94a3b8" stroke-width="1.5" />
+  
+  <!-- Door handles -->
+  <line x1="195" y1="142" x2="205" y2="142" stroke="#475569" stroke-width="2" stroke-linecap="round" />
+  <line x1="255" y1="142" x2="265" y2="142" stroke="#475569" stroke-width="2" stroke-linecap="round" />
+  
+  <!-- Lights -->
+  <path d="M 30,158 Q 38,158 38,165 L 30,168 Z" fill="#fef08a" stroke="#eab308" stroke-width="1" />
+  <path d="M 374,145 Q 366,145 366,155 L 374,158 Z" fill="#fecaca" stroke="#dc2626" stroke-width="1" />
+
+  <!-- Wheels (under arches) -->
+  <!-- Front wheel arch -->
+  <path d="M 80,175 A 30,30 0 0,1 140,175" fill="none" stroke="#475569" stroke-width="2" />
+  <circle cx="110" cy="175" r="22" fill="#1e293b" stroke="#0f172a" stroke-width="2" />
+  <circle cx="110" cy="175" r="10" fill="#94a3b8" stroke="#475569" stroke-width="1" />
+  
+  <!-- Rear wheel arch -->
+  <path d="M 260,175 A 30,30 0 0,1 320,175" fill="none" stroke="#475569" stroke-width="2" />
+  <circle cx="290" cy="175" r="22" fill="#1e293b" stroke="#0f172a" stroke-width="2" />
+  <circle cx="290" cy="175" r="10" fill="#94a3b8" stroke="#475569" stroke-width="1" />
+`;
+
+const leftSvgContent = leftSilhouette;
+
+const rightSilhouette = `
+  <!-- Ground reference -->
+  <line x1="20" y1="200" x2="380" y2="200" stroke="#cbd5e1" stroke-width="1.5" stroke-dasharray="4 4" />
+  <g transform="translate(400, 0) scale(-1, 1)">
+    <!-- Body Silhouette -->
+    <path d="M 30,175 C 30,165 40,150 70,148 L 110,140 L 160,105 Q 210,95 270,105 L 310,135 L 360,138 C 370,138 375,150 375,175 C 375,185 365,190 355,190 L 320,190 L 260,190 H 140 L 80,190 Z" fill="#f1f5f9" stroke="#475569" stroke-width="2" stroke-linejoin="round" />
+    
+    <!-- Windows -->
+    <path d="M 165,110 L 210,110 L 210,135 L 150,135 Z" fill="#e2e8f0" stroke="#475569" stroke-width="1.5" />
+    <path d="M 215,110 L 265,110 L 295,135 L 215,135 Z" fill="#e2e8f0" stroke="#475569" stroke-width="1.5" />
+    
+    <!-- Door seams -->
+    <path d="M 210,110 L 210,190" stroke="#94a3b8" stroke-width="1.5" />
+    <path d="M 148,135 L 148,190" stroke="#94a3b8" stroke-width="1.5" />
+    <path d="M 270,115 C 275,135 275,190 275,190" stroke="#94a3b8" stroke-width="1.5" />
+    
+    <!-- Door handles -->
+    <line x1="195" y1="142" x2="205" y2="142" stroke="#475569" stroke-width="2" stroke-linecap="round" />
+    <line x1="255" y1="142" x2="265" y2="142" stroke="#475569" stroke-width="2" stroke-linecap="round" />
+    
+    <!-- Lights -->
+    <path d="M 30,158 Q 38,158 38,165 L 30,168 Z" fill="#fef08a" stroke="#eab308" stroke-width="1" />
+    <path d="M 374,145 Q 366,145 366,155 L 374,158 Z" fill="#fecaca" stroke="#dc2626" stroke-width="1" />
+
+    <!-- Wheels (under arches) -->
+    <!-- Front wheel arch -->
+    <path d="M 80,175 A 30,30 0 0,1 140,175" fill="none" stroke="#475569" stroke-width="2" />
+    <circle cx="110" cy="175" r="22" fill="#1e293b" stroke="#0f172a" stroke-width="2" />
+    <circle cx="110" cy="175" r="10" fill="#94a3b8" stroke="#475569" stroke-width="1" />
+    
+    <!-- Rear wheel arch -->
+    <path d="M 260,175 A 30,30 0 0,1 320,175" fill="none" stroke="#475569" stroke-width="2" />
+    <circle cx="290" cy="175" r="22" fill="#1e293b" stroke="#0f172a" stroke-width="2" />
+    <circle cx="290" cy="175" r="10" fill="#94a3b8" stroke="#475569" stroke-width="1" />
+  </g>
+`;
+
+const rightSvgContent = rightSilhouette;
+
+const topSvgContent = `
+  <!-- Symmetry Axis -->
+  <line x1="40" y1="125" x2="360" y2="125" stroke="#cbd5e1" stroke-width="1" stroke-dasharray="2 2" />
+  
+  <!-- Body Outer border -->
+  <path d="M 40,125 C 40,90 60,65 110,65 L 290,65 C 340,65 360,90 360,125 C 360,160 340,185 290,185 L 110,185 C 60,185 40,160 40,125 Z" fill="#f1f5f9" stroke="#475569" stroke-width="2" stroke-linejoin="round" />
+  
+  <!-- Hood seam -->
+  <path d="M 105,65 L 105,185" stroke="#94a3b8" stroke-width="1.5" />
+  
+  <!-- Front windshield -->
+  <path d="M 105,75 Q 140,125 105,175 L 130,170 Q 155,125 130,80 Z" fill="#e2e8f0" stroke="#475569" stroke-width="1.5" />
+  
+  <!-- Roof -->
+  <path d="M 130,80 H 270 V 170 H 130 Z" fill="#f8fafc" stroke="#475569" stroke-width="1.5" />
+  
+  <!-- Rear window -->
+  <path d="M 270,80 Q 255,125 270,170 L 290,175 Q 275,125 290,75 Z" fill="#e2e8f0" stroke="#475569" stroke-width="1.5" />
+  
+  <!-- Trunk seam -->
+  <path d="M 290,65 L 290,185" stroke="#94a3b8" stroke-width="1.5" />
+  
+  <!-- Mirrors -->
+  <path d="M 115,65 C 115,55 125,50 130,55 C 130,60 125,65 115,65 Z" fill="#475569" stroke="#475569" />
+  <path d="M 115,185 C 115,195 125,200 130,195 C 130,190 125,185 115,185 Z" fill="#475569" stroke="#475569" />
+`;
+
+const frontSvgContent = `
+  <!-- Roof -->
+  <path d="M 130,80 Q 200,70 270,80" stroke="#475569" stroke-width="2" fill="none" />
+  <!-- Windshield -->
+  <path d="M 130,80 L 270,80 L 285,130 L 115,130 Z" fill="#e2e8f0" stroke="#475569" stroke-width="2" />
+  <!-- Hood -->
+  <path d="M 115,130 L 285,130 L 300,170 L 100,170 Z" fill="#f1f5f9" stroke="#475569" stroke-width="2" />
+  
+  <!-- Headlights -->
+  <path d="M 102,170 H 140 L 135,185 H 105 Z" fill="#fef08a" stroke="#eab308" stroke-width="1.5" />
+  <path d="M 298,170 H 260 L 265,185 H 295 Z" fill="#fef08a" stroke="#eab308" stroke-width="1.5" />
+  
+  <!-- Grille -->
+  <path d="M 150,170 H 250 V 190 H 150 Z" fill="#1e293b" stroke="#475569" stroke-width="1.5" />
+  <line x1="170" y1="170" x2="170" y2="190" stroke="#475569" stroke-width="1" />
+  <line x1="190" y1="170" x2="190" y2="190" stroke="#475569" stroke-width="1" />
+  <line x1="210" y1="170" x2="210" y2="190" stroke="#475569" stroke-width="1" />
+  <line x1="230" y1="170" x2="230" y2="190" stroke="#475569" stroke-width="1" />
+  
+  <!-- Front bumper -->
+  <path d="M 90,185 H 310 C 310,210 290,215 200,215 C 110,215 90,210 90,185 Z" fill="#f1f5f9" stroke="#475569" stroke-width="2" />
+  
+  <!-- Wheels showing at bottom -->
+  <rect x="100" y="200" width="20" height="20" fill="#1e293b" stroke="#0f172a" />
+  <rect x="280" y="200" width="20" height="20" fill="#1e293b" stroke="#0f172a" />
+  
+  <!-- Mirrors -->
+  <path d="M 110,115 C 95,115 90,120 95,125 Z" fill="#475569" stroke="#475569" />
+  <path d="M 290,115 C 305,115 310,120 305,125 Z" fill="#475569" stroke="#475569" />
+`;
+
+const rearSvgContent = `
+  <!-- Roof -->
+  <path d="M 130,80 Q 200,70 270,80" stroke="#475569" stroke-width="2" fill="none" />
+  <!-- Rear window -->
+  <path d="M 130,80 L 270,80 L 285,135 L 115,135 Z" fill="#e2e8f0" stroke="#475569" stroke-width="2" />
+  <!-- Trunk lid -->
+  <path d="M 115,135 L 285,135 L 295,175 L 105,175 Z" fill="#f1f5f9" stroke="#475569" stroke-width="2" />
+  
+  <!-- License plate -->
+  <rect x="170" y="180" width="60" height="18" fill="#fef08a" stroke="#eab308" stroke-width="1" rx="2" />
+  <text x="200" y="191" font-size="8" font-family="monospace" text-anchor="middle" fill="#000">PLACA</text>
+  
+  <!-- Tail lights -->
+  <path d="M 105,170 H 145 V 185 H 105 Z" fill="#ef4444" stroke="#dc2626" stroke-width="1.5" />
+  <path d="M 295,170 H 255 V 185 H 295 Z" fill="#ef4444" stroke="#dc2626" stroke-width="1.5" />
+  
+  <!-- Bumper -->
+  <path d="M 90,185 H 310 C 310,210 290,215 200,215 C 110,215 90,210 90,185 Z" fill="#f1f5f9" stroke="#475569" stroke-width="2" />
+  
+  <!-- Wheels showing at bottom -->
+  <rect x="100" y="200" width="20" height="20" fill="#1e293b" stroke="#0f172a" />
+  <rect x="280" y="200" width="20" height="20" fill="#1e293b" stroke="#0f172a" />
+  
+  <!-- Mirrors -->
+  <path d="M 110,115 C 95,115 90,120 95,125 Z" fill="#475569" stroke="#475569" />
+  <path d="M 290,115 C 305,115 310,120 305,125 Z" fill="#475569" stroke="#475569" />
+`;
+
+function generatePrintSVG(points = []) {
+  const getMarkers = (viewName) => {
+    return points
+      .filter(pt => pt.view === viewName)
+      .map(pt => {
+        const color = dmgColors[pt.type] || '#ef4444';
+        return `
+          <g class="dmg-marker">
+            <circle cx="${pt.x}" cy="${pt.y}" r="12" fill="${color}30" stroke="${color}" stroke-width="2"></circle>
+            <text x="${pt.x}" y="${pt.y}" fill="${color}" font-family="system-ui, sans-serif" font-weight="bold" font-size="9" text-anchor="middle" dominant-baseline="central">${pt.type}</text>
+          </g>
+        `;
+      })
+      .join('');
+  };
+
+  return `
+    <svg viewBox="0 0 560 280" class="vargas-print-chassis-svg" xmlns="http://www.w3.org/2000/svg" style="width: 100%; height: auto; border: 1px solid #cbd5e1; border-radius: 6px; background: #fff;">
+      <!-- VISTA LATERAL IZQUIERDA -->
+      <g transform="translate(40, 0) scale(0.5)">
+        ${leftSilhouette}
+        ${getMarkers('left')}
+      </g>
+      <text x="140" y="112" font-size="7.5" font-family="system-ui, sans-serif" font-weight="bold" fill="#475569" text-anchor="middle">LATERAL IZQUIERDA</text>
+
+      <!-- VISTA LATERAL DERECHA -->
+      <g transform="translate(320, 0) scale(0.5)">
+        ${rightSilhouette}
+        ${getMarkers('right')}
+      </g>
+      <text x="420" y="112" font-size="7.5" font-family="system-ui, sans-serif" font-weight="bold" fill="#475569" text-anchor="middle">LATERAL DERECHA</text>
+
+      <!-- VISTA FRONTAL -->
+      <g transform="translate(20, 130) scale(0.4)">
+        ${frontSvgContent}
+        ${getMarkers('front')}
+      </g>
+      <text x="100" y="242" font-size="7.5" font-family="system-ui, sans-serif" font-weight="bold" fill="#475569" text-anchor="middle">VISTA FRONTAL</text>
+
+      <!-- VISTA SUPERIOR -->
+      <g transform="translate(200, 130) scale(0.4)">
+        ${topSvgContent}
+        ${getMarkers('top')}
+      </g>
+      <text x="280" y="242" font-size="7.5" font-family="system-ui, sans-serif" font-weight="bold" fill="#475569" text-anchor="middle">VISTA SUPERIOR</text>
+
+      <!-- VISTA POSTERIOR -->
+      <g transform="translate(380, 130) scale(0.4)">
+        ${rearSvgContent}
+        ${getMarkers('rear')}
+      </g>
+      <text x="460" y="242" font-size="7.5" font-family="system-ui, sans-serif" font-weight="bold" fill="#475569" text-anchor="middle">VISTA POSTERIOR</text>
+    </svg>
+  `;
+}
+
+function initDamageCanvas() {
+  initDamageInspector();
+}
+
 export async function init(container) {
   containerElement = container;
   container.innerHTML = `<div class="fade-in" id="ordenes-root"></div>`;
@@ -484,7 +716,14 @@ function renderPage() {
       if (horaInput) horaInput.value = draft.hora_estimada || '';
 
       const comprobanteInput = document.getElementById('ord-comprobante-num');
-      if (comprobanteInput) comprobanteInput.value = draft.comprobante_num || '';
+      if (comprobanteInput) {
+        comprobanteInput.value = draft.comprobante_num || '';
+        if (!comprobanteInput.value) {
+          const maxId = ordenesList.length > 0 ? Math.max(...ordenesList.map(o => o.id)) : 0;
+          const nextId = maxId + 1;
+          comprobanteInput.value = `OS-${String(nextId).padStart(4, '0')}`;
+        }
+      }
 
       // Restaurar Paso 3 (Inventario)
       document.querySelectorAll('.inv-checkbox').forEach(cb => {
@@ -616,206 +855,116 @@ function renderPage() {
   }
 
   function initDamageCanvas() {
-    const canvas = document.getElementById('damage-canvas');
-    if (!canvas) return;
+    initDamageInspector();
+  }
 
-    // Colores por tipo de daño
-    const dmgColors = { Q: '#ef4444', A: '#f97316', R: '#8b5cf6', F: '#64748b' };
-    let activeDmgType = 'Q';
+  function initDamageCanvas() {
+    initDamageInspector();
+  }
+
+  let activeView = 'top';
+  let activeDmgType = 'Q';
+
+  function initDamageInspector() {
+    activeView = 'top';
+    activeDmgType = 'Q';
+
     let damagePoints = [];
+    try {
+      const existingVal = document.getElementById('ord-damage-data').value;
+      damagePoints = JSON.parse(existingVal || '[]');
+    } catch(e) {
+      damagePoints = [];
+    }
+
+    const svgWrap = document.getElementById('dmg-svg-wrap');
+    if (!svgWrap) return;
 
     // Selector de tipo activo
     document.querySelectorAll('.dmg-type-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
+      btn.onclick = (e) => {
+        e.preventDefault();
         activeDmgType = btn.dataset.type;
         document.querySelectorAll('.dmg-type-btn').forEach(b => {
-          const color = dmgColors[b.dataset.type];
-          if (b === btn) {
-            b.style.opacity = '1';
-            b.style.transform = 'scale(1.05)';
-            b.style.boxShadow = `0 0 0 2px ${color}40`;
-          } else {
-            b.style.opacity = '0.6';
-            b.style.transform = 'scale(1)';
-            b.style.boxShadow = 'none';
-          }
+          b.classList.toggle('active', b.dataset.type === activeDmgType);
         });
-      });
+      };
     });
 
-    setTimeout(() => {
-      const rect = canvas.getBoundingClientRect();
-      const W = rect.width;
-      const H = Math.round(W * 0.55);
-      canvas.width = W;
-      canvas.height = H;
-
-      const ctx = canvas.getContext('2d');
-
-      function drawCarDiagram() {
-        ctx.clearRect(0, 0, W, H);
-
-        // Dibujar silueta del auto (vista superior) de forma sencilla pero reconocible
-        const cx = W / 2;
-        const car_w = W * 0.48;
-        const car_h = H * 0.72;
-        const car_x = cx - car_w / 2;
-        const car_y = H * 0.14;
-
-        // Sombra del carro
-        ctx.shadowColor = 'rgba(0,0,0,0.12)';
-        ctx.shadowBlur = 10;
-        ctx.shadowOffsetY = 4;
-
-        // Cuerpo principal
-        ctx.fillStyle = '#e2e8f0';
-        ctx.strokeStyle = '#94a3b8';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.roundRect(car_x, car_y, car_w, car_h, 12);
-        ctx.fill();
-        ctx.stroke();
-
-        ctx.shadowColor = 'transparent';
-        ctx.shadowBlur = 0;
-
-        // Cabina (techo)
-        const cab_w = car_w * 0.65;
-        const cab_x = cx - cab_w / 2;
-        const cab_y = car_y + car_h * 0.25;
-        const cab_h = car_h * 0.45;
-        ctx.fillStyle = '#cbd5e1';
-        ctx.strokeStyle = '#94a3b8';
-        ctx.lineWidth = 1.5;
-        ctx.beginPath();
-        ctx.roundRect(cab_x, cab_y, cab_w, cab_h, 8);
-        ctx.fill();
-        ctx.stroke();
-
-        // Parabrisa delantero
-        ctx.fillStyle = 'rgba(186,230,253,0.6)';
-        ctx.strokeStyle = '#7dd3fc';
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.roundRect(cab_x + 8, cab_y - 10, cab_w - 16, 18, 4);
-        ctx.fill();
-        ctx.stroke();
-
-        // Parabrisa trasero
-        ctx.fillStyle = 'rgba(186,230,253,0.6)';
-        ctx.beginPath();
-        ctx.roundRect(cab_x + 8, cab_y + cab_h - 8, cab_w - 16, 18, 4);
-        ctx.fill();
-        ctx.stroke();
-
-        // Ruedas
-        const wheel_w = car_w * 0.13;
-        const wheel_h = car_h * 0.12;
-        const wheelPositions = [
-          { x: car_x - wheel_w * 0.4, y: car_y + car_h * 0.1 },       // FL
-          { x: car_x + car_w - wheel_w * 0.6, y: car_y + car_h * 0.1 }, // FR
-          { x: car_x - wheel_w * 0.4, y: car_y + car_h * 0.78 },      // RL
-          { x: car_x + car_w - wheel_w * 0.6, y: car_y + car_h * 0.78 }  // RR
-        ];
-        ctx.fillStyle = '#1e293b';
-        ctx.strokeStyle = '#0f172a';
-        ctx.lineWidth = 1;
-        wheelPositions.forEach(w => {
-          ctx.beginPath();
-          ctx.roundRect(w.x, w.y, wheel_w, wheel_h, 4);
-          ctx.fill();
-          ctx.stroke();
-        });
-
-        // Etiquetas de zonas
-        ctx.fillStyle = '#64748b';
-        ctx.font = '9px system-ui, sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText('FRENTE', cx, car_y - 4);
-        ctx.fillText('TRASERA', cx, car_y + car_h + 12);
-        ctx.textAlign = 'left';
-        ctx.fillText('IZQ.', car_x - 2, car_y + car_h * 0.5);
-        ctx.textAlign = 'right';
-        ctx.fillText('DER.', car_x + car_w + 2, car_y + car_h * 0.5);
-        ctx.textAlign = 'center';
-      }
-
-      function renderDamagePoints() {
-        damagePoints.forEach(pt => {
-          const color = dmgColors[pt.type] || '#ef4444';
-          // Circulo de fondo
-          ctx.fillStyle = color + '30';
-          ctx.strokeStyle = color;
-          ctx.lineWidth = 2;
-          ctx.beginPath();
-          ctx.arc(pt.x, pt.y, 14, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.stroke();
-          // Letra del tipo
-          ctx.fillStyle = color;
-          ctx.font = 'bold 11px system-ui, sans-serif';
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          ctx.fillText(pt.type, pt.x, pt.y);
-          ctx.textBaseline = 'alphabetic';
-        });
-      }
-
-      function redraw() {
-        drawCarDiagram();
-        renderDamagePoints();
-      }
-
-      redraw();
-
-      // Click para agregar o quitar punto
-      const getPos = (e) => {
-        const r = canvas.getBoundingClientRect();
-        const scaleX = canvas.width / r.width;
-        const scaleY = canvas.height / r.height;
-        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-        return {
-          x: (clientX - r.left) * scaleX,
-          y: (clientY - r.top) * scaleY
-        };
-      };
-
-      canvas.addEventListener('click', (e) => {
-        const pos = getPos(e);
-        // Comprobar si hay un punto cercano para eliminarlo
-        const idx = damagePoints.findIndex(pt => Math.hypot(pt.x - pos.x, pt.y - pos.y) < 18);
-        if (idx !== -1) {
-          damagePoints.splice(idx, 1);
-        } else {
-          damagePoints.push({ x: pos.x, y: pos.y, type: activeDmgType });
-        }
-        // Guardar en campo oculto
-        document.getElementById('ord-damage-data').value = JSON.stringify(damagePoints);
-        redraw();
-      });
-
-      canvas.addEventListener('touchend', (e) => {
+    // Selector de vistas
+    document.querySelectorAll('.dmg-view-tab').forEach(tab => {
+      tab.onclick = (e) => {
         e.preventDefault();
-        const pos = getPos(e.changedTouches ? { clientX: e.changedTouches[0].clientX, clientY: e.changedTouches[0].clientY } : e);
-        const idx = damagePoints.findIndex(pt => Math.hypot(pt.x - pos.x, pt.y - pos.y) < 18);
-        if (idx !== -1) {
-          damagePoints.splice(idx, 1);
-        } else {
-          damagePoints.push({ x: pos.x, y: pos.y, type: activeDmgType });
-        }
-        document.getElementById('ord-damage-data').value = JSON.stringify(damagePoints);
-        redraw();
-      }, { passive: false });
+        activeView = tab.dataset.view;
+        document.querySelectorAll('.dmg-view-tab').forEach(t => {
+          t.classList.toggle('active', t.dataset.view === activeView);
+        });
+        redrawSVG();
+      };
+    });
 
-      // Botón limpiar daños
-      const clearDmgBtn = document.getElementById('btn-clear-damage');
-      if (clearDmgBtn) clearDmgBtn.onclick = () => {
+    function redrawSVG() {
+      let content = '';
+      if (activeView === 'left') content = leftSvgContent;
+      else if (activeView === 'right') content = rightSvgContent;
+      else if (activeView === 'top') content = topSvgContent;
+      else if (activeView === 'front') content = frontSvgContent;
+      else if (activeView === 'rear') content = rearSvgContent;
+
+      const viewPoints = damagePoints.filter(pt => pt.view === activeView);
+
+      const markersHtml = viewPoints.map((pt) => {
+        const color = dmgColors[pt.type] || '#ef4444';
+        return `
+          <g class="dmg-marker" data-x="${pt.x}" data-y="${pt.y}" style="cursor: pointer;">
+            <circle cx="${pt.x}" cy="${pt.y}" r="12" fill="${color}30" stroke="${color}" stroke-width="2"></circle>
+            <text x="${pt.x}" y="${pt.y}" fill="${color}" font-family="system-ui, sans-serif" font-weight="bold" font-size="9" text-anchor="middle" dominant-baseline="central">${pt.type}</text>
+          </g>
+        `;
+      }).join('');
+
+      svgWrap.innerHTML = `
+        <svg id="interactive-damage-svg" viewBox="0 0 400 250" style="width: 100%; height: auto; display: block; border-radius: 8px;">
+          ${content}
+          <g id="damage-points-g">
+            ${markersHtml}
+          </g>
+        </svg>
+      `;
+
+      const svgEl = document.getElementById('interactive-damage-svg');
+      if (svgEl) {
+        svgEl.addEventListener('click', (e) => {
+          const rect = svgEl.getBoundingClientRect();
+          const clickX = ((e.clientX - rect.left) / rect.width) * 400;
+          const clickY = ((e.clientY - rect.top) / rect.height) * 250;
+
+          const idx = damagePoints.findIndex(pt => pt.view === activeView && Math.hypot(pt.x - clickX, pt.y - clickY) < 16);
+          if (idx !== -1) {
+            damagePoints.splice(idx, 1);
+          } else {
+            damagePoints.push({ x: clickX, y: clickY, type: activeDmgType, view: activeView });
+          }
+
+          document.getElementById('ord-damage-data').value = JSON.stringify(damagePoints);
+          window.guardarBorradorEnLocalStorage();
+          redrawSVG();
+        });
+      }
+    }
+
+    const clearDmgBtn = document.getElementById('btn-clear-damage');
+    if (clearDmgBtn) {
+      clearDmgBtn.onclick = (e) => {
+        e.preventDefault();
         damagePoints = [];
         document.getElementById('ord-damage-data').value = '[]';
-        redraw();
+        window.guardarBorradorEnLocalStorage();
+        redrawSVG();
       };
-    }, 200);
+    }
+
+    redrawSVG();
   }
 
   window.resetStepperForm = function() {
@@ -1126,7 +1275,7 @@ function renderModales() {
                     N° de Comprobante
                     <span style="font-size:9px; background:#ecfdf5; color:#059669; padding:1px 5px; border-radius:4px; font-weight:700;">AUTO</span>
                   </label>
-                  <input type="text" id="ord-comprobante-num" class="form-input font-mono" placeholder="OS-0001" style="background:#f0fdf4; border-color:#bbf7d0;" />
+                  <input type="text" id="ord-comprobante-num" class="form-input font-mono" placeholder="OS-0001" readonly style="background:#f8fafc; border-color:#cbd5e1; color:#64748b; cursor:not-allowed;" />
                 </div>
               </div>
             </div>
@@ -1240,17 +1389,32 @@ function renderModales() {
                 </div>
               </div>
 
-              <!-- Inspector 2D de daños en vehículo -->
-              <div style="background:var(--slate-9); border:1px solid var(--slate-8); border-radius:10px; padding:10px; position:relative;">
-                <div style="font-size:10px; font-weight:700; color:var(--slate-5); text-transform:uppercase; letter-spacing:.5px; margin-bottom:6px; text-align:center;">🚗 Inspector de Daños — Haz clic en la zona afectada</div>
-                <!-- Selector de tipo activo -->
-                <div style="display:flex; justify-content:center; gap:6px; margin-bottom:8px;" id="damage-type-selector">
-                  <button type="button" class="dmg-type-btn active" data-type="Q" style="padding:4px 10px; font-size:11px; font-weight:800; border-radius:6px; border:2px solid #ef4444; background:#fef2f2; color:#ef4444; cursor:pointer;">Q Quiñado</button>
-                  <button type="button" class="dmg-type-btn" data-type="A" style="padding:4px 10px; font-size:11px; font-weight:800; border-radius:6px; border:2px solid #f97316; background:#fff7ed; color:#f97316; cursor:pointer;">A Abollado</button>
-                  <button type="button" class="dmg-type-btn" data-type="R" style="padding:4px 10px; font-size:11px; font-weight:800; border-radius:6px; border:2px solid #8b5cf6; background:#f5f3ff; color:#8b5cf6; cursor:pointer;">R Rayado</button>
-                  <button type="button" class="dmg-type-btn" data-type="F" style="padding:4px 10px; font-size:11px; font-weight:800; border-radius:6px; border:2px solid #64748b; background:#f8fafc; color:#64748b; cursor:pointer;">F Faltante</button>
+              <!-- Inspector SVG de Daños — 5 Vistas Profesionales -->
+              <div class="dmg-inspector-card">
+                <div class="dmg-inspector-header">
+                  <span class="dmg-inspector-title">🚗 Inspector de Daños — Selecciona una vista y haz clic sobre la zona afectada</span>
                 </div>
-                <canvas id="damage-canvas" style="width:100%; max-width:480px; display:block; margin:0 auto; cursor:crosshair; border-radius:8px; border:1px dashed var(--slate-7); background:#fff;"></canvas>
+
+                <!-- Selector de tipo de daño -->
+                <div class="dmg-type-selector" id="damage-type-selector">
+                  <button type="button" class="dmg-type-btn active" data-type="Q"><span class="dmg-dot" style="background:#ef4444"></span>Quiñado</button>
+                  <button type="button" class="dmg-type-btn" data-type="A"><span class="dmg-dot" style="background:#f97316"></span>Abollado</button>
+                  <button type="button" class="dmg-type-btn" data-type="R"><span class="dmg-dot" style="background:#8b5cf6"></span>Rayado</button>
+                  <button type="button" class="dmg-type-btn" data-type="F"><span class="dmg-dot" style="background:#64748b"></span>Faltante</button>
+                </div>
+
+                <!-- Selector de vistas -->
+                <div class="dmg-view-tabs" id="dmg-view-tabs">
+                  <button type="button" class="dmg-view-tab active" data-view="top">🔝 Superior</button>
+                  <button type="button" class="dmg-view-tab" data-view="front">⬆️ Frontal</button>
+                  <button type="button" class="dmg-view-tab" data-view="rear">⬇️ Trasera</button>
+                  <button type="button" class="dmg-view-tab" data-view="left">◀️ Lat. Izq.</button>
+                  <button type="button" class="dmg-view-tab" data-view="right">▶️ Lat. Der.</button>
+                </div>
+
+                <!-- SVG Container -->
+                <div class="dmg-svg-wrap" id="dmg-svg-wrap"></div>
+
                 <input type="hidden" id="ord-damage-data" value="[]" />
               </div>
 
@@ -2622,31 +2786,8 @@ function imprimirDocumento(tipo, o) {
       }).join('');
     }).join('');
 
-    const chassisSvg = `
-      <svg viewBox="0 0 560 200" class="vargas-print-chassis-svg" xmlns="http://www.w3.org/2000/svg">
-        <!-- Carrocería del auto (silueta lateral minimalista) -->
-        <g fill="none" stroke="#475569" stroke-width="1.5">
-          <!-- Cuerpo principal -->
-          <path d="M80,140 L80,110 Q100,70 160,60 L320,60 Q380,60 420,80 L460,110 L460,140 Z" />
-          <!-- Ventanas -->
-          <path d="M170,65 L170,100 L310,100 L310,65 Q300,62 270,62 L200,62 Z" stroke-width="1" opacity=".7"/>
-          <!-- Ruedas -->
-          <circle cx="160" cy="148" r="28" opacity=".6"/>
-          <circle cx="160" cy="148" r="18"/>
-          <circle cx="380" cy="148" r="28" opacity=".6"/>
-          <circle cx="380" cy="148" r="18"/>
-          <!-- Faro delantero -->
-          <path d="M460,115 L480,115 L480,125 L460,125 Z" stroke-width="1"/>
-          <!-- Faro trasero -->
-          <path d="M78,115 L60,115 L60,125 L78,125 Z" stroke-width="1"/>
-          <!-- Motor (capó) -->
-          <path d="M400,70 L460,110" stroke-width="1" opacity=".5"/>
-          <!-- Techo -->
-          <path d="M170,62 Q240,42 330,62" stroke-width="1" opacity=".5"/>
-        </g>
-        <text x="10" y="15" font-size="8" fill="#475569" font-family="'Courier New',monospace" font-weight="800">VARGAS ERP — DIAGNÓSTICO DE CARROCERÍA</text>
-      </svg>
-    `;
+    const damagePoints = diag && diag.damage_points ? diag.damage_points : [];
+    const chassisSvg = generatePrintSVG(damagePoints);
 
     printArea.innerHTML = `
       <!-- Cabecera Corporativa -->
@@ -2723,7 +2864,7 @@ function imprimirDocumento(tipo, o) {
         <div>
           ${chassisSvg}
           <div style="font-size: 7px; color: #475569; text-align: center; margin-top: 1px; font-weight: bold;">
-            Leyenda: Quiñado (*) | Abollado (◯) | Rallado (🪶) | Faltante (F)
+            Leyenda: Quiñado (Q) | Abollado (A) | Rayado (R) | Faltante (F)
           </div>
           <div style="font-size: 8.5px; margin-top: 3px; line-height: 1.2;">
             <strong>Obs. Carrocería:</strong> ${ (diag && diag.observaciones) || 'Sin observaciones de carrocería.' }

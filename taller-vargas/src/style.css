@@ -2554,10 +2554,111 @@ html[data-theme="dark"] [style*="background:var(--dark)"] {
   opacity: 0.9 !important;
   transform: scale(1.03) !important;
 }
-#damage-canvas {
-  touch-action: none;
-  transition: box-shadow 0.15s;
+
+/* Estilos para el Inspector Vectorial de Daños (5 Vistas) */
+.dmg-inspector-card {
+  border: 1px solid var(--slate-7);
+  border-radius: var(--radius-md);
+  background: var(--white);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 12px;
 }
-#damage-canvas:hover {
-  box-shadow: 0 0 0 2px rgba(16,185,129,0.3);
+
+.dmg-inspector-header {
+  font-weight: 700;
+  color: var(--dark);
+  font-size: 13px;
+  border-bottom: 1px dashed var(--slate-8);
+  padding-bottom: 8px;
+}
+
+.dmg-type-selector {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.dmg-type-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid var(--slate-7);
+  background: var(--slate-9);
+  color: var(--slate-3);
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.dmg-type-btn.active {
+  background: var(--white);
+  border-color: var(--dark);
+  color: var(--dark);
+  box-shadow: 0 0 0 2px rgba(15, 23, 42, 0.08);
+}
+
+.dmg-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.dmg-view-tabs {
+  display: flex;
+  gap: 6px;
+  background: var(--slate-8);
+  padding: 4px;
+  border-radius: 8px;
+  justify-content: center;
+}
+
+.dmg-view-tab {
+  flex: 1;
+  padding: 6px 8px;
+  border: none;
+  background: transparent;
+  color: var(--slate-5);
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.dmg-view-tab:hover {
+  color: var(--dark);
+}
+
+.dmg-view-tab.active {
+  background: var(--white);
+  color: var(--dark);
+  box-shadow: var(--shadow-sm);
+}
+
+.dmg-svg-wrap {
+  border: 1px solid var(--slate-8);
+  border-radius: 8px;
+  background: #fafbfc;
+  padding: 10px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 220px;
+  cursor: crosshair;
+}
+
+.dmg-svg-wrap svg {
+  max-width: 100%;
+  height: auto;
+  display: block;
 }
