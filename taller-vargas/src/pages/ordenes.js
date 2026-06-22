@@ -237,6 +237,7 @@ function renderPage() {
     const content = btn.parentElement.nextElementSibling;
     const checkboxes = content.querySelectorAll('.inv-checkbox');
     checkboxes.forEach(cb => cb.checked = true);
+    window.guardarBorradorEnLocalStorage();
   };
 
   function updateStepIndicators() {
@@ -288,12 +289,14 @@ function renderPage() {
       if (currentStep === 4) {
         initSignatureCanvas();
       }
+      window.guardarBorradorEnLocalStorage();
     }
   });
 
   document.getElementById('btn-step-prev').addEventListener('click', () => {
     currentStep--;
     updateStepIndicators();
+    window.guardarBorradorEnLocalStorage();
   });
 
   // Selector táctil de combustible
@@ -313,6 +316,7 @@ function renderPage() {
           b.style.fontWeight = '700';
         }
       });
+      window.guardarBorradorEnLocalStorage();
     });
   });
 
@@ -330,6 +334,7 @@ function renderPage() {
     document.getElementById('btn-pruebaruta-no').style.color = 'var(--slate-4)';
     document.getElementById('btn-pruebaruta-no').style.fontWeight = '700';
     document.getElementById('btn-pruebaruta-no').style.boxShadow = 'none';
+    window.guardarBorradorEnLocalStorage();
   });
 
   document.getElementById('btn-pruebaruta-no').addEventListener('click', () => {
@@ -345,7 +350,196 @@ function renderPage() {
     document.getElementById('btn-pruebaruta-si').style.color = 'var(--slate-4)';
     document.getElementById('btn-pruebaruta-si').style.fontWeight = '700';
     document.getElementById('btn-pruebaruta-si').style.boxShadow = 'none';
+    window.guardarBorradorEnLocalStorage();
   });
+
+  window.guardarBorradorEnLocalStorage = function() {
+    const cliSearch = document.getElementById('cli-search-input')?.value || '';
+    const cliId = document.getElementById('cli-select-id')?.value || '';
+    const vehId = document.getElementById('veh-select-id')?.value || '';
+    const km = document.getElementById('ord-km')?.value || '';
+    const combustible = document.getElementById('ord-combustible')?.value || '1/2';
+    const mecanicoId = document.getElementById('ord-mecanico')?.value || '';
+    
+    const sintomas = [];
+    document.querySelectorAll('.sintomas-checkbox:checked').forEach(cb => {
+      sintomas.push(cb.dataset.sintoma);
+    });
+
+    const otros_sintomas = document.getElementById('ord-falla')?.value || '';
+
+    const servicios_adicionales = [];
+    if (document.getElementById('add-lavado')?.checked) servicios_adicionales.push('add-lavado');
+    if (document.getElementById('add-retiro-rep')?.checked) servicios_adicionales.push('add-retiro-rep');
+    if (document.getElementById('add-cliente-inv')?.checked) servicios_adicionales.push('add-cliente-inv');
+
+    const fecha_estimada = document.getElementById('ord-fecha-entrega-est')?.value || '';
+    const hora_estimada = document.getElementById('ord-hora-entrega-est')?.value || '';
+    const comprobante_num = document.getElementById('ord-comprobante-num')?.value || '';
+
+    const inventario = {};
+    document.querySelectorAll('.inv-checkbox').forEach(cb => {
+      inventario[cb.dataset.item] = cb.checked;
+    });
+
+    const prueba_ruta = document.getElementById('ord-pruebaruta')?.value || 'NO';
+    const observaciones = document.getElementById('ord-observaciones')?.value || '';
+
+    const draft = {
+      cliId,
+      cliSearch,
+      vehId,
+      km,
+      combustible,
+      mecanicoId,
+      sintomas,
+      otros_sintomas,
+      servicios_adicionales,
+      fecha_estimada,
+      hora_estimada,
+      comprobante_num,
+      inventario,
+      prueba_ruta,
+      observaciones,
+      currentStep
+    };
+
+    localStorage.setItem('vargas_nueva_orden_draft', JSON.stringify(draft));
+  };
+
+  window.restaurarBorradorDesdeLocalStorage = function() {
+    const draftStr = localStorage.getItem('vargas_nueva_orden_draft');
+    if (!draftStr) return false;
+
+    try {
+      const draft = JSON.parse(draftStr);
+      if (!draft) return false;
+
+      // Restaurar Paso 1
+      const cliSearch = document.getElementById('cli-search-input');
+      if (cliSearch) cliSearch.value = draft.cliSearch || '';
+
+      const cliSelect = document.getElementById('cli-select-id');
+      if (cliSelect) {
+        cliSelect.value = draft.cliId || '';
+      }
+
+      // Filtrar vehículos para ese cliente
+      filtrarVehiculosPorCliente();
+
+      const vehSelect = document.getElementById('veh-select-id');
+      if (vehSelect) {
+        vehSelect.value = draft.vehId || '';
+        autoAsignarClienteYKm();
+      }
+
+      const kmInput = document.getElementById('ord-km');
+      if (kmInput) kmInput.value = draft.km || '';
+
+      const combustibleInput = document.getElementById('ord-combustible');
+      if (combustibleInput) {
+        combustibleInput.value = draft.combustible || '1/2';
+        document.querySelectorAll('.fuel-btn').forEach(btn => {
+          btn.classList.toggle('active', btn.dataset.val === draft.combustible);
+          if (btn.dataset.val === draft.combustible) {
+            btn.style.background = 'var(--white)';
+            btn.style.color = 'var(--dark)';
+            btn.style.fontWeight = '800';
+          } else {
+            btn.style.background = 'transparent';
+            btn.style.color = 'var(--slate-4)';
+            btn.style.fontWeight = '700';
+          }
+        });
+      }
+
+      const mecanicoSelect = document.getElementById('ord-mecanico');
+      if (mecanicoSelect) mecanicoSelect.value = draft.mecanicoId || '';
+
+      // Restaurar Paso 2
+      document.querySelectorAll('.sintomas-checkbox').forEach(cb => {
+        cb.checked = (draft.sintomas || []).includes(cb.dataset.sintoma);
+      });
+
+      const fallaTextarea = document.getElementById('ord-falla');
+      if (fallaTextarea) fallaTextarea.value = draft.otros_sintomas || '';
+
+      if (document.getElementById('add-lavado')) {
+        document.getElementById('add-lavado').checked = (draft.servicios_adicionales || []).includes('add-lavado');
+      }
+      if (document.getElementById('add-retiro-rep')) {
+        document.getElementById('add-retiro-rep').checked = (draft.servicios_adicionales || []).includes('add-retiro-rep');
+      }
+      if (document.getElementById('add-cliente-inv')) {
+        document.getElementById('add-cliente-inv').checked = (draft.servicios_adicionales || []).includes('add-cliente-inv');
+      }
+
+      const fechaInput = document.getElementById('ord-fecha-entrega-est');
+      if (fechaInput) fechaInput.value = draft.fecha_estimada || '';
+
+      const horaInput = document.getElementById('ord-hora-entrega-est');
+      if (horaInput) horaInput.value = draft.hora_estimada || '';
+
+      const comprobanteInput = document.getElementById('ord-comprobante-num');
+      if (comprobanteInput) comprobanteInput.value = draft.comprobante_num || '';
+
+      // Restaurar Paso 3 (Inventario)
+      document.querySelectorAll('.inv-checkbox').forEach(cb => {
+        if (draft.inventario && draft.inventario[cb.dataset.item] !== undefined) {
+          cb.checked = draft.inventario[cb.dataset.item];
+        }
+      });
+
+      // Restaurar Paso 4
+      const pruebaInput = document.getElementById('ord-pruebaruta');
+      if (pruebaInput) {
+        pruebaInput.value = draft.prueba_ruta || 'NO';
+        const btnSi = document.getElementById('btn-pruebaruta-si');
+        const btnNo = document.getElementById('btn-pruebaruta-no');
+        if (btnSi && btnNo) {
+          if (draft.prueba_ruta === 'SI') {
+            btnSi.classList.add('active');
+            btnNo.classList.remove('active');
+            btnSi.style.background = 'var(--white)';
+            btnSi.style.color = 'var(--dark)';
+            btnSi.style.fontWeight = '800';
+            btnSi.style.boxShadow = 'var(--shadow-sm)';
+            btnNo.style.background = 'transparent';
+            btnNo.style.color = 'var(--slate-4)';
+            btnNo.style.fontWeight = '700';
+            btnNo.style.boxShadow = 'none';
+          } else {
+            btnNo.classList.add('active');
+            btnSi.classList.remove('active');
+            btnNo.style.background = 'var(--white)';
+            btnNo.style.color = 'var(--dark)';
+            btnNo.style.fontWeight = '800';
+            btnNo.style.boxShadow = 'var(--shadow-sm)';
+            btnSi.style.background = 'transparent';
+            btnSi.style.color = 'var(--slate-4)';
+            btnSi.style.fontWeight = '700';
+            btnSi.style.boxShadow = 'none';
+          }
+        }
+      }
+
+      const obsTextarea = document.getElementById('ord-observaciones');
+      if (obsTextarea) obsTextarea.value = draft.observaciones || '';
+
+      // Restaurar paso actual
+      currentStep = draft.currentStep || 1;
+      updateStepIndicators();
+
+      if (currentStep === 4) {
+        initSignatureCanvas();
+      }
+
+      return true;
+    } catch (e) {
+      console.error('Error restaurando borrador de orden:', e);
+      return false;
+    }
+  };
 
   function initSignatureCanvas() {
     const canvas = document.getElementById('signature-canvas');
@@ -426,6 +620,8 @@ function renderPage() {
   document.getElementById('btn-close-ord-x').addEventListener('click', cerrarModalNuevaOrden);
   document.getElementById('btn-close-ord-cancel').addEventListener('click', cerrarModalNuevaOrden);
   document.getElementById('form-nueva-orden').addEventListener('submit', guardarNuevaOrden);
+  document.getElementById('form-nueva-orden').addEventListener('input', () => window.guardarBorradorEnLocalStorage());
+  document.getElementById('form-nueva-orden').addEventListener('change', () => window.guardarBorradorEnLocalStorage());
   document.getElementById('veh-select-id').addEventListener('change', autoAsignarClienteYKm);
   document.getElementById('cli-select-id').addEventListener('change', filtrarVehiculosPorCliente);
   document.getElementById('cli-search-input').addEventListener('input', (e) => {
@@ -587,7 +783,7 @@ function renderModales() {
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
           </button>
         </div>
-        <form id="form-nueva-orden">
+        <form id="form-nueva-orden" novalidate>
           <!-- Barra de Progreso Stepper -->
           <div class="stepper-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; padding-bottom:12px; border-bottom:1px solid var(--slate-8);">
             <div class="step-indicator active" data-step="1" style="font-size:11px; font-weight:800; color:var(--brand); display:flex; align-items:center; gap:6px;">
@@ -1123,8 +1319,53 @@ function abrirModalNuevaOrden() {
   const form = document.getElementById('form-nueva-orden');
   form.reset();
   document.getElementById('cli-select-id').disabled = false;
+  
+  // Limpiar el autocompletado y Km anterior
+  document.getElementById('km-anterior-hint').style.display = 'none';
+  document.getElementById('cli-search-input').value = '';
+  // Filtrar todos los vehículos para restablecer
+  filtrarVehiculosPorCliente();
+  
+  // Limpiar botones de combustible a estado inicial (1/2 active)
+  document.getElementById('ord-combustible').value = '1/2';
+  document.querySelectorAll('.fuel-btn').forEach(b => {
+    const isHalf = b.dataset.val === '1/2';
+    b.classList.toggle('active', isHalf);
+    b.style.background = isHalf ? 'var(--white)' : 'transparent';
+    b.style.color = isHalf ? 'var(--dark)' : 'var(--slate-4)';
+    b.style.fontWeight = isHalf ? '800' : '700';
+  });
+
+  // Limpiar botones de prueba de ruta a NO
+  document.getElementById('ord-pruebaruta').value = 'NO';
+  const btnSi = document.getElementById('btn-pruebaruta-si');
+  const btnNo = document.getElementById('btn-pruebaruta-no');
+  if (btnSi && btnNo) {
+    btnNo.className = 'active';
+    btnNo.style.background = 'var(--white)';
+    btnNo.style.color = 'var(--dark)';
+    btnNo.style.fontWeight = '800';
+    btnNo.style.boxShadow = 'var(--shadow-sm)';
+    btnSi.className = '';
+    btnSi.style.background = 'transparent';
+    btnSi.style.color = 'var(--slate-4)';
+    btnSi.style.fontWeight = '700';
+    btnSi.style.boxShadow = 'none';
+  }
+
   if (window.resetStepperForm) window.resetStepperForm();
   modal.classList.add('active');
+
+  // Preguntar si restaurar borrador
+  if (localStorage.getItem('vargas_nueva_orden_draft')) {
+    setTimeout(() => {
+      if (confirm('Se encontró un borrador de orden de servicio sin terminar. ¿Deseas restaurar los datos anteriores?')) {
+        window.restaurarBorradorDesdeLocalStorage();
+      } else {
+        localStorage.removeItem('vargas_nueva_orden_draft');
+      }
+    }, 120);
+  }
 }
 
 function cerrarModalNuevaOrden() {
@@ -1214,6 +1455,21 @@ function autoAsignarClienteYKm() {
 async function guardarNuevaOrden(e) {
   e.preventDefault();
 
+  // Al estar usando novalidate en el form, forzamos validación final del Paso 1
+  // Para asegurar que cliente, vehículo y kilometraje estén presentes
+  const cli = document.getElementById('cli-select-id').value;
+  const veh = document.getElementById('veh-select-id').value;
+  const km = document.getElementById('ord-km').value;
+  if (!cli || !veh || !km || parseInt(km) <= 0) {
+    alert('Por favor, completa los datos requeridos en el Paso 1 (Cliente, Vehículo y Kilometraje).');
+    // Forzar regreso al paso 1
+    if (window.resetStepperForm) {
+      currentStep = 1;
+      updateStepIndicators();
+    }
+    return;
+  }
+
   const sintomas = [];
   document.querySelectorAll('.sintomas-checkbox:checked').forEach(cb => {
     sintomas.push(cb.dataset.sintoma);
@@ -1264,6 +1520,7 @@ async function guardarNuevaOrden(e) {
 
   try {
     await createOrden(data);
+    localStorage.removeItem('vargas_nueva_orden_draft'); // Eliminar borrador al guardar con éxito
     cerrarModalNuevaOrden();
     await cargarDatos();
   } catch (err) {
