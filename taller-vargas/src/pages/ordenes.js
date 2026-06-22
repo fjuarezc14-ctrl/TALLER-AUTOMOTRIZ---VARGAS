@@ -266,7 +266,9 @@ function generatePrintSVG(points = []) {
 }
 
 function initDamageCanvas() {
-  initDamageInspector();
+  if (window.initDamageInspector) {
+    window.initDamageInspector();
+  }
 }
 
 export async function init(container) {
@@ -861,10 +863,6 @@ function renderPage() {
     initDamageInspector();
   }
 
-  function initDamageCanvas() {
-    initDamageInspector();
-  }
-
   let activeView = 'top';
   let activeDmgType = 'Q';
 
@@ -969,6 +967,7 @@ function renderPage() {
 
     redrawSVG();
   }
+  window.initDamageInspector = initDamageInspector;
 
   window.resetStepperForm = function() {
     currentStep = 1;
@@ -1920,8 +1919,9 @@ async function abrirEditarOrden(id) {
     const dmgDataStr = JSON.stringify((diag && diag.damage_points) || []);
     document.getElementById('ord-damage-data').value = dmgDataStr;
 
-    // Reinicializar el inspector SVG de daños
-    initDamageInspector();
+    if (window.initDamageInspector) {
+      window.initDamageInspector();
+    }
 
     // Firma
     const canvas = document.getElementById('signature-canvas');
