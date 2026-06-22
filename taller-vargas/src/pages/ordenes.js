@@ -2942,55 +2942,91 @@ function imprimirDocumento(tipo, o) {
         </table>
       `;
     }
+  let damageSummaryHtml = '';
+  if (diag && diag.damage_points && diag.damage_points.length > 0) {
+    const VIEW_NAMES = {
+      left: 'Lateral Izquierda',
+      right: 'Lateral Derecha',
+      top: 'Vista Superior',
+      front: 'Vista Frontal',
+      rear: 'Vista Posterior'
+    };
+    const DAMAGE_NAMES = {
+      Q: 'Quiñado',
+      A: 'Abollado',
+      R: 'Rayado',
+      F: 'Faltante'
+    };
+    const pointsList = diag.damage_points.map(pt => {
+      const typeLabel = DAMAGE_NAMES[pt.type] || pt.type;
+      const viewLabel = VIEW_NAMES[pt.view] || pt.view;
+      return `<span style="display:inline-block; margin-right: 10px; background:#f1f5f9; padding:2px 6px; border-radius:4px; font-size:10px; border:1px solid #cbd5e1;">⚠️ ${typeLabel} (${viewLabel})</span>`;
+    }).join(' ');
+
+    damageSummaryHtml = `
+      <h4 style="margin:15px 0 5px;text-transform:uppercase;font-size:11px;border-bottom:1px solid #000;padding-bottom:2px;">Detalle de Inspección de Carrocería (Daños)</h4>
+      <div style="margin:5px 0; line-height:1.6; font-size:10px;">
+        ${pointsList}
+      </div>
+    `;
+    if (diag.observaciones) {
+      damageSummaryHtml += `<p style="font-size:10px; margin: 5px 0; font-style:italic;"><strong>Obs. Carrocería:</strong> ${diag.observaciones}</p>`;
+    }
   }
 
   if (tipo === 'nota') {
     // 🎫 Ticket Cliente (Nota Interna de Entrega de Vehículo)
     printArea.innerHTML = `
-      <div class="print-header">
-        <h2 style="margin:0;text-transform:uppercase;letter-spacing:1px;font-size:18px;">Inversiones y Soluciones Vargas</h2>
-        <p style="margin:4px 0 0;font-size:11px;">RUC: 20512345678 | Av. Taller Vargas 123, Lima</p>
-        <h3 style="margin:15px 0 0;text-transform:uppercase;font-size:14px;border-top:1px dashed #000;padding-top:10px;">Nota Interna de Entrega</h3>
+      <div class="print-header" style="text-align:center; margin-bottom:15px;">
+        <h2 style="margin:0;text-transform:uppercase;letter-spacing:0.5px;font-size:15px;font-weight:bold;">INVERSIONES Y SERVICIOS VARGAS E.I.R.L.</h2>
+        <p style="margin:4px 0 0;font-size:10px;color:#475569;line-height:1.3;">
+          📞 076-366683 | 📱 931 163 369 - 976 864 137<br>
+          📍 Jr. Reyna Farge N° 648 - Cajamarca | ✉️ inversionesyserviciosvargas@gmail.com
+        </p>
+        <h3 style="margin:12px 0 0;text-transform:uppercase;font-size:12px;border-top:1px dashed #000;padding-top:8px;font-weight:bold;">Nota Interna de Entrega</h3>
       </div>
 
-      <div style="font-size:12px;line-height:1.5;">
-        <p><strong>N° Expediente:</strong> OS-${o.id}</p>
-        <p><strong>Fecha Emisión:</strong> ${dateFormatted}</p>
-        <p><strong>Cliente / Razón Social:</strong> ${o.cliente}</p>
-        <p><strong>Unidad Vehicular:</strong> ${o.vehiculo} (Placa: <strong style="font-family:monospace;">${o.placa}</strong>)</p>
-        <p><strong>Kilometraje Recepción:</strong> ${o.kilometraje.toLocaleString()} Km</p>
+      <div style="font-size:11px;line-height:1.4;display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:15px;background:#f8fafc;padding:8px;border-radius:6px;border:1px solid #e2e8f0;">
+        <div><strong>N° Expediente:</strong> OS-${o.id}</div>
+        <div><strong>Fecha Emisión:</strong> ${dateFormatted}</div>
+        <div><strong>Cliente / RS:</strong> ${o.cliente}</div>
+        <div><strong>DNI/RUC:</strong> ${o.num_doc || '—'}</div>
+        <div style="grid-column: span 2;"><strong>Vehículo:</strong> ${o.vehiculo} (Placa: <strong style="font-family:monospace;font-size:11px;">${o.placa}</strong>)</div>
+        <div><strong>Kilometraje:</strong> ${o.kilometraje ? o.kilometraje.toLocaleString() : '0'} Km</div>
+        <div><strong>Combustible:</strong> ${o.nivel_combustible || '—'}</div>
       </div>
 
-      <h4 style="margin:20px 0 5px;text-transform:uppercase;font-size:12px;border-bottom:1px solid #000;padding-bottom:2px;">Trabajos y Repuestos Detallados</h4>
-      <table class="print-table" style="font-size:11px;">
+      <h4 style="margin:15px 0 5px;text-transform:uppercase;font-size:11px;border-bottom:1px solid #000;padding-bottom:2px;">Trabajos y Repuestos Detallados</h4>
+      <table class="print-table" style="font-size:10px;width:100%;border-collapse:collapse;margin-bottom:10px;">
         <thead>
-          <tr>
-            <th>Concepto / Producto</th>
-            <th style="text-align:center;">Tipo</th>
-            <th style="text-align:center;">Cant.</th>
-            <th style="text-align:right;">Unit.</th>
-            <th style="text-align:right;">Total</th>
+          <tr style="background:#f1f5f9;border-bottom:1px solid #000;">
+            <th style="padding:4px;text-align:left;">Concepto / Producto</th>
+            <th style="padding:4px;text-align:center;width:15%;">Tipo</th>
+            <th style="padding:4px;text-align:center;width:10%;">Cant.</th>
+            <th style="padding:4px;text-align:right;width:15%;">Unit.</th>
+            <th style="padding:4px;text-align:right;width:15%;">Total</th>
           </tr>
         </thead>
         <tbody>
-          ${itemsHtml || '<tr><td colspan="5" style="text-align:center;">No se registraron costos asociados.</td></tr>'}
+          ${itemsHtml || '<tr><td colspan="5" style="text-align:center;padding:8px;">No se registraron costos asociados.</td></tr>'}
         </tbody>
       </table>
 
-      <div style="text-align:right;margin-top:15px;font-size:14px;font-weight:bold;border-top:1px double #000;padding-top:8px;margin-bottom:15px;">
+      <div style="text-align:right;margin-top:5px;font-size:12px;font-weight:bold;border-top:1px double #000;padding-top:4px;margin-bottom:15px;">
         TOTAL ESTIMADO: S/ ${parseFloat(o.total_estimado || 0).toFixed(2)}
       </div>
 
+      ${damageSummaryHtml}
       ${diagnosticoHtml}
 
-      <div style="font-size:10px;margin-top:30px;text-align:center;border-top:1px dashed #000;padding-top:10px;">
+      <div style="font-size:9px;margin-top:25px;text-align:center;border-top:1px dashed #000;padding-top:8px;color:#475569;">
         <p>El vehículo se entrega a conformidad en sus componentes mecánicos y de carrocería reportados.</p>
-        <p style="margin-top:5px;font-weight:bold;">¡Gracias por su confianza en Taller Vargas!</p>
+        <p style="margin-top:3px;font-weight:bold;color:#0f172a;">¡Gracias por su confianza en Taller Vargas!</p>
       </div>
 
-      <div class="print-signatures" style="margin-top:60px;">
-        <div class="signature-box">Firma del Taller Vargas</div>
-        <div class="signature-box">Firma de Conformidad Cliente</div>
+      <div class="print-signatures" style="margin-top:40px;display:flex;justify-content:space-between;">
+        <div style="flex:1;border-top:1px solid #000;text-align:center;font-size:9px;padding-top:4px;margin-right:20px;">Firma del Taller Vargas</div>
+        <div style="flex:1;border-top:1px solid #000;text-align:center;font-size:9px;padding-top:4px;">Firma de Conformidad Cliente</div>
       </div>
     `;
   } else {
