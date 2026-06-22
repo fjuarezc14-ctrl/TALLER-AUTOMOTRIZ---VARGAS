@@ -186,7 +186,7 @@ END $$;
 
 DROP VIEW IF EXISTS v_ordenes_completas CASCADE;
 CREATE VIEW v_ordenes_completas AS
-SELECT os.id, os.estado, os.kilometraje, os.nivel_combustible, os.falla_reportada,
+SELECT os.id, os.cliente_id, os.vehiculo_id, os.mecanico_id, os.estado, os.kilometraje, os.nivel_combustible, os.falla_reportada,
   os.repuestos_esperando, os.total_estimado, os.fecha_ingreso, os.fecha_entrega,
   os.nota_interna, os.created_at, os.diagnostico,
   v.placa, v.marca_modelo AS vehiculo, v.anio,

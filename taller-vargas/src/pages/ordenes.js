@@ -1,7 +1,7 @@
 import { 
   getOrdenes, getOrdenesEnProceso, getOrden, createOrden, updateOrden,
   cambiarEstado, addItem, deleteItem, getVehiculos, getMecanicos, getAlmacen,
-  getClientes
+  getClientes, guardarDiagnosticoOrden
 } from '../api.js';
 
 function safeFormatDate(dateVal, options = { day: '2-digit', month: 'short', year: 'numeric' }) {
@@ -1814,7 +1814,7 @@ async function abrirEditarOrden(id) {
     // Llenar datos del Paso 1
     const cliSelect = document.getElementById('cli-select-id');
     if (cliSelect) {
-      cliSelect.value = o.cliente_id || '';
+      cliSelect.value = o.cliente_id ? String(o.cliente_id) : '';
     }
     const cliSearch = document.getElementById('cli-search-input');
     if (cliSearch) {
@@ -1825,7 +1825,7 @@ async function abrirEditarOrden(id) {
     filtrarVehiculosPorCliente();
     const vehSelect = document.getElementById('veh-select-id');
     if (vehSelect) {
-      vehSelect.value = o.vehiculo_id || '';
+      vehSelect.value = o.vehiculo_id ? String(o.vehiculo_id) : '';
       autoAsignarClienteYKm();
     }
 
@@ -1849,7 +1849,7 @@ async function abrirEditarOrden(id) {
 
     // Paso 2: Mecánico y Combustible
     const mecSelect = document.getElementById('ord-mecanico');
-    if (mecSelect) mecSelect.value = o.mecanico_id || '';
+    if (mecSelect) mecSelect.value = o.mecanico_id ? String(o.mecanico_id) : '';
 
     const combustible = o.nivel_combustible || '1/2';
     document.getElementById('ord-combustible').value = combustible;
