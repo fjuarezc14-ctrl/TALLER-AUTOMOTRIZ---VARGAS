@@ -35,6 +35,7 @@ let filterMecanicoVal = '';
 let sortVal = 'recientes';
 let currentStep = 1;
 let isCanvasSigned = false;
+let editingOrderId = null;
 
 // Colores para cada tipo de daño
 const dmgColors = {
@@ -225,41 +226,41 @@ function generatePrintSVG(points = []) {
   };
 
   return `
-    <svg viewBox="0 0 560 280" class="vargas-print-chassis-svg" xmlns="http://www.w3.org/2000/svg" style="width: 100%; height: auto; border: 1px solid #cbd5e1; border-radius: 6px; background: #fff;">
+    <svg viewBox="0 0 560 225" class="vargas-print-chassis-svg" xmlns="http://www.w3.org/2000/svg" style="width: 100%; height: auto; border: 1px solid #cbd5e1; border-radius: 6px; background: #fff;">
       <!-- VISTA LATERAL IZQUIERDA -->
-      <g transform="translate(40, 0) scale(0.5)">
+      <g transform="translate(15, -10) scale(0.58)">
         ${leftSilhouette}
         ${getMarkers('left')}
       </g>
-      <text x="140" y="112" font-size="7.5" font-family="system-ui, sans-serif" font-weight="bold" fill="#475569" text-anchor="middle">LATERAL IZQUIERDA</text>
+      <text x="131" y="112" font-size="7.5" font-family="system-ui, sans-serif" font-weight="bold" fill="#475569" text-anchor="middle">LATERAL IZQUIERDA</text>
 
       <!-- VISTA LATERAL DERECHA -->
-      <g transform="translate(320, 0) scale(0.5)">
+      <g transform="translate(310, -10) scale(0.58)">
         ${rightSilhouette}
         ${getMarkers('right')}
       </g>
-      <text x="420" y="112" font-size="7.5" font-family="system-ui, sans-serif" font-weight="bold" fill="#475569" text-anchor="middle">LATERAL DERECHA</text>
+      <text x="426" y="112" font-size="7.5" font-family="system-ui, sans-serif" font-weight="bold" fill="#475569" text-anchor="middle">LATERAL DERECHA</text>
 
       <!-- VISTA FRONTAL -->
-      <g transform="translate(20, 130) scale(0.4)">
+      <g transform="translate(15, 115) scale(0.48)">
         ${frontSvgContent}
         ${getMarkers('front')}
       </g>
-      <text x="100" y="242" font-size="7.5" font-family="system-ui, sans-serif" font-weight="bold" fill="#475569" text-anchor="middle">VISTA FRONTAL</text>
+      <text x="111" y="222" font-size="7.5" font-family="system-ui, sans-serif" font-weight="bold" fill="#475569" text-anchor="middle">VISTA FRONTAL</text>
 
       <!-- VISTA SUPERIOR -->
-      <g transform="translate(200, 130) scale(0.4)">
+      <g transform="translate(184, 115) scale(0.48)">
         ${topSvgContent}
         ${getMarkers('top')}
       </g>
-      <text x="280" y="242" font-size="7.5" font-family="system-ui, sans-serif" font-weight="bold" fill="#475569" text-anchor="middle">VISTA SUPERIOR</text>
+      <text x="280" y="222" font-size="7.5" font-family="system-ui, sans-serif" font-weight="bold" fill="#475569" text-anchor="middle">VISTA SUPERIOR</text>
 
       <!-- VISTA POSTERIOR -->
-      <g transform="translate(380, 130) scale(0.4)">
+      <g transform="translate(353, 115) scale(0.48)">
         ${rearSvgContent}
         ${getMarkers('rear')}
       </g>
-      <text x="460" y="242" font-size="7.5" font-family="system-ui, sans-serif" font-weight="bold" fill="#475569" text-anchor="middle">VISTA POSTERIOR</text>
+      <text x="449" y="222" font-size="7.5" font-family="system-ui, sans-serif" font-weight="bold" fill="#475569" text-anchor="middle">VISTA POSTERIOR</text>
     </svg>
   `;
 }
@@ -271,6 +272,7 @@ function initDamageCanvas() {
 export async function init(container) {
   containerElement = container;
   container.innerHTML = `<div class="fade-in" id="ordenes-root"></div>`;
+  editingOrderId = null;
   
   await cargarDatos();
 }
@@ -589,6 +591,7 @@ function renderPage() {
   });
 
   window.guardarBorradorEnLocalStorage = function() {
+    if (editingOrderId) return;
     const cliSearch = document.getElementById('cli-search-input')?.value || '';
     const cliId = document.getElementById('cli-select-id')?.value || '';
     const vehId = document.getElementById('veh-select-id')?.value || '';
@@ -1135,7 +1138,7 @@ function renderModales() {
             <div class="modal-header-icon">
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M12 4v16m8-8H4"/></svg>
             </div>
-            <span class="modal-title">Registrar Orden de Servicio</span>
+            <span class="modal-title" id="modal-nueva-orden-title">Registrar Orden de Servicio</span>
           </div>
           <button class="modal-close" id="btn-close-ord-x">
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
@@ -1531,12 +1534,17 @@ function renderModales() {
           </div>
 
           <!-- Botones de Impresión Premium (Requerimiento AÑADIR.txt) -->
-          <div class="flex gap-3 pt-2" style="border-top:1px solid var(--slate-8);">
-            <button class="btn-ghost" id="btn-print-hoja" style="flex:1;justify-content:center;background:#f8fafc;border:1px solid var(--slate-7);color:var(--dark);">
-              🖨️ Orden de Servicio (Taller)
-            </button>
-            <button class="btn-success" id="btn-print-nota" style="flex:1;justify-content:center;color:var(--white);background:var(--dark);">
-              🎫 Nota Interna (Cliente)
+          <div class="flex flex-col gap-2 pt-2" style="border-top:1px solid var(--slate-8);">
+            <div class="flex gap-3">
+              <button class="btn-ghost" id="btn-print-hoja" style="flex:1;justify-content:center;background:#f8fafc;border:1px solid var(--slate-7);color:var(--dark);">
+                🖨️ Orden de Servicio (Taller)
+              </button>
+              <button class="btn-success" id="btn-print-nota" style="flex:1;justify-content:center;color:var(--white);background:var(--dark);">
+                🎫 Nota Interna (Cliente)
+              </button>
+            </div>
+            <button class="btn-primary" id="btn-edit-ord" style="justify-content:center;width:100%;background:var(--brand);color:var(--dark);font-weight:800;">
+              📝 Editar Orden de Servicio (Recepcionar Datos / Daños / Firma)
             </button>
           </div>
 
@@ -1777,6 +1785,166 @@ function abrirModalNuevaOrden() {
 
 function cerrarModalNuevaOrden() {
   document.getElementById('modal-nueva-orden').classList.remove('active');
+  editingOrderId = null;
+  const titleEl = document.getElementById('modal-nueva-orden-title');
+  if (titleEl) titleEl.textContent = 'Registrar Orden de Servicio';
+  const saveBtn = document.getElementById('btn-save-ord');
+  if (saveBtn) saveBtn.textContent = '✅ Registrar Recepción';
+}
+
+async function abrirEditarOrden(id) {
+  try {
+    const o = await getOrden(id);
+    if (!o) return;
+    
+    // Cerrar detalle modal si estaba abierto
+    cerrarModalDetalle();
+
+    editingOrderId = o.id;
+
+    // Actualizar título y botón
+    const titleEl = document.getElementById('modal-nueva-orden-title');
+    if (titleEl) titleEl.textContent = `Editar Orden de Servicio: OS-${o.id}`;
+    const saveBtn = document.getElementById('btn-save-ord');
+    if (saveBtn) saveBtn.textContent = '💾 Guardar Cambios';
+
+    const modal = document.getElementById('modal-nueva-orden');
+    const form = document.getElementById('form-nueva-orden');
+    form.reset();
+
+    // Llenar datos del Paso 1
+    const cliSelect = document.getElementById('cli-select-id');
+    if (cliSelect) {
+      cliSelect.value = o.cliente_id || '';
+    }
+    const cliSearch = document.getElementById('cli-search-input');
+    if (cliSearch) {
+      cliSearch.value = o.cliente || '';
+    }
+    
+    // Filtrar vehículos para ese cliente y setear el vehículo
+    filtrarVehiculosPorCliente();
+    const vehSelect = document.getElementById('veh-select-id');
+    if (vehSelect) {
+      vehSelect.value = o.vehiculo_id || '';
+      autoAsignarClienteYKm();
+    }
+
+    const kmInput = document.getElementById('ord-km');
+    if (kmInput) kmInput.value = o.kilometraje || '';
+
+    // Diagnóstico OBJ
+    let diag = null;
+    try {
+      if (o.diagnostico) {
+        diag = typeof o.diagnostico === 'string' ? JSON.parse(o.diagnostico) : o.diagnostico;
+      }
+    } catch(e) {
+      console.error('Error parseando diagnostico para edicion:', e);
+    }
+
+    const comprobanteInput = document.getElementById('ord-comprobante-num');
+    if (comprobanteInput) {
+      comprobanteInput.value = o.comprobante_num || (diag && diag.comprobante_num) || '';
+    }
+
+    // Paso 2: Mecánico y Combustible
+    const mecSelect = document.getElementById('ord-mecanico');
+    if (mecSelect) mecSelect.value = o.mecanico_id || '';
+
+    const combustible = o.nivel_combustible || '1/2';
+    document.getElementById('ord-combustible').value = combustible;
+    document.querySelectorAll('.fuel-btn').forEach(b => {
+      const isActive = b.dataset.val === combustible;
+      b.classList.toggle('active', isActive);
+      b.style.background = isActive ? 'var(--white)' : 'transparent';
+      b.style.color = isActive ? 'var(--dark)' : 'var(--slate-4)';
+      b.style.fontWeight = isActive ? '800' : '700';
+    });
+
+    // Síntomas
+    const sintomas = (diag && diag.sintomas) || [];
+    document.querySelectorAll('.sintomas-checkbox').forEach(cb => {
+      cb.checked = sintomas.includes(cb.dataset.sintoma);
+    });
+
+    const otros_sintomas = (diag && diag.otros_sintomas) || o.falla_reportada || '';
+    const fallaInput = document.getElementById('ord-falla');
+    if (fallaInput) fallaInput.value = otros_sintomas;
+
+    // Servicios adicionales
+    const addServices = (diag && diag.servicios_adicionales) || [];
+    const lav = document.getElementById('add-lavado');
+    if (lav) lav.checked = addServices.includes('Lavado de vehículo') || addServices.includes('add-lavado');
+    const ret = document.getElementById('add-retiro-rep');
+    if (ret) ret.checked = addServices.includes('Retiro de repuestos usados') || addServices.includes('add-retiro-rep');
+    const cliInv = document.getElementById('add-cliente-inv');
+    if (cliInv) cliInv.checked = addServices.includes('Cliente participa en inventario') || addServices.includes('add-cliente-inv');
+
+    // Fechas estimadas
+    const fEnt = document.getElementById('ord-fecha-entrega-est');
+    if (fEnt) fEnt.value = (diag && diag.fecha_estimada) || '';
+    const hEnt = document.getElementById('ord-hora-entrega-est');
+    if (hEnt) hEnt.value = (diag && diag.hora_estimada) || '';
+
+    // Paso 3: Inventario
+    const inventario = (diag && diag.inventario) || {};
+    document.querySelectorAll('.inv-checkbox').forEach(cb => {
+      cb.checked = !!inventario[cb.dataset.item];
+    });
+
+    // Paso 4: Daños y observaciones
+    const prRuta = (diag && diag.prueba_ruta) || 'NO';
+    document.getElementById('ord-pruebaruta').value = prRuta;
+    const isSi = prRuta === 'SI';
+    const btnSi = document.getElementById('btn-pruebaruta-si');
+    const btnNo = document.getElementById('btn-pruebaruta-no');
+    if (btnSi && btnNo) {
+      btnSi.className = isSi ? 'active' : '';
+      btnSi.style.background = isSi ? 'var(--white)' : 'transparent';
+      btnSi.style.color = isSi ? 'var(--dark)' : 'var(--slate-4)';
+      btnSi.style.fontWeight = isSi ? '800' : '700';
+      btnSi.style.boxShadow = isSi ? 'var(--shadow-sm)' : 'none';
+
+      btnNo.className = !isSi ? 'active' : '';
+      btnNo.style.background = !isSi ? 'var(--white)' : 'transparent';
+      btnNo.style.color = !isSi ? 'var(--dark)' : 'var(--slate-4)';
+      btnNo.style.fontWeight = !isSi ? '800' : '700';
+      btnNo.style.boxShadow = !isSi ? 'var(--shadow-sm)' : 'none';
+    }
+
+    const obsInput = document.getElementById('ord-observaciones');
+    if (obsInput) obsInput.value = (diag && diag.observaciones) || '';
+
+    // Inspector de daños
+    const dmgDataStr = JSON.stringify((diag && diag.damage_points) || []);
+    document.getElementById('ord-damage-data').value = dmgDataStr;
+
+    // Reinicializar el inspector SVG de daños
+    initDamageInspector();
+
+    // Firma
+    const canvas = document.getElementById('signature-canvas');
+    if (canvas) {
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      if (diag && diag.firma_cliente) {
+        const img = new Image();
+        img.onload = () => {
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        };
+        img.src = diag.firma_cliente;
+        isCanvasSigned = true;
+      } else {
+        isCanvasSigned = false;
+      }
+    }
+
+    if (window.resetStepperForm) window.resetStepperForm();
+    modal.classList.add('active');
+  } catch(err) {
+    alert('Error al cargar la orden para edición: ' + err.message);
+  }
 }
 
 function filtrarVehiculosPorCliente() {
@@ -1895,7 +2063,15 @@ async function guardarNuevaOrden(e) {
   });
 
   const canvas = document.getElementById('signature-canvas');
-  const firma_cliente = isCanvasSigned && canvas ? canvas.toDataURL() : null;
+  const oExistente = editingOrderId ? ordenesList.find(item => item.id == editingOrderId) : null;
+  let firmaExistente = null;
+  if (oExistente && oExistente.diagnostico) {
+    try {
+      const diagExistente = typeof oExistente.diagnostico === 'string' ? JSON.parse(oExistente.diagnostico) : oExistente.diagnostico;
+      firmaExistente = diagExistente && diagExistente.firma_cliente;
+    } catch (_) {}
+  }
+  const firma_cliente = isCanvasSigned && canvas ? canvas.toDataURL() : (firmaExistente || null);
 
   const otros_sintomas = document.getElementById('ord-falla')?.value.trim() || '';
 
@@ -1942,6 +2118,36 @@ async function guardarNuevaOrden(e) {
     falla_reportada: fallasText,
     diagnostico: diagnosticoObj
   };
+
+  if (editingOrderId) {
+    try {
+      const updateData = {
+        vehiculo_id: data.vehiculo_id,
+        cliente_id: data.cliente_id,
+        mecanico_id: data.mecanico_id,
+        kilometraje: data.kilometraje,
+        nivel_combustible: data.nivel_combustible,
+        falla_reportada: data.falla_reportada,
+        estado: oExistente ? oExistente.estado : 'Diagnostico',
+        repuestos_esperando: oExistente ? oExistente.repuestos_esperando : '',
+        fecha_entrega: oExistente ? oExistente.fecha_entrega : null,
+        nota_interna: oExistente ? oExistente.nota_interna : ''
+      };
+      
+      await updateOrden(editingOrderId, updateData);
+      await guardarDiagnosticoOrden(editingOrderId, diagnosticoObj);
+      
+      cerrarModalNuevaOrden();
+      await cargarDatos();
+    } catch (err) {
+      alert(`Error al guardar cambios de la orden: ${err.message}`);
+      if (saveBtn) {
+        saveBtn.disabled = false;
+        saveBtn.textContent = '💾 Guardar Cambios';
+      }
+    }
+    return;
+  }
 
   try {
     await createOrden(data);
@@ -2013,9 +2219,10 @@ async function verDetalleOrden(id) {
 
     document.getElementById('det-total').textContent = `S/ ${parseFloat(o.total_estimado || 0).toFixed(2)}`;
 
-    // Asignar eventos de impresión
+    // Asignar eventos de impresión y edición
     document.getElementById('btn-print-nota').onclick = () => imprimirDocumento('nota', o);
     document.getElementById('btn-print-hoja').onclick = () => imprimirDocumento('hoja', o);
+    document.getElementById('btn-edit-ord').onclick = () => abrirEditarOrden(o.id);
 
     document.getElementById('modal-detalle').classList.add('active');
   } catch (err) {

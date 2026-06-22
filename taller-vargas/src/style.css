@@ -2493,10 +2493,13 @@ html[data-theme="dark"] [style*="background:var(--dark)"] {
   }
 
   .vargas-print-disclaimer {
-    font-size: 7.5px !important;
+    font-size: 6.5px !important;
     color: #334155 !important;
     line-height: 1.2 !important;
-    margin-top: 10px !important;
+    margin-top: 6px !important;
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 4px 15px !important;
   }
 
   /* Firmas */
