@@ -2519,12 +2519,18 @@ html[data-theme="dark"] [style*="background:var(--dark)"] {
     border-top: 1px solid #000000 !important;
     padding-top: 4px !important;
   }
+  .vargas-print-sig-slot {
+    height: 55px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
   
   /* Contenedor de firma digital en impresión */
   .vargas-print-sig-img {
-    max-height: 40px !important;
+    max-height: 50px !important;
     display: block !important;
-    margin: 0 auto 2px auto !important;
+    margin: 0 auto !important;
   }
 }
 
