@@ -3168,9 +3168,23 @@ function imprimirDocumento(tipo, o) {
     `;
   }
 
-  // Ejecutar impresión del navegador
-  window.print();
-  printArea.innerHTML = '';
+  // Ejecutar impresión del navegador esperando a que las imágenes se carguen si existen
+  const runPrint = () => {
+    if (runPrint.executed) return;
+    runPrint.executed = true;
+    window.print();
+    printArea.innerHTML = '';
+  };
+
+  const sigImg = printArea.querySelector('.vargas-print-sig-img');
+  if (sigImg && !sigImg.complete) {
+    sigImg.onload = runPrint;
+    sigImg.onerror = runPrint;
+    // Timeout de seguridad de 500ms por si el navegador no dispara el evento del data URI
+    setTimeout(runPrint, 500);
+  } else {
+    runPrint();
+  }
 }
 
 export function destroy() {}
