@@ -27,7 +27,10 @@ export async function navigate(path = '/') {
     el.classList.toggle('sidebar-active', isActive);
   });
 
-  // Auto-expandir el submenú de la ruta activa y su cabecera
+  // Auto-expandir el submenú de la ruta activa y su cabecera (cerrando el resto)
+  document.querySelectorAll('.sidebar-submenu').forEach(sub => sub.classList.remove('open'));
+  document.querySelectorAll('.sidebar-group-header').forEach(hdr => hdr.classList.remove('open'));
+
   const activeItem = Array.from(document.querySelectorAll('.sidebar-item')).find(el => el.classList.contains('sidebar-active'));
   if (activeItem) {
     const parentSubmenu = activeItem.closest('.sidebar-submenu');
