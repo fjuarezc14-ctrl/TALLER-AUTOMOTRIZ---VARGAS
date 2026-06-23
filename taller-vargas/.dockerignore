@@ -4,3 +4,8 @@ dist
 backend/node_modules
 *.log
 .env
+.env.*
+!.env.example
+backend/.env
+backend/uploads/*
+!backend/uploads/.gitkeep

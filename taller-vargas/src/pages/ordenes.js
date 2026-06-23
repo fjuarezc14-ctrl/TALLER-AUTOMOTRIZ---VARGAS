@@ -2942,6 +2942,7 @@ function imprimirDocumento(tipo, o) {
         </table>
       `;
     }
+  }
   let damageSummaryHtml = '';
   if (diag && diag.damage_points && diag.damage_points.length > 0) {
     const VIEW_NAMES = {

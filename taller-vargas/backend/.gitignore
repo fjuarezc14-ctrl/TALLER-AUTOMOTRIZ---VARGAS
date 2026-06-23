@@ -3,7 +3,10 @@ node_modules/
 npm-debug.log*
 dist/
 .env
-.env.local
+.env.*
+!.env.example
+uploads/*
+!uploads/.gitkeep
 .DS_Store
 Thumbs.db
 .vscode/

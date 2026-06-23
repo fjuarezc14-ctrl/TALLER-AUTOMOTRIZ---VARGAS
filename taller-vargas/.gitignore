@@ -9,14 +9,25 @@ dist/
 dist-ssr/
 *.local
 
-# ── Environment ───────────────────────────────────────────
+# ── Environment (mantener .example en el repo) ───────────
 .env
 .env.local
 .env.*.local
+.env.development
+.env.production
+.env.staging
+!.env.example
+
 backend/.env
+backend/.env.*
+!backend/.env.example
 
 # ── Docker ────────────────────────────────────────────────
 .docker/
+
+# ── Uploads / datos de runtime ────────────────────────────
+backend/uploads/*
+!backend/uploads/.gitkeep
 
 # ── OS ────────────────────────────────────────────────────
 .DS_Store
