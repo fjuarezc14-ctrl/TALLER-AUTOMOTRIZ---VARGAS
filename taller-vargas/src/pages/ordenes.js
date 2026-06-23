@@ -2910,7 +2910,7 @@ function imprimirDocumento(tipo, o) {
     };
 
     const rows = Object.entries(diag).map(([key, item]) => {
-      if (['sintomas', 'otros_sintomas', 'servicios_adicionales', 'inventario', 'prueba_ruta', 'observaciones', 'firma_cliente', 'fecha_estimada', 'hora_estimada', 'comprobante_num'].includes(key)) {
+      if (['sintomas', 'otros_sintomas', 'servicios_adicionales', 'inventario', 'prueba_ruta', 'observaciones', 'firma_cliente', 'fecha_estimada', 'hora_estimada', 'comprobante_num', 'damage_points', 'damage_image'].includes(key)) {
         return '';
       }
       const compLabel = NOMBRES_COMPONENTE[key] || key;
@@ -3020,14 +3020,29 @@ function imprimirDocumento(tipo, o) {
       ${damageSummaryHtml}
       ${diagnosticoHtml}
 
-      <div style="font-size:9px;margin-top:25px;text-align:center;border-top:1px dashed #000;padding-top:8px;color:#475569;">
-        <p>El vehículo se entrega a conformidad en sus componentes mecánicos y de carrocería reportados.</p>
-        <p style="margin-top:3px;font-weight:bold;color:#0f172a;">¡Gracias por su confianza en Taller Vargas!</p>
+      <!-- Firmas en Nota Interna -->
+      <div class="vargas-print-signatures" style="margin-top:60px; margin-bottom: 25px; display:flex; justify-content:space-between; gap: 20px;">
+        <div class="vargas-print-sig-box" style="flex:1; text-align:center; font-size:8.5px; margin-top:25px;">
+          <div class="vargas-print-sig-slot" style="height:55px; display:flex; align-items:center; justify-content:center;"></div>
+          <div class="vargas-print-sig-line" style="border-top:1px solid #000; padding-top:4px;">
+            Firma del Taller Vargas<br>
+            <strong>Inversiones y Servicios Vargas</strong>
+          </div>
+        </div>
+        <div class="vargas-print-sig-box" style="flex:1; text-align:center; font-size:8.5px; margin-top:25px;">
+          <div class="vargas-print-sig-slot" style="height:55px; display:flex; align-items:center; justify-content:center;">
+            ${diag && diag.firma_cliente ? `<img src="${diag.firma_cliente}" class="vargas-print-sig-img" style="max-height:50px; display:block; margin:0 auto;" alt="Firma Cliente" />` : ''}
+          </div>
+          <div class="vargas-print-sig-line" style="border-top:1px solid #000; padding-top:4px;">
+            Firma de Conformidad Cliente<br>
+            <strong>DNI/RUC:</strong> ${o.num_doc || '___________________'}
+          </div>
+        </div>
       </div>
 
-      <div class="print-signatures" style="margin-top:40px;display:flex;justify-content:space-between;">
-        <div style="flex:1;border-top:1px solid #000;text-align:center;font-size:9px;padding-top:4px;margin-right:20px;">Firma del Taller Vargas</div>
-        <div style="flex:1;border-top:1px solid #000;text-align:center;font-size:9px;padding-top:4px;">Firma de Conformidad Cliente</div>
+      <div style="font-size:9px;margin-top:45px;text-align:center;border-top:1px dashed #000;padding-top:8px;color:#475569;">
+        <p>El vehículo se entrega a conformidad en sus componentes mecánicos y de carrocería reportados.</p>
+        <p style="margin-top:3px;font-weight:bold;color:#0f172a;">¡Gracias por su confianza en Taller Vargas!</p>
       </div>
     `;
   } else {
