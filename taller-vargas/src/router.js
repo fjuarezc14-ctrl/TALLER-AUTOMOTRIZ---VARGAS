@@ -12,7 +12,7 @@ const routes = {
   '/almacen':      () => import('./pages/almacen.js'),
   '/facturacion':  () => import('./pages/facturacion.js'),
   '/archivos':     () => import('./pages/archivos.js'),
-  '/taller':       () => import('./pages/taller.js'),
+  '/taller':       () => import('./pages/operaciones.js'),
 };
 
 let currentModule = null;
@@ -22,7 +22,9 @@ export async function navigate(path = '/') {
   
   // Actualizar sidebar activo
   document.querySelectorAll('.sidebar-item').forEach(el => {
-    el.classList.toggle('sidebar-active', el.dataset.route === path);
+    const route = el.dataset.route;
+    const isActive = (route === path) || (route === '/operaciones' && path === '/taller');
+    el.classList.toggle('sidebar-active', isActive);
   });
 
   // Cerrar sidebar si está abierto en móvil
@@ -76,11 +78,11 @@ const breadcrumbs = {
   '/ordenes':      ['Órdenes de Servicio', 'Gestión Operativa'],
   '/vehiculos':    ['Vehículos', 'Directorio y Proceso'],
   '/clientes':     ['CRM Clientes', 'Seguimiento 360° y Fidelización'],
-  '/operaciones':  ['Operaciones', 'Control de Taller en Vivo y Equipo Técnico'],
+  '/operaciones':  ['Taller y Operaciones', 'Control en Vivo, Equipo Técnico y Portal Mecánico'],
   '/almacen':      ['Almacén / Repuestos', 'Control de Inventario'],
   '/facturacion':  ['Finanzas', 'Facturación y Cobros'],
   '/archivos':     ['Documentos', 'Repositorio General'],
-  '/taller':       ['Modo Taller', 'Portal de Diagnóstico y Operaciones Mecánicas'],
+  '/taller':       ['Taller y Operaciones', 'Portal de Diagnóstico y Operaciones Mecánicas'],
 };
 
 function updateBreadcrumb(path) {

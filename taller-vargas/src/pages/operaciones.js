@@ -2,6 +2,7 @@ import {
   getOrdenes, cambiarEstado, getMecanicos,
   getMecanicosStats, createMecanico, updateMecanico, patchOrdenMecanico
 } from '../api.js';
+import * as TallerModule from './taller.js';
 
 // ─────────────────────────────────────────────────────────────
 // ESTADO LOCAL DEL MÓDULO
@@ -35,11 +36,21 @@ const FLUJO_NEXT = {
 // ─────────────────────────────────────────────────────────────
 export async function init(container) {
   containerEl = container;
+  
+  // Controlar pestaña inicial según la ruta de entrada
+  const path = window.location.pathname;
+  if (path === '/taller') {
+    activeTab = 'taller';
+  } else if (activeTab === 'taller' && path === '/operaciones') {
+    activeTab = 'kanban';
+  }
+
   container.innerHTML = `<div class="fade-in" id="ops-root"></div>`;
   await cargarDatos();
 }
 
 export function destroy() {
+  TallerModule.destroy();
   containerEl = null;
 }
 
@@ -236,8 +247,8 @@ function renderPage() {
     <!-- Header -->
     <div class="flex items-center justify-between mb-6" style="flex-wrap:wrap;gap:16px;">
       <div>
-        <h1 style="font-size:22px;font-weight:900;color:var(--dark);text-transform:uppercase;letter-spacing:-.5px;">Operaciones Taller</h1>
-        <p style="font-size:13px;color:var(--slate-5);margin-top:2px;">Control en vivo del flujo de vehículos y gestión del equipo técnico.</p>
+        <h1 style="font-size:22px;font-weight:900;color:var(--dark);text-transform:uppercase;letter-spacing:-.5px;">Taller y Operaciones</h1>
+        <p style="font-size:13px;color:var(--slate-5);margin-top:2px;">Control en vivo del flujo de vehículos, gestión del equipo técnico y portal del mecánico.</p>
       </div>
       <button id="btn-refresh-ops" class="btn-ghost flex items-center gap-2" style="font-size:13px;">
         <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
@@ -277,6 +288,9 @@ function renderPage() {
       <button class="ops-tab ${activeTab === 'equipo' ? 'active' : ''}" id="tab-equipo">
         👷 Equipo de Mecánicos
       </button>
+      <button class="ops-tab ${activeTab === 'taller' ? 'active' : ''}" id="tab-taller">
+        🛠️ Portal Mecánico
+      </button>
     </div>
 
     <!-- Contenido de tabs -->
@@ -289,6 +303,7 @@ function renderPage() {
   // Eventos tabs
   document.getElementById('tab-kanban').addEventListener('click', () => { activeTab = 'kanban'; renderTabContent(); activarTab(); });
   document.getElementById('tab-equipo').addEventListener('click', () => { activeTab = 'equipo'; renderTabContent(); activarTab(); });
+  document.getElementById('tab-taller').addEventListener('click', () => { activeTab = 'taller'; renderTabContent(); activarTab(); });
   document.getElementById('btn-refresh-ops').addEventListener('click', () => cargarDatos());
 
   renderTabContent();
@@ -296,7 +311,9 @@ function renderPage() {
 
 function activarTab() {
   document.querySelectorAll('.ops-tab').forEach(t => t.classList.remove('active'));
-  const id = activeTab === 'kanban' ? 'tab-kanban' : 'tab-equipo';
+  let id = 'tab-kanban';
+  if (activeTab === 'equipo') id = 'tab-equipo';
+  else if (activeTab === 'taller') id = 'tab-taller';
   const el = document.getElementById(id);
   if (el) el.classList.add('active');
 }
@@ -307,8 +324,18 @@ function activarTab() {
 function renderTabContent() {
   const tabContent = document.getElementById('ops-tab-content');
   if (!tabContent) return;
-  if (activeTab === 'kanban') renderKanban(tabContent);
-  else renderEquipo(tabContent);
+
+  if (activeTab === 'kanban') {
+    TallerModule.destroy();
+    containerEl.classList.remove('modo-taller-wrapper');
+    renderKanban(tabContent);
+  } else if (activeTab === 'equipo') {
+    TallerModule.destroy();
+    containerEl.classList.remove('modo-taller-wrapper');
+    renderEquipo(tabContent);
+  } else if (activeTab === 'taller') {
+    TallerModule.init(tabContent);
+  }
 }
 
 // ─────────────────────────────────────────────────────────────
