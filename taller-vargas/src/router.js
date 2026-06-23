@@ -27,6 +27,19 @@ export async function navigate(path = '/') {
     el.classList.toggle('sidebar-active', isActive);
   });
 
+  // Auto-expandir el submenú de la ruta activa y su cabecera
+  const activeItem = Array.from(document.querySelectorAll('.sidebar-item')).find(el => el.classList.contains('sidebar-active'));
+  if (activeItem) {
+    const parentSubmenu = activeItem.closest('.sidebar-submenu');
+    if (parentSubmenu) {
+      parentSubmenu.classList.add('open');
+      const headerBtn = parentSubmenu.previousElementSibling;
+      if (headerBtn) {
+        headerBtn.classList.add('open');
+      }
+    }
+  }
+
   // Cerrar sidebar si está abierto en móvil
   const sidebar = document.getElementById('sidebar-menu');
   const backdrop = document.getElementById('sidebar-backdrop');

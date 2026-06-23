@@ -75,6 +75,21 @@ window.toggleTheme = function() {
   applyTheme(next);
 };
 
+// Exponer función de toggle de submenú en el sidebar
+window.toggleSubmenu = function(id, btnEl) {
+  const submenu = document.getElementById(id);
+  if (submenu) {
+    const isOpen = submenu.classList.contains('open');
+    if (isOpen) {
+      submenu.classList.remove('open');
+      btnEl.classList.remove('open');
+    } else {
+      submenu.classList.add('open');
+      btnEl.classList.add('open');
+    }
+  }
+};
+
 // Aplicar tema guardado al cargar
 applyTheme(localStorage.getItem('vg-theme') || 'light');
 
