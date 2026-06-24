@@ -23,6 +23,27 @@ function safeFormatDate(dateVal, options = { day: '2-digit', month: 'short', yea
   return parsedDate.toLocaleDateString('es-PE', options);
 }
 
+function safeFormatDateTime(dateVal) {
+  if (!dateVal) return '—';
+  let parsedDate;
+  if (typeof dateVal === 'string') {
+    if (dateVal.includes('T')) {
+      parsedDate = new Date(dateVal);
+    } else {
+      parsedDate = new Date(dateVal + 'T12:00:00');
+    }
+  } else {
+    parsedDate = new Date(dateVal);
+  }
+  if (isNaN(parsedDate.getTime())) {
+    parsedDate = new Date(dateVal);
+    if (isNaN(parsedDate.getTime())) return '—';
+  }
+  const dateStr = parsedDate.toLocaleDateString('es-PE', { day: 'numeric', month: 'long', year: 'numeric' });
+  const timeStr = parsedDate.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', hour12: true });
+  return `${dateStr} ${timeStr}`;
+}
+
 let containerElement = null;
 let activeTab = 'all'; // 'all' o 'process'
 let ordenesList = [];
@@ -600,8 +621,9 @@ function renderPage() {
     const cliId = document.getElementById('cli-select-id')?.value || '';
     const vehId = document.getElementById('veh-select-id')?.value || '';
     const km = document.getElementById('ord-km')?.value || '';
-    const combustible = document.getElementById('ord-combustible')?.value || '1/2';
     const mecanicoId = document.getElementById('ord-mecanico')?.value || '';
+    const fecha_ingreso = document.getElementById('ord-fecha-ingreso')?.value || '';
+    const hora_ingreso = document.getElementById('ord-hora-ingreso')?.value || '';
     
     const sintomas = [];
     document.querySelectorAll('.sintomas-checkbox:checked').forEach(cb => {
@@ -643,6 +665,8 @@ function renderPage() {
       inventario,
       prueba_ruta,
       observaciones,
+      fecha_ingreso,
+      hora_ingreso,
       currentStep
     };
 
@@ -721,6 +745,12 @@ function renderPage() {
 
       const horaInput = document.getElementById('ord-hora-entrega-est');
       if (horaInput) horaInput.value = draft.hora_estimada || '';
+
+      const fechaIngresoInput = document.getElementById('ord-fecha-ingreso');
+      if (fechaIngresoInput) fechaIngresoInput.value = draft.fecha_ingreso || '';
+
+      const horaIngresoInput = document.getElementById('ord-hora-ingreso');
+      if (horaIngresoInput) horaIngresoInput.value = draft.hora_ingreso || '';
 
       const comprobanteInput = document.getElementById('ord-comprobante-num');
       if (comprobanteInput) {
@@ -1249,6 +1279,17 @@ function renderModales() {
                   ${mecanicosList.map(m => `<option value="${m.id}">${m.nombre}</option>`).join('')}
                 </select>
               </div>
+
+              <div class="grid grid-cols-2 gap-3" style="margin-top: 10px;">
+                <div class="form-group">
+                  <label class="form-label">Fecha de Ingreso</label>
+                  <input type="date" id="ord-fecha-ingreso" class="form-input" required />
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Hora de Ingreso</label>
+                  <input type="time" id="ord-hora-ingreso" class="form-input" required />
+                </div>
+              </div>
             </div>
 
             <!-- PASO 2: FALLAS Y SERVICIOS SOLICITADOS -->
@@ -1610,6 +1651,18 @@ function renderModales() {
               <textarea id="status-repuestos-textarea" class="form-textarea" rows="3" placeholder="Ingresa los repuestos que hacen falta..."></textarea>
             </div>
 
+            <!-- Si se marca como entregado, pedir fecha y hora real de salida -->
+            <div class="grid grid-cols-2 gap-3 hidden" id="wrapper-fecha-entrega-real">
+              <div class="form-group">
+                <label class="form-label">Fecha de Salida / Entrega</label>
+                <input type="date" id="status-fecha-entrega-real" class="form-input" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Hora de Salida / Entrega</label>
+                <input type="time" id="status-hora-entrega-real" class="form-input" />
+              </div>
+            </div>
+
             <!-- Si se finaliza la orden -->
             <div class="flex items-center gap-2 hidden" id="wrapper-pasar-factura" style="margin:4px 0;">
               <input type="checkbox" id="chk-pasar-factura" style="width:16px;height:16px;cursor:pointer;" checked />
@@ -1781,6 +1834,16 @@ function abrirModalNuevaOrden() {
   }
 
   if (window.resetStepperForm) window.resetStepperForm();
+
+  // Inicializar fecha y hora de ingreso al crear
+  const now = new Date();
+  const tzOffset = now.getTimezoneOffset() * 60000;
+  const localISOTime = (new Date(now - tzOffset)).toISOString();
+  const fIngInput = document.getElementById('ord-fecha-ingreso');
+  if (fIngInput) fIngInput.value = localISOTime.split('T')[0];
+  const hIngInput = document.getElementById('ord-hora-ingreso');
+  if (hIngInput) hIngInput.value = localISOTime.split('T')[1].substring(0, 5);
+
   modal.classList.add('active');
 
   // Auto-generar N° de Comprobante (OS-XXXX basado en el ID siguiente estimado)
@@ -1882,6 +1945,17 @@ async function abrirEditarOrden(id) {
     // Paso 2: Mecánico y Combustible
     const mecSelect = document.getElementById('ord-mecanico');
     if (mecSelect) mecSelect.value = o.mecanico_id ? String(o.mecanico_id) : '';
+
+    // Llenar fecha y hora de ingreso
+    if (o.fecha_ingreso) {
+      const d = new Date(o.fecha_ingreso);
+      const tzOffset = d.getTimezoneOffset() * 60000;
+      const localISOTime = (new Date(d - tzOffset)).toISOString();
+      const fIng = document.getElementById('ord-fecha-ingreso');
+      if (fIng) fIng.value = localISOTime.split('T')[0];
+      const hIng = document.getElementById('ord-hora-ingreso');
+      if (hIng) hIng.value = localISOTime.split('T')[1].substring(0, 5);
+    }
 
     const combustible = o.nivel_combustible || '1/2';
     document.getElementById('ord-combustible').value = combustible;
@@ -2143,6 +2217,12 @@ async function guardarNuevaOrden(e) {
     otros_sintomas ? `DETALLE: ${otros_sintomas}` : ''
   ].filter(Boolean).join('\n') || 'Ninguno indicado';
 
+  const fechaIngresoInput = document.getElementById('ord-fecha-ingreso')?.value || '';
+  const horaIngresoInput = document.getElementById('ord-hora-ingreso')?.value || '';
+  const fecha_ingreso_val = (fechaIngresoInput && horaIngresoInput)
+    ? (fechaIngresoInput + 'T' + horaIngresoInput + ':00')
+    : null;
+
   const data = {
     vehiculo_id: parseInt(document.getElementById('veh-select-id').value),
     cliente_id: parseInt(document.getElementById('cli-select-id').value),
@@ -2150,7 +2230,8 @@ async function guardarNuevaOrden(e) {
     kilometraje: parseInt(document.getElementById('ord-km').value),
     nivel_combustible: document.getElementById('ord-combustible').value,
     falla_reportada: fallasText,
-    diagnostico: diagnosticoObj
+    diagnostico: diagnosticoObj,
+    fecha_ingreso: fecha_ingreso_val
   };
 
   if (editingOrderId) {
@@ -2165,7 +2246,8 @@ async function guardarNuevaOrden(e) {
         estado: oExistente ? oExistente.estado : 'Diagnostico',
         repuestos_esperando: oExistente ? oExistente.repuestos_esperando : '',
         fecha_entrega: oExistente ? oExistente.fecha_entrega : null,
-        nota_interna: oExistente ? oExistente.nota_interna : ''
+        nota_interna: oExistente ? oExistente.nota_interna : '',
+        fecha_ingreso: data.fecha_ingreso
       };
       
       await updateOrden(editingOrderId, updateData);
@@ -2290,6 +2372,7 @@ function toggleAlertaRepuestos() {
   const est = document.getElementById('select-cambio-estado').value;
   const wrpRepuestos = document.getElementById('wrapper-repuestos-espera');
   const wrpFactura = document.getElementById('wrapper-pasar-factura');
+  const wrpEntregaReal = document.getElementById('wrapper-fecha-entrega-real');
   const oId = document.getElementById('status-orden-id').value;
   const o = ordenesList.find(item => item.id == oId);
 
@@ -2299,6 +2382,30 @@ function toggleAlertaRepuestos() {
   } else {
     wrpRepuestos.classList.add('hidden');
     document.getElementById('status-repuestos-textarea').required = false;
+  }
+
+  if (est === 'Entregado') {
+    wrpEntregaReal.classList.remove('hidden');
+    const fInput = document.getElementById('status-fecha-entrega-real');
+    const hInput = document.getElementById('status-hora-entrega-real');
+    if (o && o.fecha_entrega) {
+      const d = new Date(o.fecha_entrega);
+      fInput.value = d.toISOString().split('T')[0];
+      hInput.value = d.toTimeString().split(' ')[0].substring(0, 5);
+    } else {
+      // Ajustar a zona horaria local para pre-llenar fecha y hora
+      const now = new Date();
+      const tzOffset = now.getTimezoneOffset() * 60000;
+      const localISOTime = (new Date(now - tzOffset)).toISOString();
+      fInput.value = localISOTime.split('T')[0];
+      hInput.value = localISOTime.split('T')[1].substring(0, 5);
+    }
+    fInput.required = true;
+    hInput.required = true;
+  } else {
+    wrpEntregaReal.classList.add('hidden');
+    document.getElementById('status-fecha-entrega-real').required = false;
+    document.getElementById('status-hora-entrega-real').required = false;
   }
 
   if (est === 'Finalizado' && o && !o.cobro_id) {
@@ -2315,6 +2422,10 @@ async function guardarEstadoOrden(e) {
   const repuestos_esperando = estado === 'Esperando Repuestos' ? document.getElementById('status-repuestos-textarea').value.trim() : '';
   const pasar_facturacion = estado === 'Finalizado' ? document.getElementById('chk-pasar-factura').checked : false;
 
+  const fecha_entrega_val = estado === 'Entregado'
+    ? (document.getElementById('status-fecha-entrega-real').value + 'T' + document.getElementById('status-hora-entrega-real').value + ':00')
+    : null;
+
   const o = ordenesList.find(item => item.id == id);
   if (estado === 'Entregado' && o && o.cobro_estado === 'Pendiente') {
     alert('No se puede marcar como Entregado porque tiene un cobro pendiente en Facturación.');
@@ -2322,7 +2433,7 @@ async function guardarEstadoOrden(e) {
   }
 
   try {
-    await cambiarEstado(id, { estado, repuestos_esperando, pasar_facturacion });
+    await cambiarEstado(id, { estado, repuestos_esperando, pasar_facturacion, fecha_entrega: fecha_entrega_val });
     cerrarModalEstado();
     await cargarDatos();
   } catch (err) {
@@ -2869,6 +2980,23 @@ function cerrarModalCostos() {
 function imprimirDocumento(tipo, o) {
   const printArea = document.getElementById('print-area');
   
+  // Parsear diagnóstico para incluirlo visualmente en los documentos
+  let diag = null;
+  try {
+    if (o.diagnostico) {
+      diag = typeof o.diagnostico === 'string' ? JSON.parse(o.diagnostico) : o.diagnostico;
+    }
+  } catch (e) {
+    console.error('Error parseando diagnostico para impresion:', e);
+  }
+
+  let estEntregaFormatted = '';
+  if (o.estado === 'Entregado' && diag && diag.fecha_estimada) {
+    const dateStr = safeFormatDate(diag.fecha_estimada, { day:'numeric', month:'long', year:'numeric' });
+    const timeStr = diag.hora_estimada ? ` ${diag.hora_estimada}` : '';
+    estEntregaFormatted = `${dateStr}${timeStr}`;
+  }
+
   const dateFormatted = safeFormatDate(o.fecha_ingreso || new Date(), { day:'numeric', month:'long', year:'numeric' });
   const itemsHtml = o.items.map(it => `
     <tr>
@@ -2879,16 +3007,6 @@ function imprimirDocumento(tipo, o) {
       ${tipo === 'nota' ? `<td style="text-align:right;">S/ ${(it.cantidad * parseFloat(it.precio_unitario)).toFixed(2)}</td>` : ''}
     </tr>
   `).join('');
-
-  // Parsear diagnóstico para incluirlo visualmente en los documentos
-  let diag = null;
-  try {
-    if (o.diagnostico) {
-      diag = typeof o.diagnostico === 'string' ? JSON.parse(o.diagnostico) : o.diagnostico;
-    }
-  } catch (e) {
-    console.error('Error parseando diagnostico para impresion:', e);
-  }
 
   let diagnosticoHtml = '';
   if (diag && Object.keys(diag).length > 0 && tipo === 'nota') {
@@ -2989,12 +3107,14 @@ function imprimirDocumento(tipo, o) {
 
       <div style="font-size:11px;line-height:1.4;display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:15px;background:#f8fafc;padding:8px;border-radius:6px;border:1px solid #e2e8f0;">
         <div><strong>N° Expediente:</strong> OS-${o.id}</div>
-        <div><strong>Fecha Emisión:</strong> ${dateFormatted}</div>
+        <div><strong>Fecha/Hora Ingreso:</strong> ${safeFormatDateTime(o.fecha_ingreso)}</div>
         <div><strong>Cliente / RS:</strong> ${o.cliente}</div>
         <div><strong>DNI/RUC:</strong> ${o.num_doc || '—'}</div>
         <div style="grid-column: span 2;"><strong>Vehículo:</strong> ${o.vehiculo} (Placa: <strong style="font-family:monospace;font-size:11px;">${o.placa}</strong>)</div>
         <div><strong>Kilometraje:</strong> ${o.kilometraje ? o.kilometraje.toLocaleString() : '0'} Km</div>
         <div><strong>Combustible:</strong> ${o.nivel_combustible || '—'}</div>
+        ${estEntregaFormatted ? `<div><strong>Est. Entrega:</strong> ${estEntregaFormatted}</div>` : ''}
+        ${o.fecha_entrega ? `<div><strong>Salida Real:</strong> ${safeFormatDateTime(o.fecha_entrega)}</div>` : ''}
       </div>
 
       <h4 style="margin:15px 0 5px;text-transform:uppercase;font-size:11px;border-bottom:1px solid #000;padding-bottom:2px;">Trabajos y Repuestos Detallados</h4>
@@ -3121,13 +3241,19 @@ function imprimirDocumento(tipo, o) {
             <td><strong>Marca / Modelo:</strong> ${o.vehiculo || '—'}</td>
           </tr>
           <tr>
-            <td><strong>Fecha Ingreso:</strong> ${dateFormatted}</td>
+            <td><strong>Fecha/Hora Ingreso:</strong> ${safeFormatDateTime(o.fecha_ingreso)}</td>
             <td><strong>Año / N° Motor:</strong> ${o.anio || '—'} / ${o.vehiculo_motor || '—'}</td>
           </tr>
           <tr>
             <td><strong>Mecánico Asignado:</strong> ${o.mecanico || '—'}</td>
             <td><strong>Placa:</strong> <strong style="font-family: monospace; font-size: 11px;">${o.placa || '—'}</strong></td>
           </tr>
+          ${o.estado === 'Entregado' ? `
+          <tr>
+            <td><strong>F./H. Est. Entrega:</strong> ${estEntregaFormatted}</td>
+            <td><strong>F./H. Salida Real:</strong> ${o.fecha_entrega ? safeFormatDateTime(o.fecha_entrega) : ''}</td>
+          </tr>
+          ` : ''}
         </tbody>
       </table>
 

@@ -24,10 +24,10 @@ router.get("/:id", async (req, res) => {
 });
 
 router.post("/", async (req, res) => {
-  const { vehiculo_id, cliente_id, mecanico_id, kilometraje, nivel_combustible, falla_reportada, diagnostico } = req.body;
+  const { vehiculo_id, cliente_id, mecanico_id, kilometraje, nivel_combustible, falla_reportada, diagnostico, fecha_ingreso } = req.body;
   try {
-    const r = await query("INSERT INTO ordenes_servicio (vehiculo_id,cliente_id,mecanico_id,kilometraje,nivel_combustible,falla_reportada,estado,diagnostico) VALUES ($1,$2,$3,$4,$5,$6,'Diagnostico',$7) RETURNING *",
-      [vehiculo_id,cliente_id,mecanico_id||null,kilometraje,nivel_combustible,falla_reportada||"",diagnostico ? JSON.stringify(diagnostico) : null]);
+    const r = await query("INSERT INTO ordenes_servicio (vehiculo_id,cliente_id,mecanico_id,kilometraje,nivel_combustible,falla_reportada,estado,diagnostico,fecha_ingreso) VALUES ($1,$2,$3,$4,$5,$6,'Diagnostico',$7,$8) RETURNING *",
+      [vehiculo_id,cliente_id,mecanico_id||null,kilometraje,nivel_combustible,falla_reportada||"",diagnostico ? JSON.stringify(diagnostico) : null, fecha_ingreso || new Date()]);
     
     let kmVal = null;
     if (kilometraje) {
@@ -45,7 +45,7 @@ router.post("/", async (req, res) => {
 });
 
 router.put("/:id", async (req, res) => {
-  const { vehiculo_id,cliente_id,mecanico_id,kilometraje,nivel_combustible,falla_reportada,estado,repuestos_esperando,fecha_entrega,nota_interna } = req.body;
+  const { vehiculo_id,cliente_id,mecanico_id,kilometraje,nivel_combustible,falla_reportada,estado,repuestos_esperando,fecha_entrega,nota_interna,fecha_ingreso } = req.body;
   try {
     if (estado === "Entregado") {
       const cobroCheck = await query("SELECT estado FROM cobros WHERE orden_id = $1", [req.params.id]);
@@ -53,8 +53,8 @@ router.put("/:id", async (req, res) => {
         return res.status(400).json({ error: "No se puede marcar como Entregado porque tiene un cobro pendiente en Facturación." });
       }
     }
-    const r = await query("UPDATE ordenes_servicio SET vehiculo_id=$1,cliente_id=$2,mecanico_id=$3,kilometraje=$4,nivel_combustible=$5,falla_reportada=$6,estado=$7,repuestos_esperando=$8,fecha_entrega=$9,nota_interna=$10 WHERE id=$11 RETURNING *",
-      [vehiculo_id,cliente_id,mecanico_id,kilometraje,nivel_combustible,falla_reportada,estado,repuestos_esperando||"",fecha_entrega||null,nota_interna||"",req.params.id]);
+    const r = await query("UPDATE ordenes_servicio SET vehiculo_id=$1,cliente_id=$2,mecanico_id=$3,kilometraje=$4,nivel_combustible=$5,falla_reportada=$6,estado=$7,repuestos_esperando=$8,fecha_entrega=$9,nota_interna=$10,fecha_ingreso=COALESCE($11,fecha_ingreso) WHERE id=$12 RETURNING *",
+      [vehiculo_id,cliente_id,mecanico_id,kilometraje,nivel_combustible,falla_reportada,estado,repuestos_esperando||"",fecha_entrega||null,nota_interna||"",fecha_ingreso||null,req.params.id]);
     if (!r.rows.length) return res.status(404).json({ error: "Orden no encontrada" });
     
     let kmVal = null;
@@ -71,7 +71,7 @@ router.put("/:id", async (req, res) => {
 });
 
 router.patch("/:id/estado", async (req, res) => {
-  const { estado, repuestos_esperando, pasar_facturacion } = req.body;
+  const { estado, repuestos_esperando, pasar_facturacion, fecha_entrega } = req.body;
   const client = await getClient();
   try {
     await client.query("BEGIN");
@@ -85,7 +85,8 @@ router.patch("/:id/estado", async (req, res) => {
     }
     const totalRes = await client.query("SELECT COALESCE(SUM(cantidad*precio_unitario),0) AS total FROM items_costo WHERE orden_id=$1", [req.params.id]);
     const total = parseFloat(totalRes.rows[0].total);
-    const ordRes = await client.query("UPDATE ordenes_servicio SET estado=$1,repuestos_esperando=$2,total_estimado=$3 WHERE id=$4 RETURNING *", [estado,repuestos_esperando||"",total,req.params.id]);
+    const ordRes = await client.query("UPDATE ordenes_servicio SET estado=$1,repuestos_esperando=$2,total_estimado=$3,fecha_entrega=$4 WHERE id=$5 RETURNING *", 
+      [estado, repuestos_esperando||"", total, fecha_entrega || null, req.params.id]);
     
     const ordObj = ordRes.rows[0];
     if (estado === "Finalizado" && ordObj && ordObj.vehiculo_id) {

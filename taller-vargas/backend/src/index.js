@@ -16,6 +16,12 @@ import dashboardRouter  from "./routes/dashboard.js";
 // Redefinir la vista v_ordenes_completas para incluir la columna diagnostico y cliente_telefono
 async function runDbMigrations() {
   try {
+    // Migrar columnas de la tabla a TIMESTAMP WITH TIME ZONE para soportar hora exacta
+    await query(`
+      ALTER TABLE ordenes_servicio ALTER COLUMN fecha_ingreso TYPE TIMESTAMP WITH TIME ZONE;
+      ALTER TABLE ordenes_servicio ALTER COLUMN fecha_ingreso SET DEFAULT NOW();
+      ALTER TABLE ordenes_servicio ALTER COLUMN fecha_entrega TYPE TIMESTAMP WITH TIME ZONE;
+    `);
     await query(`DROP VIEW IF EXISTS v_ordenes_completas CASCADE;`);
     await query(`
       CREATE VIEW v_ordenes_completas AS
