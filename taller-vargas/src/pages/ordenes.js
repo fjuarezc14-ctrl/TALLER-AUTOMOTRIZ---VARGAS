@@ -2219,9 +2219,13 @@ async function guardarNuevaOrden(e) {
 
   const fechaIngresoInput = document.getElementById('ord-fecha-ingreso')?.value || '';
   const horaIngresoInput = document.getElementById('ord-hora-ingreso')?.value || '';
-  const fecha_ingreso_val = (fechaIngresoInput && horaIngresoInput)
-    ? (fechaIngresoInput + 'T' + horaIngresoInput + ':00')
-    : null;
+  let fecha_ingreso_val = null;
+  if (fechaIngresoInput && horaIngresoInput) {
+    const [yy, mm, dd] = fechaIngresoInput.split('-').map(Number);
+    const [hh, min] = horaIngresoInput.split(':').map(Number);
+    const parsedDate = new Date(yy, mm - 1, dd, hh, min, 0);
+    fecha_ingreso_val = parsedDate.toISOString();
+  }
 
   const data = {
     vehiculo_id: parseInt(document.getElementById('veh-select-id').value),
@@ -2390,8 +2394,10 @@ function toggleAlertaRepuestos() {
     const hInput = document.getElementById('status-hora-entrega-real');
     if (o && o.fecha_entrega) {
       const d = new Date(o.fecha_entrega);
-      fInput.value = d.toISOString().split('T')[0];
-      hInput.value = d.toTimeString().split(' ')[0].substring(0, 5);
+      const tzOffset = d.getTimezoneOffset() * 60000;
+      const localISOTime = (new Date(d - tzOffset)).toISOString();
+      fInput.value = localISOTime.split('T')[0];
+      hInput.value = localISOTime.split('T')[1].substring(0, 5);
     } else {
       // Ajustar a zona horaria local para pre-llenar fecha y hora
       const now = new Date();
@@ -2422,9 +2428,17 @@ async function guardarEstadoOrden(e) {
   const repuestos_esperando = estado === 'Esperando Repuestos' ? document.getElementById('status-repuestos-textarea').value.trim() : '';
   const pasar_facturacion = estado === 'Finalizado' ? document.getElementById('chk-pasar-factura').checked : false;
 
-  const fecha_entrega_val = estado === 'Entregado'
-    ? (document.getElementById('status-fecha-entrega-real').value + 'T' + document.getElementById('status-hora-entrega-real').value + ':00')
-    : null;
+  let fecha_entrega_val = null;
+  if (estado === 'Entregado') {
+    const fVal = document.getElementById('status-fecha-entrega-real').value;
+    const hVal = document.getElementById('status-hora-entrega-real').value;
+    if (fVal && hVal) {
+      const [yy, mm, dd] = fVal.split('-').map(Number);
+      const [hh, min] = hVal.split(':').map(Number);
+      const parsedDate = new Date(yy, mm - 1, dd, hh, min, 0);
+      fecha_entrega_val = parsedDate.toISOString();
+    }
+  }
 
   const o = ordenesList.find(item => item.id == id);
   if (estado === 'Entregado' && o && o.cobro_estado === 'Pendiente') {
