@@ -33,6 +33,15 @@ async function runDbMigrations() {
       ALTER TABLE ordenes_servicio ADD COLUMN IF NOT EXISTS garantia_motivo TEXT;
       ALTER TABLE ordenes_servicio ADD COLUMN IF NOT EXISTS mecanico_negligente_id INTEGER;
     `);
+    // Migrar columnas de la tabla cobros para descuentos y comprobante_numero
+    await query(`
+      ALTER TABLE cobros ADD COLUMN IF NOT EXISTS descuento_tipo VARCHAR(20) DEFAULT NULL;
+      ALTER TABLE cobros ADD COLUMN IF NOT EXISTS descuento_valor DECIMAL(10,2) DEFAULT 0;
+      ALTER TABLE cobros ADD COLUMN IF NOT EXISTS descuento_realizado DECIMAL(10,2) DEFAULT 0;
+      ALTER TABLE cobros ADD COLUMN IF NOT EXISTS monto_neto DECIMAL(10,2) DEFAULT NULL;
+      ALTER TABLE cobros ADD COLUMN IF NOT EXISTS comprobante_numero VARCHAR(50) DEFAULT NULL;
+      ALTER TABLE cobros ADD COLUMN IF NOT EXISTS comprobante2_numero VARCHAR(50) DEFAULT NULL;
+    `);
     await query(`
       CREATE VIEW v_ordenes_completas AS
       SELECT os.id, os.cliente_id, os.vehiculo_id, os.mecanico_id, os.estado, os.kilometraje, os.nivel_combustible, os.falla_reportada,

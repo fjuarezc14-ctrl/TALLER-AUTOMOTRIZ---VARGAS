@@ -25,6 +25,10 @@ let containerElement = null;
 let cobrosList = [];
 let statsData = {};
 
+let currentCobro = null;
+let activePagadorIndex = 1;
+let currentItems = [];
+
 // ─── Contadores correlativos simulados (en memoria) ───────────
 let contBoleta = 1001;
 let contFactura = 1001;
@@ -302,11 +306,35 @@ function renderPage() {
           <div class="modal-body" style="display:flex;flex-direction:column;gap:14px;">
             <input type="hidden" id="cobro-rapido-id" />
             <input type="hidden" id="cobro-rapido-total" />
+            <input type="hidden" id="cobro-rapido-neto" />
 
             <div style="background:var(--slate-9);padding:16px;border-radius:var(--radius-md);border:1px solid var(--slate-8);text-align:center;">
               <p style="font-size:10px;font-weight:700;color:var(--slate-5);text-transform:uppercase;">Total a Cobrar</p>
               <p id="cobro-rapido-monto" style="font-size:30px;font-weight:900;color:var(--dark);font-family:monospace;margin-top:4px;"></p>
               <p id="cobro-rapido-cliente" style="font-size:12px;color:var(--slate-5);margin-top:4px;"></p>
+            </div>
+
+            <!-- Descuento por Cliente (Fase 2) -->
+            <div style="background:#fef3c7;border:1px solid #fde68a;padding:12px;border-radius:var(--radius-md);display:flex;flex-direction:column;gap:10px;">
+              <p style="font-size:10px;font-weight:800;color:#92400e;text-transform:uppercase;margin:0;">Descuento por Cliente (Opcional)</p>
+              <div class="grid grid-cols-2 gap-3">
+                <div class="form-group">
+                  <label class="form-label" style="color:#92400e;">Tipo Descuento</label>
+                  <select id="cobro-descuento-tipo" class="form-select" style="background:#fff;">
+                    <option value="">Ninguno</option>
+                    <option value="Porcentaje">Porcentaje (%)</option>
+                    <option value="Monto">Monto Fijo (S/)</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label" style="color:#92400e;">Valor Descuento</label>
+                  <input type="number" id="cobro-descuento-valor" step="0.01" min="0" class="form-input text-right font-mono" style="background:#fff;" placeholder="0.00" disabled />
+                </div>
+              </div>
+              <div style="display:flex;justify-content:space-between;align-items:center;border-top:1px dashed #fde68a;padding-top:8px;margin-top:4px;">
+                <span style="font-size:11px;font-weight:700;color:#92400e;">Monto Neto Final:</span>
+                <span id="cobro-neto-display" style="font-size:16px;font-weight:900;color:#92400e;font-family:monospace;">S/ 0.00</span>
+              </div>
             </div>
 
             <div class="form-group">
@@ -324,7 +352,7 @@ function renderPage() {
               <select id="cobro-rapido-comprobante" class="form-select" required>
                 <option value="Boleta">Boleta de Venta Electrónica</option>
                 <option value="Factura">Factura Electrónica</option>
-                <option value="Nota de Venta">Nota de Venta (Control Interno)</option>
+                <option value="Recibo Interno">Recibo Interno (Control de Caja)</option>
               </select>
             </div>
 
@@ -340,7 +368,7 @@ function renderPage() {
                 <p style="font-size:10px;font-weight:800;color:#166534;text-transform:uppercase;margin-bottom:8px;">Empresa 1 (Cliente principal)</p>
                 <div class="grid grid-cols-2 gap-3">
                   <div class="form-group"><label class="form-label">Monto (S/)</label><input type="number" id="div-monto-1" step="0.01" min="0" class="form-input text-right font-mono font-bold" style="background:#fff;" /></div>
-                  <div class="form-group"><label class="form-label">Comprobante</label><select id="div-comp-1" class="form-select" style="background:#fff;"><option value="Factura">Factura</option><option value="Boleta">Boleta</option></select></div>
+                  <div class="form-group"><label class="form-label">Comprobante</label><select id="div-comp-1" class="form-select" style="background:#fff;"><option value="Boleta">Boleta</option><option value="Factura">Factura</option><option value="Recibo Interno">Recibo Interno</option></select></div>
                 </div>
               </div>
 
@@ -365,7 +393,7 @@ function renderPage() {
                 </div>
                 <div class="grid grid-cols-2 gap-3">
                   <div class="form-group"><label class="form-label">Monto (S/)</label><input type="number" id="div-monto-2" step="0.01" min="0" class="form-input text-right font-mono font-bold" /></div>
-                  <div class="form-group"><label class="form-label">Comprobante</label><select id="div-comp-2" class="form-select"><option value="Factura">Factura</option><option value="Boleta">Boleta</option></select></div>
+                  <div class="form-group"><label class="form-label">Comprobante</label><select id="div-comp-2" class="form-select"><option value="Boleta">Boleta</option><option value="Factura">Factura</option><option value="Recibo Interno">Recibo Interno</option></select></div>
                 </div>
               </div>
             </div>
@@ -457,6 +485,10 @@ function renderPage() {
             </button>
           </div>
         </div>
+        <!-- Selector de Pagador para cobros divididos -->
+        <div id="div-pagadores-toggle-bar" class="no-print" style="margin-bottom: 12px; display: none; gap: 8px; background: var(--slate-9); padding: 8px 12px; border-radius: var(--radius-md); border: 1px solid var(--slate-8);">
+          <!-- Dynamic buttons -->
+        </div>
         <!-- Documento A4 -->
         <div id="factura-doc-content" style="background:#fff;border-radius:8px;box-shadow:var(--shadow-lg);">
           <!-- Cargado por JS al abrir -->
@@ -478,9 +510,65 @@ function renderPage() {
   document.getElementById('form-cobro-rapido').addEventListener('submit', procesarCobroRapido);
   document.getElementById('chk-dividir').addEventListener('change', toggleDividido);
 
+  // Lógica de Descuento (Fase 2)
+  const descTipoEl = document.getElementById('cobro-descuento-tipo');
+  const descValorEl = document.getElementById('cobro-descuento-valor');
+
+  function calcularDescuento() {
+    const totalOriginal = parseFloat(document.getElementById('cobro-rapido-total').value) || 0;
+    const tipo = descTipoEl.value;
+    let valor = parseFloat(descValorEl.value) || 0;
+
+    if (!tipo) {
+      descValorEl.value = '';
+      descValorEl.disabled = true;
+      document.getElementById('cobro-rapido-neto').value = '';
+      document.getElementById('cobro-neto-display').textContent = `S/ ${totalOriginal.toFixed(2)}`;
+      document.getElementById('cobro-rapido-monto').innerHTML = `S/ ${totalOriginal.toFixed(2)}`;
+    } else {
+      descValorEl.disabled = false;
+      if (valor < 0) {
+        valor = 0;
+        descValorEl.value = 0;
+      }
+      
+      let descRealizado = 0;
+      if (tipo === 'Porcentaje') {
+        if (valor > 100) {
+          valor = 100;
+          descValorEl.value = 100;
+        }
+        descRealizado = parseFloat((totalOriginal * (valor / 100)).toFixed(2));
+      } else if (tipo === 'Monto') {
+        if (valor > totalOriginal) {
+          valor = totalOriginal;
+          descValorEl.value = totalOriginal.toFixed(2);
+        }
+        descRealizado = valor;
+      }
+
+      const neto = parseFloat((totalOriginal - descRealizado).toFixed(2));
+      document.getElementById('cobro-rapido-neto').value = neto;
+      document.getElementById('cobro-neto-display').textContent = `S/ ${neto.toFixed(2)}`;
+      document.getElementById('cobro-rapido-monto').innerHTML = `
+        <span style="text-decoration:line-through;font-size:18px;color:var(--slate-5);margin-right:8px;">S/ ${totalOriginal.toFixed(2)}</span>
+        <span style="color:#b45309;font-weight:bold;">S/ ${neto.toFixed(2)}</span>
+      `;
+    }
+
+    // Si el pago es dividido, recalcular la división sobre el neto!
+    if (document.getElementById('chk-dividir').checked) {
+      actualizarBalanceDividido(1);
+    }
+  }
+
+  descTipoEl.addEventListener('change', calcularDescuento);
+  descValorEl.addEventListener('input', calcularDescuento);
+
   // Auto-cálculo de montos en pago dividido
   function actualizarBalanceDividido(campoModificado) {
-    const total = parseFloat(document.getElementById('cobro-rapido-total').value) || 0;
+    const netoVal = document.getElementById('cobro-rapido-neto').value;
+    const total = netoVal !== "" ? parseFloat(netoVal) : (parseFloat(document.getElementById('cobro-rapido-total').value) || 0);
     const m1El  = document.getElementById('div-monto-1');
     const m2El  = document.getElementById('div-monto-2');
     const suma  = document.getElementById('split-suma');
@@ -597,15 +685,31 @@ function renderTableRows(cobros) {
 
   return cobros.map(c => {
     const isPaid = c.estado === 'Cancelado' || c.estado === 'Dividido';
-    const total  = parseFloat(c.monto_total);
-    const igv    = total * 0.18 / 1.18; // descontar IGV incluido
-    const sub    = total - igv;
-    const tipo   = c.tipo_comprobante;
-    const numDoc = tipo === 'Factura'
-      ? `F001-${String(c.id + 1000).padStart(4,'0')}`
-      : tipo === 'Boleta'
-        ? `B001-${String(c.id + 1000).padStart(4,'0')}`
-        : `NV-${String(c.id + 1000).padStart(4,'0')}`;
+    const totalOriginal = parseFloat(c.monto_total);
+    const totalNeto = c.monto_neto !== null && c.monto_neto !== undefined ? parseFloat(c.monto_neto) : totalOriginal;
+    
+    const igvNeto = totalNeto * 0.18 / 1.18; // descuento/IGV sobre neto
+    const subNeto = totalNeto - igvNeto;
+    const tipo = c.tipo_comprobante;
+
+    let numDocHtml = '— PENDIENTE —';
+    if (isPaid) {
+      if (c.es_dividido) {
+        numDocHtml = `
+          <div style="font-family:monospace;font-weight:800;color:var(--dark);font-size:11px;line-height:1.2;">
+            ${c.comprobante_numero || '—'} <span style="font-weight:normal;color:var(--slate-5);font-size:9px;">(${c.tipo_comprobante || '—'})</span>
+          </div>
+          <div style="font-family:monospace;font-weight:800;color:var(--dark);font-size:11px;line-height:1.2;margin-top:4px;border-top:1px dashed var(--slate-8);padding-top:2px;">
+            ${c.comprobante2_numero || '—'} <span style="font-weight:normal;color:var(--slate-5);font-size:9px;">(${c.comprobante2 || '—'})</span>
+          </div>
+        `;
+      } else {
+        numDocHtml = `
+          <span style="font-family:monospace;font-weight:800;color:var(--dark);font-size:11px;">${c.comprobante_numero || '—'}</span>
+          <div style="font-size:9px;color:var(--slate-5);text-transform:uppercase;margin-top:1px;">${tipo || '—'}</div>
+        `;
+      }
+    }
 
     const dateStr = safeFormatDate(c.fecha_emision, { day:'2-digit', month:'short', year:'numeric' });
 
@@ -632,11 +736,23 @@ function renderTableRows(cobros) {
         </button>`;
     }
 
+    let totalHtml = '';
+    if (c.monto_neto !== null && c.monto_neto !== undefined && parseFloat(c.monto_neto) < totalOriginal) {
+      const descVal = parseFloat(c.descuento_valor);
+      const descRealizado = parseFloat(c.descuento_realizado || 0);
+      totalHtml = `
+        <span style="text-decoration:line-through;font-size:10px;color:var(--slate-5);display:block;font-weight:normal;">S/ ${totalOriginal.toFixed(2)}</span>
+        <span style="color:#b45309;font-weight:bold;">S/ ${totalNeto.toFixed(2)}</span>
+        <div style="font-size:9px;color:#b45309;font-weight:700;margin-top:2px;">Desc. ${c.descuento_tipo === 'Porcentaje' ? `${descVal}%` : `S/ ${descVal.toFixed(2)}`}</div>
+      `;
+    } else {
+      totalHtml = `<span class="font-bold">S/ ${totalNeto.toFixed(2)}</span>`;
+    }
+
     return `
       <tr class="cobro-row">
         <td>
-          <span style="font-family:monospace;font-weight:800;color:${isPaid?'var(--dark)':'var(--slate-5)'};font-size:11px;">${isPaid ? numDoc : '— PENDIENTE —'}</span>
-          ${tipo ? `<div style="font-size:9px;color:var(--slate-5);text-transform:uppercase;margin-top:1px;">${tipo}</div>` : ''}
+          ${numDocHtml}
         </td>
         <td>
           <span style="font-family:monospace;font-size:11px;font-weight:800;color:var(--brand);">OT-${String(c.orden_numero).padStart(4,'0')}</span>
@@ -647,9 +763,9 @@ function renderTableRows(cobros) {
           <span style="font-size:10px;color:var(--slate-5);font-family:monospace;">${c.tipo_doc}: ${c.num_doc}</span>
         </td>
         <td style="font-size:11px;color:var(--slate-5);">${dateStr}</td>
-        <td class="text-right font-mono" style="font-size:11px;color:var(--slate-5);">S/ ${sub.toFixed(2)}</td>
-        <td class="text-right font-mono" style="font-size:11px;color:#7c3aed;">S/ ${igv.toFixed(2)}</td>
-        <td class="text-right font-mono font-bold" style="font-size:13px;">S/ ${total.toFixed(2)}</td>
+        <td class="text-right font-mono" style="font-size:11px;color:var(--slate-5);">S/ ${subNeto.toFixed(2)}</td>
+        <td class="text-right font-mono" style="font-size:11px;color:#7c3aed;">S/ ${igvNeto.toFixed(2)}</td>
+        <td class="text-right font-mono" style="font-size:13px;">${totalHtml}</td>
         <td class="text-center">${badge}</td>
         <td class="text-right">${actions}</td>
       </tr>`;
@@ -676,8 +792,16 @@ function abrirCobroRapido(id) {
   if (!c) return;
   document.getElementById('cobro-rapido-id').value = c.id;
   document.getElementById('cobro-rapido-total').value = c.monto_total;
+  document.getElementById('cobro-rapido-neto').value = '';
   document.getElementById('cobro-rapido-monto').textContent = `S/ ${parseFloat(c.monto_total).toFixed(2)}`;
   document.getElementById('cobro-rapido-cliente').textContent = `${c.cliente_nombre} | ${c.tipo_doc}: ${c.num_doc}`;
+
+  // Resetear campos de descuento
+  document.getElementById('cobro-descuento-tipo').value = '';
+  const descValInput = document.getElementById('cobro-descuento-valor');
+  descValInput.value = '';
+  descValInput.disabled = true;
+  document.getElementById('cobro-neto-display').textContent = `S/ ${parseFloat(c.monto_total).toFixed(2)}`;
 
   // Inicializar mitad y reset del balance visual
   const total = parseFloat(c.monto_total) || 0;
@@ -715,24 +839,51 @@ async function procesarCobroRapido(e) {
   const id = document.getElementById('cobro-rapido-id').value;
   const chk = document.getElementById('chk-dividir').checked;
   const metodo_pago = document.getElementById('cobro-rapido-metodo').value;
+
+  // Lógica de cálculo de descuento para persistencia
+  const descTipo = document.getElementById('cobro-descuento-tipo').value;
+  const descVal = parseFloat(document.getElementById('cobro-descuento-valor').value) || 0;
+  const totalOriginal = parseFloat(document.getElementById('cobro-rapido-total').value) || 0;
+  
+  let descRealizado = 0;
+  let montoNeto = totalOriginal;
+  if (descTipo === 'Porcentaje' && descVal > 0) {
+    descRealizado = parseFloat((totalOriginal * (descVal / 100)).toFixed(2));
+    montoNeto = parseFloat((totalOriginal - descRealizado).toFixed(2));
+  } else if (descTipo === 'Monto' && descVal > 0) {
+    descRealizado = Math.min(totalOriginal, descVal);
+    montoNeto = parseFloat((totalOriginal - descRealizado).toFixed(2));
+  }
+
   try {
     if (!chk) {
       const tipo_comprobante = document.getElementById('cobro-rapido-comprobante').value;
-      await registrarCobro(id, { metodo_pago, tipo_comprobante });
+      await registrarCobro(id, { 
+        metodo_pago, 
+        tipo_comprobante,
+        descuento_tipo: descTipo || null,
+        descuento_valor: descVal,
+        descuento_realizado: descRealizado,
+        monto_neto: montoNeto
+      });
     } else {
-      const total = parseFloat(document.getElementById('cobro-rapido-total').value);
       const m1 = parseFloat(document.getElementById('div-monto-1').value) || 0;
       const m2 = parseFloat(document.getElementById('div-monto-2').value) || 0;
-      if (Math.abs((m1 + m2) - total) > 0.05) {
-        alert(`Los montos no coinciden con el total (S/ ${total.toFixed(2)}).`); return;
+      if (Math.abs((m1 + m2) - montoNeto) > 0.05) {
+        alert(`Los montos no coinciden con el total neto (S/ ${montoNeto.toFixed(2)}).`); return;
       }
       await dividirCobro(id, {
         metodo_pago,
         tipo_comprobante: document.getElementById('div-comp-1').value,
         pagador2_nombre:  document.getElementById('div-nombre-2').value,
         pagador2_doc:     document.getElementById('div-doc-2').value,
-        monto_pagador1: m1, monto_pagador2: m2,
+        monto_pagador1: m1, 
+        monto_pagador2: m2,
         comprobante2:   document.getElementById('div-comp-2').value,
+        descuento_tipo: descTipo || null,
+        descuento_valor: descVal,
+        descuento_realizado: descRealizado,
+        monto_neto: montoNeto
       });
     }
     cerrarModal('modal-cobro-rapido');
@@ -827,34 +978,77 @@ async function confirmarPagoPortal() {
 
 // ── FACTURA ELECTRÓNICA ────────────────────────────────────
 
-async function abrirFactura(id) {
-  const c = cobrosList.find(item => item.id == id);
-  if (!c) return;
+function renderFacturaDocument(c, pagadorIndex, items) {
+  currentCobro = c;
+  activePagadorIndex = pagadorIndex;
+  currentItems = items;
 
   const doc = document.getElementById('factura-doc-content');
-  doc.innerHTML = `<div style="padding:40px;text-align:center;color:var(--slate-5);font-size:13px;">Cargando ítems de la orden...</div>`;
-  document.getElementById('modal-factura-electronica').classList.add('active');
+  const toggleBar = document.getElementById('div-pagadores-toggle-bar');
 
-  let items = [];
-  try {
-    const orden = await getOrden(c.orden_id);
-    items = orden.items || [];
-  } catch (_) { items = []; }
+  // Total calculations
+  const totalOriginal = parseFloat(c.monto_total);
+  const hasDiscount = c.monto_neto !== null && c.monto_neto !== undefined && parseFloat(c.monto_neto) < totalOriginal;
+  const totalNeto = hasDiscount ? parseFloat(c.monto_neto) : totalOriginal;
 
-  const total  = parseFloat(c.monto_total);
-  const igv    = parseFloat((total * 0.18 / 1.18).toFixed(2));
-  const sub    = parseFloat((total - igv).toFixed(2));
-  const tipo   = c.tipo_comprobante || 'Boleta';
-  const serie  = tipo === 'Factura'  ? 'F001' : tipo === 'Boleta' ? 'B001' : 'NV01';
-  const numDoc = `${serie}-${String(c.id + 1000).padStart(4,'0')}`;
+  let prop = 1;
+  let totalP = totalNeto;
+  let originalP = totalOriginal;
+  let descP = c.descuento_realizado ? parseFloat(c.descuento_realizado) : 0;
+
+  if (c.es_dividido) {
+    totalP = pagadorIndex === 1 ? parseFloat(c.monto_pagador1 || 0) : parseFloat(c.monto_pagador2 || 0);
+    prop = totalNeto > 0 ? (totalP / totalNeto) : 0.5;
+    originalP = totalOriginal * prop;
+    descP = (c.descuento_realizado ? parseFloat(c.descuento_realizado) : 0) * prop;
+  }
+
+  const igvP = totalP * 0.18 / 1.18;
+  const subP = totalP - igvP;
+
+  // Receptor details
+  const receptorNombre = pagadorIndex === 1 ? (c.cliente_nombre || '—') : (c.pagador2_nombre || '—');
+  const docType2 = c.pagador2_doc && c.pagador2_doc.trim().length === 11 ? 'RUC' : 'DNI';
+  const receptorDocType = pagadorIndex === 1 ? (c.tipo_doc || 'DNI') : docType2;
+  const receptorDocNum = pagadorIndex === 1 ? (c.num_doc || '—') : (c.pagador2_doc || '—');
+  
+  const tipo = pagadorIndex === 1 ? (c.tipo_comprobante || 'Boleta') : (c.comprobante2 || 'Boleta');
+  const compNumero = pagadorIndex === 1 ? (c.comprobante_numero || '—') : (c.comprobante2_numero || '—');
+
   const fechaEmision = safeFormatDate(c.fecha_emision || new Date(), { day:'2-digit', month:'long', year:'numeric' });
   const fechaCobro = c.fecha_cobro ? safeFormatDate(c.fecha_cobro, { day:'2-digit', month:'long', year:'numeric' }) : '—';
-  const hashSimulado = `SHA256:${btoa(numDoc + c.cliente_nombre + total).replace(/=/g,'').slice(0,40).toUpperCase()}`;
+  const hashSimulado = `SHA256:${btoa(compNumero + receptorNombre + totalP).replace(/=/g,'').slice(0,40).toUpperCase()}`;
+
+  // Render toggle bar if divided
+  if (c.es_dividido) {
+    toggleBar.style.display = 'flex';
+    toggleBar.innerHTML = `
+      <span style="font-size:11px;font-weight:700;color:var(--slate-4);align-self:center;margin-right:8px;">Ver Comprobante:</span>
+      <button class="btn-toggle-pagador btn ${pagadorIndex === 1 ? 'btn-primary' : 'btn-ghost'}" data-index="1" style="font-size:11px;padding:6px 12px;cursor:pointer;">
+        1️⃣ ${c.cliente_nombre || 'Principal'} (S/ ${parseFloat(c.monto_pagador1).toFixed(2)})
+      </button>
+      <button class="btn-toggle-pagador btn ${pagadorIndex === 2 ? 'btn-primary' : 'btn-ghost'}" data-index="2" style="font-size:11px;padding:6px 12px;cursor:pointer;">
+        2️⃣ ${c.pagador2_nombre || 'Co-pagador'} (S/ ${parseFloat(c.monto_pagador2).toFixed(2)})
+      </button>
+    `;
+    // Add event listeners
+    toggleBar.querySelectorAll('.btn-toggle-pagador').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const idx = parseInt(e.currentTarget.dataset.index);
+        renderFacturaDocument(c, idx, items);
+      });
+    });
+  } else {
+    toggleBar.style.display = 'none';
+  }
+
+  // Check if Recibo Interno to change layout/details
+  const isReciboInterno = tipo === 'Recibo Interno';
 
   doc.innerHTML = `
     <div class="factura-doc">
       <!-- Cabecera -->
-      <div class="factura-header-layout">
+      <div class="factura-header-layout" style="display:grid;grid-template-columns:1.5fr 1fr;gap:20px;margin-bottom:24px;">
         <div>
           <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
             <div style="width:48px;height:48px;background:linear-gradient(135deg,#1e293b,#334155);border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
@@ -873,10 +1067,10 @@ async function abrirFactura(id) {
           </p>
         </div>
         <div style="background:#f8fafc;border:2px solid #e2e8f0;border-radius:12px;padding:16px;text-align:center;">
-          <div style="display:inline-block;background:${tipo==='Factura'?'#1e293b':tipo==='Boleta'?'#1d4ed8':'#64748b'};color:white;font-size:10px;font-weight:800;padding:3px 10px;border-radius:99px;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">
-            ${tipo} (Control Interno)
+          <div style="display:inline-block;background:${isReciboInterno ? '#ea580c' : tipo === 'Factura' ? '#1e293b' : '#1d4ed8'};color:white;font-size:10px;font-weight:800;padding:3px 10px;border-radius:99px;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">
+            ${isReciboInterno ? 'Recibo Interno' : tipo} ${isReciboInterno ? '(Control de Caja)' : '(Control Interno)'}
           </div>
-          <p style="font-size:22px;font-weight:900;color:#1e293b;font-family:monospace;letter-spacing:1px;margin:4px 0;">${numDoc}</p>
+          <p style="font-size:22px;font-weight:900;color:#1e293b;font-family:monospace;letter-spacing:1px;margin:4px 0;">${compNumero}</p>
           <div style="border-top:1px dashed #e2e8f0;margin-top:10px;padding-top:10px;">
             <p style="font-size:10px;color:#64748b;margin:2px 0;">Emisión: <strong>${fechaEmision}</strong></p>
             ${c.fecha_cobro ? `<p style="font-size:10px;color:#64748b;margin:2px 0;">Cobrado: <strong>${fechaCobro}</strong></p>` : ''}
@@ -885,25 +1079,29 @@ async function abrirFactura(id) {
       </div>
 
       <!-- Estado SUNAT / Comprobante Interno -->
-      <div style="background:#f1f5f9;border:1px solid #cbd5e1;border-radius:8px;padding:8px 14px;display:flex;align-items:center;gap:8px;margin-bottom:20px;">
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="#475569" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-        <span style="font-size:11px;font-weight:800;color:#475569;">📄 COMPROBANTE DE CONTROL INTERNO</span>
-        <span style="font-size:10px;color:#64748b;margin-left:auto;font-family:monospace;">${hashSimulado}</span>
+      <div style="background:${isReciboInterno ? '#fff7ed' : '#f1f5f9'};border:1px solid ${isReciboInterno ? '#fed7aa' : '#cbd5e1'};border-radius:8px;padding:8px 14px;display:flex;align-items:center;gap:8px;margin-bottom:20px;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="${isReciboInterno ? '#c2410c' : '#475569'}" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        <span style="font-size:11px;font-weight:800;color:${isReciboInterno ? '#c2410c' : '#475569'};">
+          ${isReciboInterno ? '📝 RECIBO INTERNO DE CONTROL DE CAJA' : '📄 COMPROBANTE DE CONTROL INTERNO'}
+        </span>
+        <span style="font-size:10px;color:${isReciboInterno ? '#ea580c' : '#64748b'};margin-left:auto;font-family:monospace;">
+          ${isReciboInterno ? 'Caja General - Taller Vargas' : hashSimulado}
+        </span>
       </div>
 
       <!-- Datos del cliente / receptor -->
       <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px 16px;margin-bottom:20px;">
         <p style="font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Datos del ${tipo === 'Factura' ? 'Adquirente' : 'Cliente'}</p>
-        <div class="factura-details-grid">
-          <div><span style="color:#64748b;">Razón Social:</span> <strong>${c.cliente_nombre || '—'}</strong></div>
-          <div><span style="color:#64748b;">${c.tipo_doc}:</span> <strong style="font-family:monospace;">${c.num_doc || '—'}</strong></div>
-          <div><span style="color:#64748b;">Orden de Servicio:</span> <strong style="font-family:monospace;">OS-${String(c.orden_numero).padStart(4,'0')}</strong></div>
-          <div><span style="color:#64748b;">Vehículo:</span> <strong>${c.placa || '—'}</strong></div>
+        <div class="factura-details-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px 24px;">
+          <div><span style="color:#64748b;">Razón Social / Nombre:</span> <strong style="color:var(--dark);">${receptorNombre}</strong></div>
+          <div><span style="color:#64748b;">${receptorDocType}:</span> <strong style="font-family:monospace;color:var(--dark);">${receptorDocNum}</strong></div>
+          <div><span style="color:#64748b;">Orden de Servicio:</span> <strong style="font-family:monospace;color:var(--brand);">OS-${String(c.orden_numero).padStart(4,'0')}</strong></div>
+          <div><span style="color:#64748b;">Vehículo:</span> <strong style="color:var(--dark);">${c.placa || '—'}</strong></div>
         </div>
       </div>
 
       <!-- Tabla de ítems -->
-      <table style="width:100%;border-collapse:collapse;margin-bottom:0;font-size:12px;">
+      <table style="width:100%;border-collapse:collapse;margin-bottom:20px;font-size:12px;">
         <thead>
           <tr style="background:#1e293b;color:#fff;">
             <th style="padding:8px 10px;text-align:left;font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:.5px;width:50px;">Cant.</th>
@@ -914,7 +1112,10 @@ async function abrirFactura(id) {
           </tr>
         </thead>
         <tbody>
-          ${items.length > 0 ? items.map((it, idx) => `
+          ${items.length > 0 ? items.map((it, idx) => {
+            const priceP = parseFloat(it.precio_unitario || 0) * prop;
+            const subtotalP = priceP * parseInt(it.cantidad || 1);
+            return `
             <tr style="background:${idx%2===0?'#fff':'#f8fafc'};border-bottom:1px solid #e2e8f0;">
               <td style="padding:8px 10px;text-align:center;font-weight:800;font-family:monospace;">${it.cantidad}</td>
               <td style="padding:8px 10px;">
@@ -924,9 +1125,10 @@ async function abrirFactura(id) {
               <td style="padding:8px 10px;text-align:center;">
                 <span style="font-size:9px;font-weight:700;text-transform:uppercase;padding:2px 6px;border-radius:99px;${it.tipo==='almacen'?'background:#eff6ff;color:#1d4ed8;':'background:#f0fdf4;color:#15803d;'}">${it.tipo==='almacen'?'Repuesto':'M. Obra'}</span>
               </td>
-              <td style="padding:8px 10px;text-align:right;font-family:monospace;">S/ ${parseFloat(it.precio_unitario||0).toFixed(2)}</td>
-              <td style="padding:8px 10px;text-align:right;font-family:monospace;font-weight:700;">S/ ${(parseFloat(it.precio_unitario||0)*parseInt(it.cantidad||1)).toFixed(2)}</td>
-            </tr>`).join('') : `
+              <td style="padding:8px 10px;text-align:right;font-family:monospace;">S/ ${priceP.toFixed(2)}</td>
+              <td style="padding:8px 10px;text-align:right;font-family:monospace;font-weight:700;">S/ ${subtotalP.toFixed(2)}</td>
+            </tr>`;
+          }).join('') : `
             <tr>
               <td colspan="5" style="padding:16px;text-align:center;color:#64748b;font-style:italic;font-size:12px;">
                 Servicios de mantenimiento y reparación automotriz · Ver detalle en orden de trabajo
@@ -936,31 +1138,41 @@ async function abrirFactura(id) {
       </table>
 
       <!-- Totales -->
-      <div style="display:flex;justify-content:flex-end;margin-top:0;border-top:2px solid #1e293b;">
-        <div style="width:260px;">
+      <div style="display:flex;justify-content:flex-end;margin-top:0;border-top:2px solid #1e293b;padding-top:10px;margin-bottom:24px;">
+        <div style="width:280px;">
+          ${hasDiscount ? `
           <div style="display:flex;justify-content:space-between;padding:8px 10px;border-bottom:1px solid #e2e8f0;">
-            <span style="font-size:12px;color:#64748b;">Op. Gravadas (Subtotal)</span>
-            <span style="font-family:monospace;font-weight:700;">S/ ${sub.toFixed(2)}</span>
+            <span style="font-size:12px;color:#64748b;">Subtotal Original</span>
+            <span style="font-family:monospace;font-weight:700;">S/ ${(originalP - (originalP * 0.18 / 1.18)).toFixed(2)}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;padding:8px 10px;border-bottom:1px solid #e2e8f0;color:#b45309;">
+            <span style="font-size:12px;font-weight:700;">Descuento Aplicado</span>
+            <span style="font-family:monospace;font-weight:700;">-S/ ${descP.toFixed(2)}</span>
+          </div>
+          ` : ''}
+          <div style="display:flex;justify-content:space-between;padding:8px 10px;border-bottom:1px solid #e2e8f0;">
+            <span style="font-size:12px;color:#64748b;">Op. Gravadas (Neto)</span>
+            <span style="font-family:monospace;font-weight:700;">S/ ${subP.toFixed(2)}</span>
           </div>
           <div style="display:flex;justify-content:space-between;padding:8px 10px;border-bottom:1px solid #e2e8f0;">
             <span style="font-size:12px;color:#7c3aed;font-weight:700;">IGV (18%)</span>
-            <span style="font-family:monospace;font-weight:700;color:#7c3aed;">S/ ${igv.toFixed(2)}</span>
+            <span style="font-family:monospace;font-weight:700;color:#7c3aed;">S/ ${igvP.toFixed(2)}</span>
           </div>
           <div style="display:flex;justify-content:space-between;padding:12px 10px;background:#1e293b;border-radius:0 0 4px 4px;">
             <span style="font-size:14px;font-weight:900;color:#fff;">TOTAL A PAGAR</span>
-            <span style="font-family:monospace;font-size:16px;font-weight:900;color:#34d399;">S/ ${total.toFixed(2)}</span>
+            <span style="font-family:monospace;font-size:16px;font-weight:900;color:#34d399;">S/ ${totalP.toFixed(2)}</span>
           </div>
         </div>
       </div>
 
       <!-- Método de pago y QR -->
-      <div class="factura-footer-layout">
+      <div class="factura-footer-layout" style="display:grid;grid-template-columns:1fr auto;gap:20px;border-top:1px dashed #cbd5e1;padding-top:16px;">
         <div>
           <p style="font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Forma de Pago</p>
           <div style="display:flex;align-items:center;gap:8px;">
             <span style="font-size:13px;font-weight:800;color:#1e293b;">${c.metodo_pago || '—'}</span>
             <span style="font-size:11px;color:#64748b;">·</span>
-            <span style="font-size:11px;color:#64748b;">Comprobante: ${c.tipo_comprobante || '—'}</span>
+            <span style="font-size:11px;color:#64748b;">Comprobante: ${tipo || '—'}</span>
           </div>
           <p style="font-size:11px;color:#64748b;margin-top:8px;line-height:1.5;">
             "Documento de control interno emitido por<br/>
@@ -974,6 +1186,23 @@ async function abrirFactura(id) {
       </div>
     </div>
   `;
+}
+
+async function abrirFactura(id) {
+  const c = cobrosList.find(item => item.id == id);
+  if (!c) return;
+
+  const doc = document.getElementById('factura-doc-content');
+  doc.innerHTML = `<div style="padding:40px;text-align:center;color:var(--slate-5);font-size:13px;">Cargando ítems de la orden...</div>`;
+  document.getElementById('modal-factura-electronica').classList.add('active');
+
+  let items = [];
+  try {
+    const orden = await getOrden(c.orden_id);
+    items = orden.items || [];
+  } catch (_) { items = []; }
+
+  renderFacturaDocument(c, 1, items);
 }
 
 // ── QR SIMULADO ───────────────────────────────────────────
@@ -1027,24 +1256,97 @@ function renderQRSimuladoPequeno() {
 // ── XML SIMULADO ──────────────────────────────────────────
 
 function descargarXML() {
+  if (!currentCobro) return;
+  const c = currentCobro;
+  const idx = activePagadorIndex;
+
+  const compTipo = idx === 1 ? (c.tipo_comprobante || 'Boleta') : (c.comprobante2 || 'Boleta');
+  const compNumero = idx === 1 ? (c.comprobante_numero || '—') : (c.comprobante2_numero || '—');
+  const receptorNombre = idx === 1 ? (c.cliente_nombre || '—') : (c.pagador2_nombre || '—');
+  const receptorDocType = idx === 1 ? (c.tipo_doc || 'DNI') : (c.pagador2_doc && c.pagador2_doc.trim().length === 11 ? 'RUC' : 'DNI');
+  const receptorDocNum = idx === 1 ? (c.num_doc || '—') : (c.pagador2_doc || '—');
+
+  const totalOriginal = parseFloat(c.monto_total);
+  const hasDiscount = c.monto_neto !== null && c.monto_neto !== undefined && parseFloat(c.monto_neto) < totalOriginal;
+  const totalNeto = hasDiscount ? parseFloat(c.monto_neto) : totalOriginal;
+
+  let prop = 1;
+  let totalP = totalNeto;
+  if (c.es_dividido) {
+    totalP = idx === 1 ? parseFloat(c.monto_pagador1 || 0) : parseFloat(c.monto_pagador2 || 0);
+    prop = totalNeto > 0 ? (totalP / totalNeto) : 0.5;
+  }
+
+  const igv = totalP * 0.18 / 1.18;
+  const sub = totalP - igv;
+
+  const tipoCodigo = compTipo === 'Factura' ? '01' : compTipo === 'Boleta' ? '03' : '02'; // 02 for internal receipt or fallback
+
+  let xmlItems = '';
+  if (currentItems && currentItems.length > 0) {
+    xmlItems = currentItems.map((it, itemIdx) => {
+      const priceP = parseFloat(it.precio_unitario || 0) * prop;
+      const subtotalP = priceP * parseInt(it.cantidad || 1);
+      return `  <cac:InvoiceLine>
+    <cbc:ID>${itemIdx + 1}</cbc:ID>
+    <cbc:InvoicedQuantity unitCode="NIU">${it.cantidad}</cbc:InvoicedQuantity>
+    <cbc:LineExtensionAmount currencyID="PEN">${subtotalP.toFixed(2)}</cbc:LineExtensionAmount>
+    <cac:Item>
+      <cbc:Description><![CDATA[${it.descripcion}]]></cbc:Description>
+    </cac:Item>
+    <cac:Price>
+      <cbc:PriceAmount currencyID="PEN">${priceP.toFixed(2)}</cbc:PriceAmount>
+    </cac:Price>
+  </cac:InvoiceLine>`;
+    }).join('\n');
+  }
+
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2"
          xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2"
          xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2">
   <cbc:UBLVersionID>2.1</cbc:UBLVersionID>
   <cbc:CustomizationID>2.0</cbc:CustomizationID>
-  <cbc:ID>SUNAT-SIMULADO</cbc:ID>
-  <cbc:IssueDate>${new Date().toISOString().split('T')[0]}</cbc:IssueDate>
-  <cbc:InvoiceTypeCode listID="0101">01</cbc:InvoiceTypeCode>
-  <cbc:Note>TALLER AUTOMOTRIZ VARGAS RUC 20123456789</cbc:Note>
-  <!-- Archivo generado por simulación local - No tiene validez tributaria oficial -->
+  <cbc:ID>${compNumero}</cbc:ID>
+  <cbc:IssueDate>${c.fecha_emision ? c.fecha_emision.split('T')[0] : new Date().toISOString().split('T')[0]}</cbc:IssueDate>
+  <cbc:InvoiceTypeCode listID="0101">${tipoCodigo}</cbc:InvoiceTypeCode>
+  <cbc:DocumentCurrencyCode>PEN</cbc:DocumentCurrencyCode>
+  <cac:AccountingSupplierParty>
+    <cac:Party>
+      <cac:PartyIdentification>
+        <cbc:ID schemeID="6">20123456789</cbc:ID>
+      </cac:PartyIdentification>
+      <cac:PartyLegalEntity>
+        <cbc:RegistrationName>TALLER AUTOMOTRIZ VARGAS</cbc:RegistrationName>
+      </cac:PartyLegalEntity>
+    </cac:Party>
+  </cac:AccountingSupplierParty>
+  <cac:AccountingCustomerParty>
+    <cac:Party>
+      <cac:PartyIdentification>
+        <cbc:ID schemeID="${receptorDocType === 'RUC' ? '6' : '1'}">${receptorDocNum}</cbc:ID>
+      </cac:PartyIdentification>
+      <cac:PartyLegalEntity>
+        <cbc:RegistrationName><![CDATA[${receptorNombre}]]></cbc:RegistrationName>
+      </cac:PartyLegalEntity>
+    </cac:Party>
+  </cac:AccountingCustomerParty>
+  <cac:TaxTotal>
+    <cbc:TaxAmount currencyID="PEN">${igv.toFixed(2)}</cbc:TaxAmount>
+  </cac:TaxTotal>
+  <cac:LegalMonetaryTotal>
+    <cbc:LineExtensionAmount currencyID="PEN">${sub.toFixed(2)}</cbc:LineExtensionAmount>
+    <cbc:TaxInclusiveAmount currencyID="PEN">${totalP.toFixed(2)}</cbc:TaxInclusiveAmount>
+    <cbc:PayableAmount currencyID="PEN">${totalP.toFixed(2)}</cbc:PayableAmount>
+  </cac:LegalMonetaryTotal>
+${xmlItems}
 </Invoice>`;
 
   const blob = new Blob([xml], { type: 'application/xml' });
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
   a.href     = url;
-  a.download = `comprobante-simulado.xml`;
+  a.download = `${compNumero}.xml`;
   a.click();
   URL.revokeObjectURL(url);
 }

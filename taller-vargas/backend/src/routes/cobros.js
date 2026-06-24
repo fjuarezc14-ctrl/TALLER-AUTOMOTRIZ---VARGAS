@@ -1,7 +1,34 @@
 import { Router } from 'express';
-import { query } from '../db.js';
+import { query, getClient } from '../db.js';
 
 const router = Router();
+
+async function getNextComprobanteNumero(client, tipo) {
+  let prefix = '';
+  if (tipo === 'Factura') prefix = 'F001-';
+  else if (tipo === 'Boleta') prefix = 'B001-';
+  else if (tipo === 'Recibo Interno') prefix = 'RI-';
+  else prefix = 'NV-'; // fallback Nota de Venta
+
+  // We search for both comprobante_numero and comprobante2_numero to get the absolute maximum sequence number
+  const res = await client.query(
+    `SELECT comprobante_numero AS num FROM cobros WHERE tipo_comprobante = $1 AND comprobante_numero LIKE $2
+     UNION
+     SELECT comprobante2_numero AS num FROM cobros WHERE comprobante2 = $1 AND comprobante2_numero LIKE $2
+     ORDER BY num DESC LIMIT 1`,
+    [tipo, prefix + '%']
+  );
+
+  let nextSeq = 1;
+  if (res.rows.length > 0) {
+    const lastNum = res.rows[0].num;
+    const match = lastNum.match(/\d+$/);
+    if (match) {
+      nextSeq = parseInt(match[0], 10) + 1;
+    }
+  }
+  return `${prefix}${String(nextSeq).padStart(4, '0')}`;
+}
 
 // GET /api/cobros
 router.get('/', async (_req, res) => {
@@ -25,7 +52,7 @@ router.get('/stats', async (_req, res) => {
     const result = await query(`
       SELECT
         COALESCE(SUM(monto_total) FILTER (WHERE estado = 'Pendiente'), 0) AS por_cobrar,
-        COALESCE(SUM(monto_total) FILTER (WHERE estado = 'Cancelado'), 0) AS ingresos
+        COALESCE(SUM(COALESCE(monto_neto, monto_total)) FILTER (WHERE estado IN ('Cancelado', 'Dividido')), 0) AS ingresos
       FROM cobros
       WHERE DATE_TRUNC('month', fecha_emision) = DATE_TRUNC('month', CURRENT_DATE)
     `);
@@ -35,21 +62,48 @@ router.get('/stats', async (_req, res) => {
 
 // PATCH /api/cobros/:id/cobrar  (registrar pago - cobro simple)
 router.patch('/:id/cobrar', async (req, res) => {
-  const { metodo_pago, tipo_comprobante } = req.body;
+  const { metodo_pago, tipo_comprobante, descuento_tipo, descuento_valor, descuento_realizado, monto_neto } = req.body;
+  const client = await getClient();
   try {
-    const result = await query(
+    await client.query("BEGIN");
+
+    // Generate next correlative number
+    const comprobante_numero = await getNextComprobanteNumero(client, tipo_comprobante);
+
+    const result = await client.query(
       `UPDATE cobros
-       SET estado='Cancelado', metodo_pago=$1, tipo_comprobante=$2, fecha_cobro=CURRENT_DATE
-       WHERE id=$3 RETURNING *`,
-      [metodo_pago, tipo_comprobante, req.params.id]
+       SET estado='Cancelado', 
+           metodo_pago=$1, 
+           tipo_comprobante=$2, 
+           comprobante_numero=$3,
+           descuento_tipo=$4,
+           descuento_valor=$5,
+           descuento_realizado=$6,
+           monto_neto=$7,
+           fecha_cobro=CURRENT_DATE
+       WHERE id=$8 RETURNING *`,
+      [
+        metodo_pago,
+        tipo_comprobante,
+        comprobante_numero,
+        descuento_tipo || null,
+        descuento_valor ? parseFloat(descuento_valor) : 0.00,
+        descuento_realizado ? parseFloat(descuento_realizado) : 0.00,
+        monto_neto ? parseFloat(monto_neto) : null,
+        req.params.id
+      ]
     );
-    if (!result.rows.length) return res.status(404).json({ error: 'Cobro no encontrado' });
+    if (!result.rows.length) {
+      await client.query("ROLLBACK");
+      client.release();
+      return res.status(404).json({ error: 'Cobro no encontrado' });
+    }
 
     // Auto-pasar la orden de servicio a estado 'Entregado' para que salga del Kanban
     const cobro = result.rows[0];
     if (cobro.orden_id) {
       try {
-        await query(
+        await client.query(
           `UPDATE ordenes_servicio SET estado='Entregado' WHERE id=$1 AND estado NOT IN ('Entregado')`,
           [cobro.orden_id]
         );
@@ -58,8 +112,14 @@ router.patch('/:id/cobrar', async (req, res) => {
       }
     }
 
+    await client.query("COMMIT");
     res.json(cobro);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) {
+    await client.query("ROLLBACK");
+    res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
+  }
 });
 
 // PATCH /api/cobros/:id/dividir  (pago dividido - requerimiento AÑADIR.txt)
@@ -67,29 +127,64 @@ router.patch('/:id/dividir', async (req, res) => {
   const {
     metodo_pago, tipo_comprobante,
     pagador2_nombre, pagador2_doc,
-    monto_pagador1, monto_pagador2, comprobante2
+    monto_pagador1, monto_pagador2, comprobante2,
+    descuento_tipo, descuento_valor, descuento_realizado, monto_neto
   } = req.body;
+  const client = await getClient();
   try {
-    const result = await query(
+    await client.query("BEGIN");
+
+    // Generate next correlative numbers
+    const comprobante_numero = await getNextComprobanteNumero(client, tipo_comprobante);
+    const comprobante2_numero = await getNextComprobanteNumero(client, comprobante2);
+
+    const result = await client.query(
       `UPDATE cobros
-       SET estado='Dividido', metodo_pago=$1, tipo_comprobante=$2,
+       SET estado='Dividido', 
+           metodo_pago=$1, 
+           tipo_comprobante=$2,
+           comprobante_numero=$3,
            es_dividido=TRUE,
-           pagador2_nombre=$3, pagador2_doc=$4,
-           monto_pagador1=$5, monto_pagador2=$6, comprobante2=$7,
+           pagador2_nombre=$4, 
+           pagador2_doc=$5,
+           monto_pagador1=$6, 
+           monto_pagador2=$7, 
+           comprobante2=$8,
+           comprobante2_numero=$9,
+           descuento_tipo=$10,
+           descuento_valor=$11,
+           descuento_realizado=$12,
+           monto_neto=$13,
            fecha_cobro=CURRENT_DATE
-       WHERE id=$8 RETURNING *`,
-      [metodo_pago, tipo_comprobante,
-       pagador2_nombre, pagador2_doc,
-       monto_pagador1, monto_pagador2, comprobante2,
-       req.params.id]
+       WHERE id=$14 RETURNING *`,
+      [
+        metodo_pago,
+        tipo_comprobante,
+        comprobante_numero,
+        pagador2_nombre,
+        pagador2_doc,
+        monto_pagador1 ? parseFloat(monto_pagador1) : 0.00,
+        monto_pagador2 ? parseFloat(monto_pagador2) : 0.00,
+        comprobante2,
+        comprobante2_numero,
+        descuento_tipo || null,
+        descuento_valor ? parseFloat(descuento_valor) : 0.00,
+        descuento_realizado ? parseFloat(descuento_realizado) : 0.00,
+        monto_neto ? parseFloat(monto_neto) : null,
+        req.params.id
+      ]
     );
-    if (!result.rows.length) return res.status(404).json({ error: 'Cobro no encontrado' });
+    if (!result.rows.length) {
+      await client.query("ROLLBACK");
+      client.release();
+      return res.status(404).json({ error: 'Cobro no encontrado' });
+    }
 
     // Auto-pasar la orden de servicio a estado 'Entregado' para que salga del Kanban
     const cobro = result.rows[0];
     if (cobro.orden_id) {
       try {
-        await query(
+        await client.query(
           `UPDATE ordenes_servicio SET estado='Entregado' WHERE id=$1 AND estado NOT IN ('Entregado')`,
           [cobro.orden_id]
         );
@@ -98,8 +193,14 @@ router.patch('/:id/dividir', async (req, res) => {
       }
     }
 
+    await client.query("COMMIT");
     res.json(cobro);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) {
+    await client.query("ROLLBACK");
+    res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
+  }
 });
 
 export default router;
