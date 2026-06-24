@@ -621,9 +621,21 @@ function renderPage() {
     const cliId = document.getElementById('cli-select-id')?.value || '';
     const vehId = document.getElementById('veh-select-id')?.value || '';
     const km = document.getElementById('ord-km')?.value || '';
+    const combustible = document.getElementById('ord-combustible')?.value || '1/2';
     const mecanicoId = document.getElementById('ord-mecanico')?.value || '';
     const fecha_ingreso = document.getElementById('ord-fecha-ingreso')?.value || '';
     const hora_ingreso = document.getElementById('ord-hora-ingreso')?.value || '';
+    
+    // Conductor
+    const hasConductor = document.getElementById('ord-has-conductor')?.checked || false;
+    const conductor_nombre = document.getElementById('ord-conductor-nombre')?.value || '';
+    const conductor_doc = document.getElementById('ord-conductor-doc')?.value || '';
+    const conductor_telefono = document.getElementById('ord-conductor-telefono')?.value || '';
+
+    // Garantia
+    const es_garantia = document.getElementById('ord-es-garantia')?.checked || false;
+    const mecanico_negligente_id = document.getElementById('ord-mecanico-negligente-id')?.value || '';
+    const garantia_motivo = document.getElementById('ord-garantia-motivo')?.value || '';
     
     const sintomas = [];
     document.querySelectorAll('.sintomas-checkbox:checked').forEach(cb => {
@@ -667,6 +679,13 @@ function renderPage() {
       observaciones,
       fecha_ingreso,
       hora_ingreso,
+      hasConductor,
+      conductor_nombre,
+      conductor_doc,
+      conductor_telefono,
+      es_garantia,
+      mecanico_negligente_id,
+      garantia_motivo,
       currentStep
     };
 
@@ -721,6 +740,32 @@ function renderPage() {
 
       const mecanicoSelect = document.getElementById('ord-mecanico');
       if (mecanicoSelect) mecanicoSelect.value = draft.mecanicoId || '';
+
+      // Restaurar Conductor
+      const hasConductorInput = document.getElementById('ord-has-conductor');
+      if (hasConductorInput) {
+        hasConductorInput.checked = !!draft.hasConductor;
+        const condFields = document.getElementById('conductor-fields');
+        if (condFields) condFields.style.display = draft.hasConductor ? 'grid' : 'none';
+      }
+      const condNombre = document.getElementById('ord-conductor-nombre');
+      if (condNombre) condNombre.value = draft.conductor_nombre || '';
+      const condDoc = document.getElementById('ord-conductor-doc');
+      if (condDoc) condDoc.value = draft.conductor_doc || '';
+      const condTelf = document.getElementById('ord-conductor-telefono');
+      if (condTelf) condTelf.value = draft.conductor_telefono || '';
+
+      // Restaurar Garantia
+      const esGarantiaInput = document.getElementById('ord-es-garantia');
+      if (esGarantiaInput) {
+        esGarantiaInput.checked = !!draft.es_garantia;
+        const garFields = document.getElementById('garantia-fields');
+        if (garFields) garFields.style.display = draft.es_garantia ? 'grid' : 'none';
+      }
+      const garMec = document.getElementById('ord-mecanico-negligente-id');
+      if (garMec) garMec.value = draft.mecanico_negligente_id || '';
+      const garMotivo = document.getElementById('ord-garantia-motivo');
+      if (garMotivo) garMotivo.value = draft.garantia_motivo || '';
 
       // Restaurar Paso 2
       document.querySelectorAll('.sintomas-checkbox').forEach(cb => {
@@ -1037,6 +1082,25 @@ function renderPage() {
   document.getElementById('form-nueva-orden').addEventListener('change', () => window.guardarBorradorEnLocalStorage());
   document.getElementById('veh-select-id').addEventListener('change', autoAsignarClienteYKm);
   document.getElementById('cli-select-id').addEventListener('change', filtrarVehiculosPorCliente);
+  
+  // Toggle conductor fields
+  const hasConductorCheckbox = document.getElementById('ord-has-conductor');
+  if (hasConductorCheckbox) {
+    hasConductorCheckbox.addEventListener('change', (e) => {
+      const fields = document.getElementById('conductor-fields');
+      if (fields) fields.style.display = e.target.checked ? 'grid' : 'none';
+    });
+  }
+
+  // Toggle garantia fields
+  const esGarantiaCheckbox = document.getElementById('ord-es-garantia');
+  if (esGarantiaCheckbox) {
+    esGarantiaCheckbox.addEventListener('change', (e) => {
+      const fields = document.getElementById('garantia-fields');
+      if (fields) fields.style.display = e.target.checked ? 'grid' : 'none';
+    });
+  }
+
   document.getElementById('cli-search-input').addEventListener('input', (e) => {
     const q = e.target.value.toLowerCase().trim();
     const cliSelect = document.getElementById('cli-select-id');
@@ -1101,12 +1165,16 @@ function renderTableRows(ordenes) {
 
   return ordenes.map(o => `
     <tr>
-      <td class="font-mono font-bold" style="color:var(--brand);">OS-${o.id}</td>
+      <td class="font-mono font-bold" style="color:var(--brand);">
+        OS-${o.id}
+        ${o.es_garantia ? `<div style="font-size:9px;background:#fee2e2;color:#b91c1c;padding:1px 4px;border-radius:4px;display:inline-block;font-family:sans-serif;margin-top:2px;font-weight:bold;">GARANTÍA</div>` : ''}
+      </td>
       <td><span class="placa-badge">${o.placa || '—'}</span></td>
       <td><strong style="color:var(--dark);">${o.vehiculo || '—'}</strong></td>
       <td>
         <span style="font-weight:600;color:var(--dark);">${o.cliente || '—'}</span>
         ${o.cliente_telefono ? `<div style="font-size:11px;color:var(--slate-5);">${o.cliente_telefono}</div>` : ''}
+        ${o.conductor_nombre ? `<div style="font-size:10px;color:var(--slate-5);margin-top:2px;"><span style="color:var(--brand);font-weight:bold;">Cond:</span> ${o.conductor_nombre}</div>` : ''}
       </td>
       <td><span style="font-weight:500;color:var(--slate-4);">${o.mecanico || '—'}</span></td>
       <td>${badgeEstado(o.estado)}</td>
@@ -1254,6 +1322,28 @@ function renderModales() {
                 </div>
               </div>
 
+              <!-- Conductor diferente al propietario -->
+              <div style="background:var(--slate-9);border:1px solid var(--slate-8);border-radius:var(--radius-md);padding:12px;display:flex;flex-direction:column;gap:10px;margin-top:10px;">
+                <label style="display:flex; align-items:center; gap:8px; font-size:12px; font-weight:700; color:var(--dark); cursor:pointer;">
+                  <input type="checkbox" id="ord-has-conductor" style="width:15px; height:15px; accent-color:var(--brand);" />
+                  ¿El conductor es diferente al propietario?
+                </label>
+                <div id="conductor-fields" style="display:none;" class="grid grid-cols-3 gap-3">
+                  <div class="form-group" style="margin:0;">
+                    <label class="form-label">Nombre del Conductor</label>
+                    <input type="text" id="ord-conductor-nombre" class="form-input" placeholder="Nombre completo" />
+                  </div>
+                  <div class="form-group" style="margin:0;">
+                    <label class="form-label">DNI / Doc</label>
+                    <input type="text" id="ord-conductor-doc" class="form-input" placeholder="N° Documento" />
+                  </div>
+                  <div class="form-group" style="margin:0;">
+                    <label class="form-label">Teléfono</label>
+                    <input type="text" id="ord-conductor-telefono" class="form-input" placeholder="N° Teléfono" />
+                  </div>
+                </div>
+              </div>
+
               <div class="grid grid-cols-3 gap-3">
                 <div class="form-group">
                   <label class="form-label">Kilometraje</label>
@@ -1325,6 +1415,27 @@ function renderModales() {
                   <input type="checkbox" id="add-cliente-inv" style="width:14px; height:14px; accent-color:var(--brand);" />
                   Cliente participa en inventario
                 </label>
+              </div>
+
+              <!-- Garantía por Negligencia -->
+              <div style="background:var(--slate-9);border:1px solid var(--slate-8);border-radius:var(--radius-md);padding:12px;display:flex;flex-direction:column;gap:10px;margin-top:10px;margin-bottom:10px;">
+                <label style="display:flex; align-items:center; gap:8px; font-size:12px; font-weight:700; color:var(--dark); cursor:pointer;">
+                  <input type="checkbox" id="ord-es-garantia" style="width:15px; height:15px; accent-color:var(--brand);" />
+                  ⚠️ ¿Esta orden es una Garantía por Negligencia?
+                </label>
+                <div id="garantia-fields" style="display:none;" class="grid grid-cols-2 gap-3">
+                  <div class="form-group" style="margin:0;">
+                    <label class="form-label">Mecánico Responsable de la Negligencia</label>
+                    <select id="ord-mecanico-negligente-id" class="form-select">
+                      <option value="">-- Seleccionar mecánico responsable --</option>
+                      ${mecanicosList.map(m => `<option value="${m.id}">${m.nombre}</option>`).join('')}
+                    </select>
+                  </div>
+                  <div class="form-group" style="margin:0;">
+                    <label class="form-label">Motivo / Detalle de la Falla Inicial</label>
+                    <input type="text" id="ord-garantia-motivo" class="form-input" placeholder="Especificar qué falló o por qué aplica garantía..." />
+                  </div>
+                </div>
               </div>
 
               <div class="grid grid-cols-3 gap-3">
@@ -1540,6 +1651,12 @@ function renderModales() {
               <span style="font-size:10px;font-weight:700;color:var(--slate-5);text-transform:uppercase;">Cliente</span>
               <p id="det-cliente" style="font-weight:800;color:var(--dark);margin-top:2px;"></p>
               <p id="det-cliente-tel" style="font-size:11px;color:var(--slate-5);margin-top:1px;"></p>
+              <!-- Conductor info block inside Cliente card -->
+              <div id="det-conductor-wrapper" style="margin-top:8px; padding-top:8px; border-top:1px dashed var(--slate-8); display:none;">
+                <span style="font-size:9px;font-weight:700;color:var(--slate-5);text-transform:uppercase;display:block;">Conductor</span>
+                <p id="det-conductor-nombre" style="font-size:12px;font-weight:700;color:var(--dark);margin:0;"></p>
+                <p id="det-conductor-doc-tel" style="font-size:11px;color:var(--slate-5);margin:0;"></p>
+              </div>
             </div>
             <div style="background:var(--slate-9);padding:12px;border-radius:var(--radius-md);border:1px solid var(--slate-8);">
               <span style="font-size:10px;font-weight:700;color:var(--slate-5);text-transform:uppercase;">Vehículo</span>
@@ -1562,6 +1679,17 @@ function renderModales() {
               <span style="font-size:10px;font-weight:700;color:var(--slate-5);text-transform:uppercase;">Estado Actual</span>
               <p id="det-estado" style="font-weight:700;margin-top:2px;"></p>
             </div>
+          </div>
+
+          <!-- Alerta de Garantía por Negligencia -->
+          <div id="det-garantia-wrapper" class="hidden" style="background:#fef2f2;border:1px solid #fee2e2;color:#991b1b;padding:12px 16px;border-radius:var(--radius-md);font-weight:600;">
+            <p style="font-size:11px;text-transform:uppercase;margin:0;">⚠️ ORDEN DE GARANTÍA POR NEGLIGENCIA (COSTO AL CLIENTE: S/ 0.00)</p>
+            <p style="font-size:13px;margin-top:4px;color:#7f1d1d;font-weight:bold;margin-bottom:0;">
+              Mecánico Responsable: <span id="det-garantia-mecanico" style="font-weight:normal;"></span>
+            </p>
+            <p style="font-size:12px;margin-top:2px;color:#7f1d1d;font-style:italic;margin-bottom:0;">
+              Motivo: <span id="det-garantia-motivo" style="font-weight:normal;"></span>
+            </p>
           </div>
 
           <div style="border-top:1px dashed var(--slate-8);padding-top:10px;">
@@ -1946,6 +2074,34 @@ async function abrirEditarOrden(id) {
     const mecSelect = document.getElementById('ord-mecanico');
     if (mecSelect) mecSelect.value = o.mecanico_id ? String(o.mecanico_id) : '';
 
+    // Llenar Conductor
+    const hasConductorVal = !!(o.conductor_nombre || o.conductor_doc || o.conductor_telefono);
+    const hasConductorInput = document.getElementById('ord-has-conductor');
+    if (hasConductorInput) {
+      hasConductorInput.checked = hasConductorVal;
+      const condFields = document.getElementById('conductor-fields');
+      if (condFields) condFields.style.display = hasConductorVal ? 'grid' : 'none';
+    }
+    const condNombre = document.getElementById('ord-conductor-nombre');
+    if (condNombre) condNombre.value = o.conductor_nombre || '';
+    const condDoc = document.getElementById('ord-conductor-doc');
+    if (condDoc) condDoc.value = o.conductor_doc || '';
+    const condTelf = document.getElementById('ord-conductor-telefono');
+    if (condTelf) condTelf.value = o.conductor_telefono || '';
+
+    // Llenar Garantia
+    const esGarantiaVal = !!o.es_garantia;
+    const esGarantiaInput = document.getElementById('ord-es-garantia');
+    if (esGarantiaInput) {
+      esGarantiaInput.checked = esGarantiaVal;
+      const garFields = document.getElementById('garantia-fields');
+      if (garFields) garFields.style.display = esGarantiaVal ? 'grid' : 'none';
+    }
+    const garMec = document.getElementById('ord-mecanico-negligente-id');
+    if (garMec) garMec.value = o.mecanico_negligente_id ? String(o.mecanico_negligente_id) : '';
+    const garMotivo = document.getElementById('ord-garantia-motivo');
+    if (garMotivo) garMotivo.value = o.garantia_motivo || '';
+
     // Llenar fecha y hora de ingreso
     if (o.fecha_ingreso) {
       const d = new Date(o.fecha_ingreso);
@@ -2227,6 +2383,9 @@ async function guardarNuevaOrden(e) {
     fecha_ingreso_val = parsedDate.toISOString();
   }
 
+  const hasConductor = document.getElementById('ord-has-conductor')?.checked || false;
+  const es_garantia = document.getElementById('ord-es-garantia')?.checked || false;
+
   const data = {
     vehiculo_id: parseInt(document.getElementById('veh-select-id').value),
     cliente_id: parseInt(document.getElementById('cli-select-id').value),
@@ -2235,7 +2394,15 @@ async function guardarNuevaOrden(e) {
     nivel_combustible: document.getElementById('ord-combustible').value,
     falla_reportada: fallasText,
     diagnostico: diagnosticoObj,
-    fecha_ingreso: fecha_ingreso_val
+    fecha_ingreso: fecha_ingreso_val,
+    
+    // New fields
+    conductor_nombre: hasConductor ? document.getElementById('ord-conductor-nombre')?.value.trim() || null : null,
+    conductor_doc: hasConductor ? document.getElementById('ord-conductor-doc')?.value.trim() || null : null,
+    conductor_telefono: hasConductor ? document.getElementById('ord-conductor-telefono')?.value.trim() || null : null,
+    es_garantia,
+    garantia_motivo: es_garantia ? document.getElementById('ord-garantia-motivo')?.value.trim() || null : null,
+    mecanico_negligente_id: es_garantia ? (parseInt(document.getElementById('ord-mecanico-negligente-id')?.value) || null) : null
   };
 
   if (editingOrderId) {
@@ -2251,7 +2418,15 @@ async function guardarNuevaOrden(e) {
         repuestos_esperando: oExistente ? oExistente.repuestos_esperando : '',
         fecha_entrega: oExistente ? oExistente.fecha_entrega : null,
         nota_interna: oExistente ? oExistente.nota_interna : '',
-        fecha_ingreso: data.fecha_ingreso
+        fecha_ingreso: data.fecha_ingreso,
+        
+        // New fields
+        conductor_nombre: data.conductor_nombre,
+        conductor_doc: data.conductor_doc,
+        conductor_telefono: data.conductor_telefono,
+        es_garantia: data.es_garantia,
+        garantia_motivo: data.garantia_motivo,
+        mecanico_negligente_id: data.mecanico_negligente_id
       };
       
       await updateOrden(editingOrderId, updateData);
@@ -2312,6 +2487,30 @@ async function verDetalleOrden(id) {
 
     document.getElementById('det-falla').textContent = o.falla_reportada || '—';
 
+    // Conductor info
+    const condWrapper = document.getElementById('det-conductor-wrapper');
+    if (condWrapper) {
+      if (o.conductor_nombre) {
+        document.getElementById('det-conductor-nombre').textContent = o.conductor_nombre;
+        document.getElementById('det-conductor-doc-tel').textContent = `DNI: ${o.conductor_doc || '—'} | Tel: ${o.conductor_telefono || '—'}`;
+        condWrapper.style.display = 'block';
+      } else {
+        condWrapper.style.display = 'none';
+      }
+    }
+
+    // Garantia info
+    const garWrapper = document.getElementById('det-garantia-wrapper');
+    if (garWrapper) {
+      if (o.es_garantia) {
+        document.getElementById('det-garantia-mecanico').textContent = o.mecanico_negligente || 'No especificado';
+        document.getElementById('det-garantia-motivo').textContent = o.garantia_motivo || 'No especificado';
+        garWrapper.classList.remove('hidden');
+      } else {
+        garWrapper.classList.add('hidden');
+      }
+    }
+
     // Alerta repuestos
     const alertRep = document.getElementById('det-alerta-repuestos');
     if (o.estado === 'Esperando Repuestos' && o.repuestos_esperando) {
@@ -2326,15 +2525,19 @@ async function verDetalleOrden(id) {
     if (o.items.length === 0) {
       tbody.innerHTML = `<tr><td colspan="5" class="td-empty">No se han registrado insumos ni servicios en esta orden.</td></tr>`;
     } else {
-      tbody.innerHTML = o.items.map(it => `
-        <tr>
-          <td><strong>${it.descripcion}</strong>${it.repuesto_cod ? `<div style="font-size:10px;color:var(--slate-5);font-family:monospace;">SKU: ${it.repuesto_cod}</div>` : ''}</td>
-          <td><span class="badge ${it.tipo === 'almacen' ? 'badge-purple' : 'badge-slate'}">${it.tipo === 'almacen' ? 'Repuesto' : 'Mano Obra'}</span></td>
-          <td class="text-center font-bold">${it.cantidad}</td>
-          <td class="text-right font-mono">S/ ${parseFloat(it.precio_unitario).toFixed(2)}</td>
-          <td class="text-right font-mono font-bold">S/ ${(it.cantidad * parseFloat(it.precio_unitario)).toFixed(2)}</td>
-        </tr>
-      `).join('');
+      tbody.innerHTML = o.items.map(it => {
+        const precio = o.es_garantia ? 0.00 : parseFloat(it.precio_unitario);
+        const subtotal = o.es_garantia ? 0.00 : (it.cantidad * parseFloat(it.precio_unitario));
+        return `
+          <tr>
+            <td><strong>${it.descripcion}</strong>${it.repuesto_cod ? `<div style="font-size:10px;color:var(--slate-5);font-family:monospace;">SKU: ${it.repuesto_cod}</div>` : ''}</td>
+            <td><span class="badge ${it.tipo === 'almacen' ? 'badge-purple' : 'badge-slate'}">${it.tipo === 'almacen' ? 'Repuesto' : 'Mano Obra'}</span></td>
+            <td class="text-center font-bold">${it.cantidad}</td>
+            <td class="text-right font-mono">S/ ${precio.toFixed(2)}</td>
+            <td class="text-right font-mono font-bold">S/ ${subtotal.toFixed(2)}</td>
+          </tr>
+        `;
+      }).join('');
     }
 
     document.getElementById('det-total').textContent = `S/ ${parseFloat(o.total_estimado || 0).toFixed(2)}`;
@@ -3012,15 +3215,19 @@ function imprimirDocumento(tipo, o) {
   }
 
   const dateFormatted = safeFormatDate(o.fecha_ingreso || new Date(), { day:'numeric', month:'long', year:'numeric' });
-  const itemsHtml = o.items.map(it => `
-    <tr>
-      <td>${it.descripcion} ${it.repuesto_cod ? `[${it.repuesto_cod}]` : ''}</td>
-      <td style="text-align:center;">${it.tipo === 'almacen' ? 'Repuesto' : 'Mano Obra'}</td>
-      <td style="text-align:center;">${it.cantidad}</td>
-      ${tipo === 'nota' ? `<td style="text-align:right;">S/ ${parseFloat(it.precio_unitario).toFixed(2)}</td>` : ''}
-      ${tipo === 'nota' ? `<td style="text-align:right;">S/ ${(it.cantidad * parseFloat(it.precio_unitario)).toFixed(2)}</td>` : ''}
-    </tr>
-  `).join('');
+  const itemsHtml = o.items.map(it => {
+    const precio = o.es_garantia ? 0.00 : parseFloat(it.precio_unitario);
+    const subtotal = o.es_garantia ? 0.00 : (it.cantidad * parseFloat(it.precio_unitario));
+    return `
+      <tr>
+        <td>${it.descripcion} ${it.repuesto_cod ? `[${it.repuesto_cod}]` : ''}</td>
+        <td style="text-align:center;">${it.tipo === 'almacen' ? 'Repuesto' : 'Mano Obra'}</td>
+        <td style="text-align:center;">${it.cantidad}</td>
+        ${tipo === 'nota' ? `<td style="text-align:right;">S/ ${precio.toFixed(2)}</td>` : ''}
+        ${tipo === 'nota' ? `<td style="text-align:right;">S/ ${subtotal.toFixed(2)}</td>` : ''}
+      </tr>
+    `;
+  }).join('');
 
   let diagnosticoHtml = '';
   if (diag && Object.keys(diag).length > 0 && tipo === 'nota') {
@@ -3119,6 +3326,14 @@ function imprimirDocumento(tipo, o) {
         <h3 style="margin:12px 0 0;text-transform:uppercase;font-size:12px;border-top:1px dashed #000;padding-top:8px;font-weight:bold;">Nota Interna de Entrega</h3>
       </div>
 
+      ${o.es_garantia ? `
+      <div style="background:#fee2e2; border:1px dashed #fca5a5; color:#991b1b; padding:6px; text-align:center; font-weight:bold; font-size:10px; border-radius:4px; margin-bottom:10px; text-transform:uppercase; line-height:1.2;">
+        ⚠️ COMPROBANTE DE GARANTÍA (S/ 0.00)<br>
+        <span style="font-size:9px; font-weight:normal;">Mecánico Resp.: ${o.mecanico_negligente || '—'}</span><br>
+        <span style="font-size:9px; font-weight:normal; font-style:italic;">Motivo: ${o.garantia_motivo || '—'}</span>
+      </div>
+      ` : ''}
+
       <div style="font-size:11px;line-height:1.4;display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:15px;background:#f8fafc;padding:8px;border-radius:6px;border:1px solid #e2e8f0;">
         <div><strong>N° Expediente:</strong> OS-${o.id}</div>
         <div><strong>Fecha/Hora Ingreso:</strong> ${safeFormatDateTime(o.fecha_ingreso)}</div>
@@ -3129,6 +3344,11 @@ function imprimirDocumento(tipo, o) {
         <div><strong>Combustible:</strong> ${o.nivel_combustible || '—'}</div>
         ${estEntregaFormatted ? `<div><strong>Est. Entrega:</strong> ${estEntregaFormatted}</div>` : ''}
         ${o.fecha_entrega ? `<div><strong>Salida Real:</strong> ${safeFormatDateTime(o.fecha_entrega)}</div>` : ''}
+        ${o.conductor_nombre ? `
+        <div style="grid-column: span 2; border-top:1px dashed #ccc; padding-top:4px; margin-top:4px;">
+          <strong>🚗 Conductor que entrega:</strong> ${o.conductor_nombre} ${o.conductor_doc ? `(DNI: ${o.conductor_doc})` : ''}
+        </div>
+        ` : ''}
       </div>
 
       <h4 style="margin:15px 0 5px;text-transform:uppercase;font-size:11px;border-bottom:1px solid #000;padding-bottom:2px;">Trabajos y Repuestos Detallados</h4>
@@ -3168,8 +3388,8 @@ function imprimirDocumento(tipo, o) {
             ${diag && diag.firma_cliente ? `<img src="${diag.firma_cliente}" class="vargas-print-sig-img" style="max-height:50px; display:block; margin:0 auto;" alt="Firma Cliente" />` : ''}
           </div>
           <div class="vargas-print-sig-line" style="border-top:1px solid #000; padding-top:4px;">
-            Firma de Conformidad Cliente<br>
-            <strong>DNI/RUC:</strong> ${o.num_doc || '___________________'}
+            Firma de Conformidad ${o.conductor_nombre ? 'Conductor (Físico)' : 'Cliente'}<br>
+            <strong>DNI/RUC:</strong> ${o.conductor_nombre ? (o.conductor_doc || '___________________') : (o.num_doc || '___________________')}
           </div>
         </div>
       </div>
@@ -3217,6 +3437,14 @@ function imprimirDocumento(tipo, o) {
     const chassisSvg = generatePrintSVG(damagePoints);
 
     printArea.innerHTML = `
+      ${o.es_garantia ? `
+      <div style="background:#fee2e2; border:1px solid #fca5a5; color:#991b1b; padding:8px; text-align:center; font-weight:bold; font-size:12px; border-radius:4px; margin-bottom:8px; text-transform:uppercase;">
+        ⚠️ ORDEN DE SERVICIO POR GARANTÍA DE NEGLIGENCIA (COSTO AL CLIENTE: S/ 0.00)
+        ${o.mecanico_negligente ? `<br><span style="font-size:10px; font-weight:normal;">Mecánico responsable del evento: ${o.mecanico_negligente}</span>` : ''}
+        ${o.garantia_motivo ? `<br><span style="font-size:10px; font-weight:normal; font-style:italic;">Motivo: ${o.garantia_motivo}</span>` : ''}
+      </div>
+      ` : ''}
+
       <!-- Cabecera Corporativa -->
       <div class="vargas-print-header">
         <div class="vargas-print-logo-wrap">
@@ -3242,6 +3470,15 @@ function imprimirDocumento(tipo, o) {
             <td style="width: 50%;"><strong>Nombre / RS:</strong> ${o.cliente || '—'}</td>
             <td style="width: 50%;"><strong>Clase/Tipo:</strong> ${o.vehiculo_clase || '—'}</td>
           </tr>
+          ${o.conductor_nombre ? `
+          <tr>
+            <td colspan="2" style="background:#f8fafc; border-top:1px dashed #cbd5e1; border-bottom:1px dashed #cbd5e1; padding: 4px 8px;">
+              <strong>🚗 Conductor que deja el vehículo físicamente:</strong> ${o.conductor_nombre} 
+              ${o.conductor_doc ? `&nbsp;&nbsp;&nbsp;&nbsp;<strong>DNI:</strong> ${o.conductor_doc}` : ''}
+              ${o.conductor_telefono ? `&nbsp;&nbsp;&nbsp;&nbsp;<strong>Teléfono:</strong> ${o.conductor_telefono}` : ''}
+            </td>
+          </tr>
+          ` : ''}
           <tr>
             <td><strong>Dirección:</strong> ${o.cliente_direccion || '—'}</td>
             <td><strong>Color:</strong> ${o.vehiculo_color || '—'}</td>
@@ -3351,8 +3588,8 @@ function imprimirDocumento(tipo, o) {
             ${diag && diag.firma_cliente ? `<img src="${diag.firma_cliente}" class="vargas-print-sig-img" alt="Firma Cliente" />` : ''}
           </div>
           <div class="vargas-print-sig-line">
-            Firma de Conformidad Cliente<br>
-            <strong>DNI/RUC:</strong> ${o.num_doc || '___________________'}
+            Firma de Conformidad ${o.conductor_nombre ? 'Conductor (Físico)' : 'Cliente'}<br>
+            <strong>DNI/RUC:</strong> ${o.conductor_nombre ? (o.conductor_doc || '___________________') : (o.num_doc || '___________________')}
           </div>
         </div>
         <div class="vargas-print-sig-box">

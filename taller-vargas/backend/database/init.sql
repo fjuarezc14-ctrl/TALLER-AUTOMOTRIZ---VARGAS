@@ -66,6 +66,12 @@ CREATE TABLE IF NOT EXISTS ordenes_servicio (
   fecha_ingreso TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
   fecha_entrega TIMESTAMP WITH TIME ZONE,
   nota_interna TEXT,
+  conductor_nombre VARCHAR(255),
+  conductor_doc VARCHAR(20),
+  conductor_telefono VARCHAR(20),
+  es_garantia BOOLEAN DEFAULT FALSE,
+  garantia_motivo TEXT,
+  mecanico_negligente_id INTEGER REFERENCES mecanicos(id),
   diagnostico JSONB DEFAULT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
@@ -189,15 +195,19 @@ CREATE VIEW v_ordenes_completas AS
 SELECT os.id, os.cliente_id, os.vehiculo_id, os.mecanico_id, os.estado, os.kilometraje, os.nivel_combustible, os.falla_reportada,
   os.repuestos_esperando, os.total_estimado, os.fecha_ingreso, os.fecha_entrega,
   os.nota_interna, os.created_at, os.diagnostico,
+  os.conductor_nombre, os.conductor_doc, os.conductor_telefono,
+  os.es_garantia, os.garantia_motivo, os.mecanico_negligente_id,
   v.placa, v.marca_modelo AS vehiculo, v.anio,
   v.n_motor AS vehiculo_motor, v.color AS vehiculo_color, v.tipo_vehiculo AS vehiculo_clase,
   c.nombre AS cliente, c.telefono, c.telefono AS cliente_telefono, c.num_doc, c.tipo_doc, c.direccion AS cliente_direccion,
   m.nombre AS mecanico,
+  m_neg.nombre AS mecanico_negligente,
   co.id AS cobro_id, co.estado AS cobro_estado
 FROM ordenes_servicio os
 LEFT JOIN vehiculos v ON os.vehiculo_id = v.id
 LEFT JOIN clientes c ON os.cliente_id = c.id
 LEFT JOIN mecanicos m ON os.mecanico_id = m.id
+LEFT JOIN mecanicos m_neg ON os.mecanico_negligente_id = m_neg.id
 LEFT JOIN cobros co ON co.orden_id = os.id;
 
 

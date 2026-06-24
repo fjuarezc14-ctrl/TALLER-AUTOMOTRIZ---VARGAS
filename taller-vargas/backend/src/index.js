@@ -16,7 +16,7 @@ import dashboardRouter  from "./routes/dashboard.js";
 // Redefinir la vista v_ordenes_completas para incluir la columna diagnostico y cliente_telefono
 async function runDbMigrations() {
   try {
-    // Eliminar la vista primero para poder alterar los tipos de columna que la referencian
+    // Eliminar la vista primero para poder alterar los tipos de columna o añadir nuevas referenciadas
     await query(`DROP VIEW IF EXISTS v_ordenes_completas CASCADE;`);
     // Migrar columnas de la tabla a TIMESTAMP WITH TIME ZONE para soportar hora exacta
     await query(`
@@ -24,23 +24,36 @@ async function runDbMigrations() {
       ALTER TABLE ordenes_servicio ALTER COLUMN fecha_ingreso SET DEFAULT NOW();
       ALTER TABLE ordenes_servicio ALTER COLUMN fecha_entrega TYPE TIMESTAMP WITH TIME ZONE;
     `);
+    // Añadir nuevas columnas operativas y de garantía si no existen
+    await query(`
+      ALTER TABLE ordenes_servicio ADD COLUMN IF NOT EXISTS conductor_nombre VARCHAR(255);
+      ALTER TABLE ordenes_servicio ADD COLUMN IF NOT EXISTS conductor_doc VARCHAR(20);
+      ALTER TABLE ordenes_servicio ADD COLUMN IF NOT EXISTS conductor_telefono VARCHAR(20);
+      ALTER TABLE ordenes_servicio ADD COLUMN IF NOT EXISTS es_garantia BOOLEAN DEFAULT FALSE;
+      ALTER TABLE ordenes_servicio ADD COLUMN IF NOT EXISTS garantia_motivo TEXT;
+      ALTER TABLE ordenes_servicio ADD COLUMN IF NOT EXISTS mecanico_negligente_id INTEGER;
+    `);
     await query(`
       CREATE VIEW v_ordenes_completas AS
       SELECT os.id, os.cliente_id, os.vehiculo_id, os.mecanico_id, os.estado, os.kilometraje, os.nivel_combustible, os.falla_reportada,
         os.repuestos_esperando, os.total_estimado, os.fecha_ingreso, os.fecha_entrega,
         os.nota_interna, os.created_at, os.diagnostico,
+        os.conductor_nombre, os.conductor_doc, os.conductor_telefono,
+        os.es_garantia, os.garantia_motivo, os.mecanico_negligente_id,
         v.placa, v.marca_modelo AS vehiculo, v.anio,
         v.n_motor AS vehiculo_motor, v.color AS vehiculo_color, v.tipo_vehiculo AS vehiculo_clase,
         c.nombre AS cliente, c.telefono, c.telefono AS cliente_telefono, c.num_doc, c.tipo_doc, c.direccion AS cliente_direccion,
         m.nombre AS mecanico,
+        m_neg.nombre AS mecanico_negligente,
         co.id AS cobro_id, co.estado AS cobro_estado
       FROM ordenes_servicio os
       LEFT JOIN vehiculos v ON os.vehiculo_id = v.id
       LEFT JOIN clientes c ON os.cliente_id = c.id
       LEFT JOIN mecanicos m ON os.mecanico_id = m.id
+      LEFT JOIN mecanicos m_neg ON os.mecanico_negligente_id = m_neg.id
       LEFT JOIN cobros co ON co.orden_id = os.id;
     `);
-    console.log("[DB] Vista v_ordenes_completas actualizada satisfactoriamente");
+    console.log("[DB] Vista v_ordenes_completas y columnas actualizadas satisfactoriamente");
   } catch (err) {
     console.error("[DB ERROR] Error al ejecutar migración de la vista v_ordenes_completas:", err.message);
   }
