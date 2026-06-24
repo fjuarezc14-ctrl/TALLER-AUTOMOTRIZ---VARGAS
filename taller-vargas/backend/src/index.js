@@ -16,13 +16,14 @@ import dashboardRouter  from "./routes/dashboard.js";
 // Redefinir la vista v_ordenes_completas para incluir la columna diagnostico y cliente_telefono
 async function runDbMigrations() {
   try {
+    // Eliminar la vista primero para poder alterar los tipos de columna que la referencian
+    await query(`DROP VIEW IF EXISTS v_ordenes_completas CASCADE;`);
     // Migrar columnas de la tabla a TIMESTAMP WITH TIME ZONE para soportar hora exacta
     await query(`
       ALTER TABLE ordenes_servicio ALTER COLUMN fecha_ingreso TYPE TIMESTAMP WITH TIME ZONE;
       ALTER TABLE ordenes_servicio ALTER COLUMN fecha_ingreso SET DEFAULT NOW();
       ALTER TABLE ordenes_servicio ALTER COLUMN fecha_entrega TYPE TIMESTAMP WITH TIME ZONE;
     `);
-    await query(`DROP VIEW IF EXISTS v_ordenes_completas CASCADE;`);
     await query(`
       CREATE VIEW v_ordenes_completas AS
       SELECT os.id, os.cliente_id, os.vehiculo_id, os.mecanico_id, os.estado, os.kilometraje, os.nivel_combustible, os.falla_reportada,
