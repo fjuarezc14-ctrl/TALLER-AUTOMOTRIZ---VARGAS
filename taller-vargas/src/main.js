@@ -130,4 +130,56 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
+// Redefinir window.alert globalmente para mostrar notificaciones Toast autodesvanecibles
+window.alert = function(message) {
+  let container = document.getElementById('toast-container');
+  if (!container) {
+    container = document.createElement('div');
+    container.id = 'toast-container';
+    container.style.cssText = 'position:fixed;bottom:24px;right:24px;z-index:99999;display:flex;flex-direction:column;gap:10px;pointer-events:none;max-width:380px;width:calc(100% - 48px);';
+    document.body.appendChild(container);
+  }
+
+  const toast = document.createElement('div');
+  toast.className = 'toast-notification';
+  
+  let type = 'info';
+  let icon = 'ℹ️';
+  let cleanMessage = message;
+
+  // Clasificar tipo según contenido
+  if (message.includes('✅') || message.toLowerCase().includes('éxito') || message.toLowerCase().includes('correctamente') || message.toLowerCase().includes('confirmada')) {
+    type = 'success';
+    icon = '🟢';
+    cleanMessage = message.replace('✅', '').trim();
+  } else if (message.includes('❌') || message.includes('⚠️') || message.toLowerCase().includes('error') || message.toLowerCase().includes('fallo') || message.toLowerCase().includes('no puedes') || message.toLowerCase().includes('no hay')) {
+    type = 'error';
+    icon = '🔴';
+    cleanMessage = message.replace('❌', '').replace('⚠️', '').trim();
+  } else if (message.includes('🔄') || message.includes('💾')) {
+    type = 'success';
+    icon = '🟢';
+    cleanMessage = message.replace('🔄', '').replace('💾', '').trim();
+  }
+
+  toast.innerHTML = `
+    <div class="toast-icon">${icon}</div>
+    <div class="toast-message">${cleanMessage}</div>
+  `;
+  
+  toast.classList.add(type);
+  container.appendChild(toast);
+
+  // Desvanecer automáticamente tras 3.5 segundos
+  setTimeout(() => {
+    toast.classList.add('fade-out');
+    toast.addEventListener('animationend', () => {
+      toast.remove();
+      if (container.childElementCount === 0) {
+        container.remove();
+      }
+    });
+  }, 3500);
+};
+
 init().catch(console.error);
