@@ -91,3 +91,7 @@ export const dividirCobro   = (id, d)  => request(`/cobros/${id}/dividir`, { met
 export const getArchivos    = ()       => request('/archivos');
 export const createArchivo  = (data)   => request('/archivos', { method: 'POST', body: data });
 export const deleteArchivo  = (id)     => request(`/archivos/${id}`, { method: 'DELETE' });
+
+// ── Confirmación Pública del Cliente ──────────────────────
+export const getOrdenPublica = (id) => request(`/ordenes/${id}/publica`);
+export const confirmarOrdenPublica = (id) => request(`/ordenes/${id}/confirmar`, { method: 'POST' });

@@ -1910,7 +1910,13 @@ function renderModales() {
           </div>
 
         </div>
-        <div class="modal-footer">
+        <div class="modal-footer" style="display:flex; justify-content:space-between; width:100%; align-items:center;">
+          <button class="btn-success" id="btn-share-whatsapp" style="display:none; gap:6px; align-items:center; background:#22c55e; border:none; color:#fff; padding:8px 16px; border-radius:var(--radius-md); font-weight:700; cursor:pointer;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" style="margin-right:4px; display:inline-block; vertical-align:middle;">
+              <path d="M13.601 2.326A7.85 7.85 0 0 0 8 0a7.86 7.86 0 0 0-6.68 11.754l-.533 1.956a.375.375 0 0 0 .425.474l2.008-.527A7.85 7.85 0 0 0 8 16a7.86 7.86 0 0 0 6.68-11.754H13.6zM8 14.5a6.52 6.52 0 0 1-3.376-.94l-.242-.14-1.258.33.336-1.233-.153-.244A6.5 6.5 0 0 1 1.5 8a6.5 6.5 0 0 1 6.5-6.5A6.5 6.5 0 0 1 14.5 8 6.5 6.5 0 0 1 8 14.5z"/>
+            </svg>
+            Compartir Presupuesto (WhatsApp)
+          </button>
           <button class="btn-primary" id="btn-close-costos-cancel">Terminado</button>
         </div>
       </div>
@@ -3028,6 +3034,30 @@ async function abrirModalCostos(id) {
   const formAgregarCosto = document.getElementById('form-agregar-costo');
   const diagnosticoBox = document.getElementById('diagnostico-preventivo-box');
   const btnCerrar = document.getElementById('btn-close-costos-cancel');
+  const btnShareWhatsapp = document.getElementById('btn-share-whatsapp');
+
+  if (o.estado === 'Diagnostico') {
+    btnShareWhatsapp.style.display = 'flex';
+    btnShareWhatsapp.onclick = () => {
+      let telefonoClean = (o.cliente_telefono || '').replace(/\D/g, '');
+      if (telefonoClean.length === 9) {
+        telefonoClean = '51' + telefonoClean;
+      }
+      const msg = `Estimado(a) ${o.cliente || 'Cliente'}, le saludamos de Inversiones y Servicios Vargas E.I.R.L. Cajamarca.
+
+Hemos realizado el diagnóstico de su vehículo ${o.vehiculo || ''} con placa ${o.placa || ''}.
+
+Puede revisar el presupuesto detallado de repuestos/servicios y autorizar digitalmente el inicio de los trabajos ingresando aquí:
+${window.location.origin}/confirmar?id=${o.id}
+
+Quedamos atentos a su aprobación para proceder con la reparación.`;
+
+      const url = `https://wa.me/${telefonoClean}?text=${encodeURIComponent(msg)}`;
+      window.open(url, '_blank');
+    };
+  } else {
+    btnShareWhatsapp.style.display = 'none';
+  }
 
   if (esReadOnly) {
     formAgregarCosto.style.display = 'none';

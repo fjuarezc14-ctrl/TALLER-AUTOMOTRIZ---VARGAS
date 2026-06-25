@@ -13,17 +13,41 @@ const routes = {
   '/facturacion':  () => import('./pages/facturacion.js'),
   '/archivos':     () => import('./pages/archivos.js'),
   '/taller':       () => import('./pages/operaciones.js'),
+  '/confirmar':    () => import('./pages/confirmar.js'),
 };
 
 let currentModule = null;
 
 export async function navigate(path = '/') {
-  const loader = routes[path] || routes['/'];
+  const pathname = path.split('?')[0];
+  const matchedPath = pathname.startsWith('/confirmar') ? '/confirmar' : pathname;
   
+  const loader = routes[matchedPath] || routes['/'];
+  
+  const sidebar = document.getElementById('sidebar-menu');
+  const menuBtn = document.getElementById('btn-menu-toggle');
+  const mainParent = document.querySelector('.flex-1.flex.flex-col.overflow-hidden.relative');
+
+  if (matchedPath === '/confirmar') {
+    if (sidebar) sidebar.style.display = 'none';
+    if (menuBtn) menuBtn.style.display = 'none';
+    if (mainParent) {
+      mainParent.style.padding = '0';
+      mainParent.style.margin = '0';
+    }
+  } else {
+    if (sidebar) sidebar.style.display = '';
+    if (menuBtn) menuBtn.style.display = '';
+    if (mainParent) {
+      mainParent.style.padding = '';
+      mainParent.style.margin = '';
+    }
+  }
+
   // Actualizar sidebar activo
   document.querySelectorAll('.sidebar-item').forEach(el => {
     const route = el.dataset.route;
-    const isActive = (route === path) || (route === '/operaciones' && path === '/taller');
+    const isActive = (route === matchedPath) || (route === '/operaciones' && matchedPath === '/taller');
     el.classList.toggle('sidebar-active', isActive);
   });
 
@@ -44,7 +68,6 @@ export async function navigate(path = '/') {
   }
 
   // Cerrar sidebar si está abierto en móvil
-  const sidebar = document.getElementById('sidebar-menu');
   const backdrop = document.getElementById('sidebar-backdrop');
   if (sidebar && sidebar.classList.contains('sidebar-open')) {
     sidebar.classList.remove('sidebar-open');
