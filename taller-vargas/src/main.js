@@ -93,4 +93,41 @@ window.toggleSubmenu = function(id, btnEl) {
 // Aplicar tema guardado al cargar
 applyTheme(localStorage.getItem('vg-theme') || 'light');
 
+// Cerrar ventanas emergentes (modales) al presionar la tecla Escape
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    // 1. Modales estándar con clase .modal-overlay
+    const activeModal = document.querySelector('.modal-overlay.active');
+    if (activeModal) {
+      const closeBtn = activeModal.querySelector('.modal-close');
+      if (closeBtn) {
+        closeBtn.click();
+        return;
+      }
+
+      const cancelBtn = activeModal.querySelector('button[id*="cancel"], button[id*="close"]');
+      if (cancelBtn) {
+        cancelBtn.click();
+        return;
+      }
+
+      activeModal.classList.remove('active');
+      return;
+    }
+
+    // 2. Modales de operaciones con clase .ops-modal-overlay
+    const activeOpsModal = document.querySelector('.ops-modal-overlay');
+    if (activeOpsModal) {
+      const cancelBtn = activeOpsModal.querySelector('button[id*="cancel"]');
+      if (cancelBtn) {
+        cancelBtn.click();
+        return;
+      }
+      
+      const modales = document.getElementById('ops-modales');
+      if (modales) modales.innerHTML = '';
+    }
+  }
+});
+
 init().catch(console.error);
