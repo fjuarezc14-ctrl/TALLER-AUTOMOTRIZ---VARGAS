@@ -1125,6 +1125,7 @@ function renderPage() {
   document.getElementById('btn-close-costos-cancel').addEventListener('click', cerrarModalCostos);
   document.getElementById('form-agregar-costo').addEventListener('submit', guardarCostoItem);
   document.getElementById('item-tipo').addEventListener('change', toggleTipoCostoForm);
+  document.getElementById('item-precio').addEventListener('input', checkPrecioEmpresaSugerido);
 
   // Escuchar eventos dinámicos en la tabla
   document.getElementById('tabla-ordenes-body').addEventListener('click', (e) => {
@@ -1879,6 +1880,7 @@ function renderModales() {
               <div class="form-group">
                 <label class="form-label">Precio Unit. (S/)</label>
                 <input type="number" id="item-precio" step="0.01" min="0" class="form-input text-right font-mono" required placeholder="0.00" />
+                <div id="precio-sugerido-empresa-wrapper" style="display:none;"></div>
               </div>
             </div>
 
@@ -2971,6 +2973,7 @@ window.prellenarCostoForm = function(tipoComponente, metodo, textoSugerido) {
     descManual.value = descText;
     cantInput.value = 1;
     precioInput.value = '';
+    checkPrecioEmpresaSugerido();
 
     triggerFlash(tipoSelect);
     triggerFlash(descManual);
@@ -2990,6 +2993,7 @@ window.prellenarCostoForm = function(tipoComponente, metodo, textoSugerido) {
       repSelect.value = matched.codigo;
       precioInput.value = parseFloat(matched.precio_venta).toFixed(2);
       cantInput.value = 1;
+      checkPrecioEmpresaSugerido();
 
       triggerFlash(tipoSelect);
       triggerFlash(repSelect);
@@ -3131,6 +3135,7 @@ function toggleTipoCostoForm() {
       const opt = selectRepuesto.options[selectRepuesto.selectedIndex];
       if (opt && opt.dataset.precio) {
         priceInput.value = parseFloat(opt.dataset.precio).toFixed(2);
+        checkPrecioEmpresaSugerido();
       }
     };
   } else {
@@ -3141,6 +3146,7 @@ function toggleTipoCostoForm() {
     selectRepuesto.value = '';
     selectRepuesto.onchange = null;
     priceInput.value = '';
+    checkPrecioEmpresaSugerido();
   }
 }
 
@@ -3177,6 +3183,7 @@ async function guardarCostoItem(e) {
     document.getElementById('item-repuesto-select').value = '';
     document.getElementById('item-precio').value = '';
     document.getElementById('item-cantidad').value = 1;
+    checkPrecioEmpresaSugerido();
     
     await actualizarListasSegundoPlano();
     await refrescarVistaCostos(ordenId);
@@ -3620,6 +3627,50 @@ function imprimirDocumento(tipo, o) {
   } else {
     runPrint();
   }
+}
+
+function checkPrecioEmpresaSugerido() {
+  const ordenId = document.getElementById('costos-orden-id').value;
+  const priceInput = document.getElementById('item-precio');
+  const wrapper = document.getElementById('precio-sugerido-empresa-wrapper');
+  
+  if (!wrapper) return;
+  if (!ordenId) {
+    wrapper.style.display = 'none';
+    return;
+  }
+  
+  const o = ordenesList.find(item => item.id == ordenId);
+  const client = o ? clientesList.find(c => c.id == o.cliente_id) : null;
+  const esEmpresa = client && (client.tipo_doc === 'RUC' || String(client.num_doc).length === 11);
+  
+  if (!esEmpresa) {
+    wrapper.style.display = 'none';
+    return;
+  }
+  
+  const basePrice = parseFloat(priceInput.value) || 0;
+  if (basePrice <= 0) {
+    wrapper.style.display = 'none';
+    return;
+  }
+  
+  const precioEmpresa = basePrice * 1.10; // +10% sugerido
+  
+  wrapper.style.display = 'block';
+  wrapper.style.marginTop = '4px';
+  wrapper.style.fontSize = '11px';
+  wrapper.style.color = '#c2410c';
+  wrapper.style.fontWeight = '500';
+  wrapper.innerHTML = `🏢 Cliente RUC (Empresa). Tarifa corporativa sugerida: <a href="#" id="btn-aplicar-precio-empresa" style="font-weight:700; text-decoration:underline; color:#ea580c; cursor:pointer;">S/ ${precioEmpresa.toFixed(2)} (+10%)</a>`;
+  
+  document.getElementById('btn-aplicar-precio-empresa').onclick = (e) => {
+    e.preventDefault();
+    priceInput.value = precioEmpresa.toFixed(2);
+    priceInput.classList.add('flash-success');
+    setTimeout(() => priceInput.classList.remove('flash-success'), 1200);
+    wrapper.style.display = 'none';
+  };
 }
 
 export function destroy() {}
