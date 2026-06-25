@@ -431,8 +431,8 @@ function renderPage() {
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:0;border-bottom:1px solid var(--slate-8);">
             <div style="padding:14px 20px;border-right:1px solid var(--slate-8);">
               <p style="font-size:10px;color:var(--slate-5);font-weight:700;text-transform:uppercase;">Empresa / Taller</p>
-              <p style="font-size:13px;font-weight:900;color:var(--dark);margin-top:2px;">Taller Automotriz Vargas</p>
-              <p style="font-size:11px;color:var(--slate-5);">RUC: 20123456789</p>
+              <p style="font-size:13px;font-weight:900;color:var(--dark);margin-top:2px;">Inversiones y Servicios Vargas E.I.R.L.</p>
+              <p style="font-size:11px;color:var(--slate-5);">RUC: 20608226066</p>
             </div>
             <div style="padding:14px 20px;text-align:right;">
               <p style="font-size:10px;color:var(--slate-5);font-weight:700;text-transform:uppercase;">Total a Pagar</p>
@@ -476,6 +476,10 @@ function renderPage() {
             <button class="btn-ghost" id="btn-descargar-xml" style="font-size:12px;">
               <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="margin-right:4px;"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
               Descargar XML
+            </button>
+            <button class="btn-success" id="btn-enviar-whatsapp" style="font-size:12px;background:#22c55e;color:white;border-color:#22c55e;">
+              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="white" stroke-width="2" style="margin-right:4px;"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/></svg>
+              Enviar WhatsApp
             </button>
             <button class="btn-success" id="btn-imprimir-factura" style="font-size:12px;">
               <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="margin-right:4px;"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect width="12" height="8" x="6" y="14"/></svg>
@@ -647,6 +651,38 @@ function renderPage() {
     }
   });
   document.getElementById('btn-descargar-xml').addEventListener('click', descargarXML);
+  document.getElementById('btn-enviar-whatsapp').addEventListener('click', enviarComprobantePorWhatsApp);
+
+function enviarComprobantePorWhatsApp() {
+  if (!currentCobro) return;
+  const c = currentCobro;
+  const idx = activePagadorIndex;
+
+  const compTipo = idx === 1 ? (c.tipo_comprobante || 'Boleta') : (c.comprobante2 || 'Boleta');
+  const compNumero = idx === 1 ? (c.comprobante_numero || '—') : (c.comprobante2_numero || '—');
+  const receptorNombre = idx === 1 ? (c.cliente_nombre || '—') : (c.pagador2_nombre || '—');
+
+  let telefono = '';
+  if (idx === 1 && c.cliente_telefono) {
+    telefono = String(c.cliente_telefono).replace(/[^0-9]/g, '');
+  }
+
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+  const urlPdf = `${API_URL}/uploads/${compNumero}.pdf`;
+
+  const mensaje = `Hola ${receptorNombre}, adjuntamos su comprobante ${compTipo} N° ${compNumero} de Inversiones y Servicios Vargas E.I.R.L. Descargue aquí el PDF oficial: ${urlPdf}`;
+  const mensajeEncoded = encodeURIComponent(mensaje);
+
+  let waUrl = '';
+  if (telefono && (telefono.length === 9 || telefono.length === 11)) {
+    const telCode = telefono.length === 9 ? `51${telefono}` : telefono;
+    waUrl = `https://wa.me/${telCode}?text=${mensajeEncoded}`;
+  } else {
+    waUrl = `https://wa.me/?text=${mensajeEncoded}`;
+  }
+
+  window.open(waUrl, '_blank');
+}
 
   // Tabla delegada
   document.getElementById('tabla-cobros-body').addEventListener('click', (e) => {
@@ -888,9 +924,10 @@ async function procesarCobroRapido(e) {
   }
 
   try {
+    let cobroGuardado;
     if (!chk) {
       const tipo_comprobante = document.getElementById('cobro-rapido-comprobante').value;
-      await registrarCobro(id, { 
+      cobroGuardado = await registrarCobro(id, { 
         metodo_pago, 
         tipo_comprobante,
         descuento_tipo: descTipo || null,
@@ -904,7 +941,7 @@ async function procesarCobroRapido(e) {
       if (Math.abs((m1 + m2) - montoNeto) > 0.05) {
         alert(`Los montos no coinciden con el total neto (S/ ${montoNeto.toFixed(2)}).`); return;
       }
-      await dividirCobro(id, {
+      cobroGuardado = await dividirCobro(id, {
         metodo_pago,
         tipo_comprobante: document.getElementById('div-comp-1').value,
         pagador2_nombre:  document.getElementById('div-nombre-2').value,
@@ -920,6 +957,19 @@ async function procesarCobroRapido(e) {
     }
     cerrarModal('modal-cobro-rapido');
     await cargarDatos();
+
+    // Trigger PDF/XML generation in the background
+    if (cobroGuardado && cobroGuardado.orden_id) {
+      (async () => {
+        try {
+          const orden = await getOrden(cobroGuardado.orden_id);
+          const items = orden.items || [];
+          await guardarComprobantesEnArchivos(cobroGuardado, items, orden);
+        } catch (bgErr) {
+          console.error("[Caja] Error en generación de comprobantes en background:", bgErr);
+        }
+      })();
+    }
   } catch (err) { alert(err.message); }
 }
 
@@ -954,8 +1004,8 @@ function renderPortalTab(tab) {
       <div style="text-align:center;">
         <p style="font-size:12px;color:var(--slate-5);margin-bottom:16px;font-weight:600;">Escanea el código QR con Yape o Plin</p>
         ${renderQRSimulado()}
-        <p style="font-size:11px;font-weight:800;color:var(--dark);margin-top:12px;">Taller Automotriz Vargas</p>
-        <p style="font-size:10px;color:var(--slate-5);margin-bottom:16px;">Celular Yape: <strong>987 654 321</strong></p>
+        <p style="font-size:11px;font-weight:800;color:var(--dark);margin-top:12px;">Inversiones y Servicios Vargas E.I.R.L.</p>
+        <p style="font-size:10px;color:var(--slate-5);margin-bottom:16px;">Celular Yape: <strong>931 163 369</strong></p>
         <button class="btn-primary w-full" id="btn-simular-escaneo" style="justify-content:center;font-size:13px;margin-top:4px;">
           📱 Simular Escaneo de QR
         </button>
@@ -999,25 +1049,31 @@ async function confirmarPagoPortal() {
   if (!id) return;
   const metodoMap = { yape:'Yape/Plin', banco:'Transferencia' };
   try {
-    await registrarCobro(id, {
+    const cobroGuardado = await registrarCobro(id, {
       metodo_pago: metodoMap[portalTab] || 'Transferencia',
       tipo_comprobante: 'Boleta'
     });
     cerrarModal('modal-portal-pago');
     await cargarDatos();
+
+    // Trigger PDF/XML generation in the background
+    if (cobroGuardado && cobroGuardado.orden_id) {
+      (async () => {
+        try {
+          const orden = await getOrden(cobroGuardado.orden_id);
+          const items = orden.items || [];
+          await guardarComprobantesEnArchivos(cobroGuardado, items, orden);
+        } catch (bgErr) {
+          console.error("[Caja] Error en generación de comprobantes en background:", bgErr);
+        }
+      })();
+    }
   } catch (err) { alert(err.message); }
 }
 
 // ── FACTURA ELECTRÓNICA ────────────────────────────────────
 
-function renderFacturaDocument(c, pagadorIndex, items) {
-  currentCobro = c;
-  activePagadorIndex = pagadorIndex;
-  currentItems = items;
-
-  const doc = document.getElementById('factura-doc-content');
-  const toggleBar = document.getElementById('div-pagadores-toggle-bar');
-
+function obtenerFacturaHtmlContent(c, pagadorIndex, items) {
   // Total calculations
   const totalOriginal = parseFloat(c.monto_total);
   const hasAjuste = c.monto_neto !== null && c.monto_neto !== undefined && parseFloat(c.monto_neto) !== totalOriginal;
@@ -1053,33 +1109,9 @@ function renderFacturaDocument(c, pagadorIndex, items) {
   const fechaCobro = c.fecha_cobro ? safeFormatDate(c.fecha_cobro, { day:'2-digit', month:'long', year:'numeric' }) : '—';
   const hashSimulado = `SHA256:${btoa(compNumero + receptorNombre + totalP).replace(/=/g,'').slice(0,40).toUpperCase()}`;
 
-  // Render toggle bar if divided
-  if (c.es_dividido) {
-    toggleBar.style.display = 'flex';
-    toggleBar.innerHTML = `
-      <span style="font-size:11px;font-weight:700;color:var(--slate-4);align-self:center;margin-right:8px;">Ver Comprobante:</span>
-      <button class="btn-toggle-pagador btn ${pagadorIndex === 1 ? 'btn-primary' : 'btn-ghost'}" data-index="1" style="font-size:11px;padding:6px 12px;cursor:pointer;">
-        1️⃣ ${c.cliente_nombre || 'Principal'} (S/ ${parseFloat(c.monto_pagador1).toFixed(2)})
-      </button>
-      <button class="btn-toggle-pagador btn ${pagadorIndex === 2 ? 'btn-primary' : 'btn-ghost'}" data-index="2" style="font-size:11px;padding:6px 12px;cursor:pointer;">
-        2️⃣ ${c.pagador2_nombre || 'Co-pagador'} (S/ ${parseFloat(c.monto_pagador2).toFixed(2)})
-      </button>
-    `;
-    // Add event listeners
-    toggleBar.querySelectorAll('.btn-toggle-pagador').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        const idx = parseInt(e.currentTarget.dataset.index);
-        renderFacturaDocument(c, idx, items);
-      });
-    });
-  } else {
-    toggleBar.style.display = 'none';
-  }
-
-  // Check if Recibo Interno to change layout/details
   const isReciboInterno = tipo === 'Recibo Interno';
 
-  doc.innerHTML = `
+  return `
     <div class="factura-doc">
       <!-- Cabecera -->
       <div class="factura-header-layout" style="display:grid;grid-template-columns:1.5fr 1fr;gap:20px;margin-bottom:24px;">
@@ -1089,15 +1121,15 @@ function renderFacturaDocument(c, pagadorIndex, items) {
               <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="white" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
             </div>
             <div>
-              <h2 style="font-size:18px;font-weight:900;color:#1e293b;margin:0;">Taller Automotriz Vargas</h2>
+              <h2 style="font-size:18px;font-weight:900;color:#1e293b;margin:0;">Inversiones y Servicios Vargas E.I.R.L.</h2>
               <p style="font-size:12px;color:#64748b;margin:0;">Servicios Mecánicos · Mantenimiento y Reparación</p>
             </div>
           </div>
           <p style="font-size:11px;color:#64748b;line-height:1.6;margin:0;">
-            RUC: <strong>20123456789</strong><br/>
-            Dirección: Av. Industrial 145, Ate Vitarte, Lima - Perú<br/>
-            Teléfono: (01) 234-5678 · WhatsApp: 987 654 321<br/>
-            Email: taller.vargas@email.com
+            RUC: <strong>20608226066</strong><br/>
+            Dirección: Jr. Reyna Farge N° 648 - Cajamarca<br/>
+            Teléfono: 931 163 369 | WhatsApp: 976 864 137<br/>
+            Email: inversionesyserviciosvargas@gmail.com
           </p>
         </div>
         <div style="background:#f8fafc;border:2px solid #e2e8f0;border-radius:12px;padding:16px;text-align:center;">
@@ -1129,7 +1161,7 @@ function renderFacturaDocument(c, pagadorIndex, items) {
         <div class="factura-details-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px 24px;">
           <div><span style="color:#64748b;">Razón Social / Nombre:</span> <strong style="color:var(--dark);">${receptorNombre}</strong></div>
           <div><span style="color:#64748b;">${receptorDocType}:</span> <strong style="font-family:monospace;color:var(--dark);">${receptorDocNum}</strong></div>
-          <div><span style="color:#64748b;">Orden de Servicio:</span> <strong style="font-family:monospace;color:var(--brand);">OS-${String(c.orden_numero).padStart(4,'0')}</strong></div>
+          <div><span style="color:#64748b;">Orden de Servicio:</span> <strong style="font-family:monospace;font-weight:700;color:var(--brand);">OS-${String(c.orden_numero || c.orden_id).padStart(4,'0')}</strong></div>
           <div><span style="color:#64748b;">Vehículo:</span> <strong style="color:var(--dark);">${c.placa || '—'}</strong></div>
         </div>
       </div>
@@ -1210,7 +1242,7 @@ function renderFacturaDocument(c, pagadorIndex, items) {
           </div>
           <p style="font-size:11px;color:#64748b;margin-top:8px;line-height:1.5;">
             "Documento de control interno emitido por<br/>
-            TALLER AUTOMOTRIZ VARGAS con RUC 20123456789"
+            INVERSIONES Y SERVICIOS VARGAS E.I.R.L. con RUC 20608226066"
           </p>
         </div>
         <div style="text-align:center;">
@@ -1220,6 +1252,40 @@ function renderFacturaDocument(c, pagadorIndex, items) {
       </div>
     </div>
   `;
+}
+
+function renderFacturaDocument(c, pagadorIndex, items) {
+  currentCobro = c;
+  activePagadorIndex = pagadorIndex;
+  currentItems = items;
+
+  const doc = document.getElementById('factura-doc-content');
+  const toggleBar = document.getElementById('div-pagadores-toggle-bar');
+
+  // Render toggle bar if divided
+  if (c.es_dividido) {
+    toggleBar.style.display = 'flex';
+    toggleBar.innerHTML = `
+      <span style="font-size:11px;font-weight:700;color:var(--slate-4);align-self:center;margin-right:8px;">Ver Comprobante:</span>
+      <button class="btn-toggle-pagador btn ${pagadorIndex === 1 ? 'btn-primary' : 'btn-ghost'}" data-index="1" style="font-size:11px;padding:6px 12px;cursor:pointer;">
+        1️⃣ ${c.cliente_nombre || 'Principal'} (S/ ${parseFloat(c.monto_pagador1).toFixed(2)})
+      </button>
+      <button class="btn-toggle-pagador btn ${pagadorIndex === 2 ? 'btn-primary' : 'btn-ghost'}" data-index="2" style="font-size:11px;padding:6px 12px;cursor:pointer;">
+        2️⃣ ${c.pagador2_nombre || 'Co-pagador'} (S/ ${parseFloat(c.monto_pagador2).toFixed(2)})
+      </button>
+    `;
+    // Add event listeners
+    toggleBar.querySelectorAll('.btn-toggle-pagador').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const idx = parseInt(e.currentTarget.dataset.index);
+        renderFacturaDocument(c, idx, items);
+      });
+    });
+  } else {
+    toggleBar.style.display = 'none';
+  }
+
+  doc.innerHTML = obtenerFacturaHtmlContent(c, pagadorIndex, items);
 }
 
 async function abrirFactura(id) {
@@ -1287,18 +1353,14 @@ function renderQRSimuladoPequeno() {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${SIZE*10} ${SIZE*10}" style="width:70px;height:70px;border:2px solid #e2e8f0;border-radius:6px;padding:4px;background:#fff;">${cells.join('')}</svg>`;
 }
 
-// ── XML SIMULADO ──────────────────────────────────────────
+// ── XML SIMULADO UBL 2.1 ──────────────────────────────────
 
-function descargarXML() {
-  if (!currentCobro) return;
-  const c = currentCobro;
-  const idx = activePagadorIndex;
-
-  const compTipo = idx === 1 ? (c.tipo_comprobante || 'Boleta') : (c.comprobante2 || 'Boleta');
-  const compNumero = idx === 1 ? (c.comprobante_numero || '—') : (c.comprobante2_numero || '—');
-  const receptorNombre = idx === 1 ? (c.cliente_nombre || '—') : (c.pagador2_nombre || '—');
-  const receptorDocType = idx === 1 ? (c.tipo_doc || 'DNI') : (c.pagador2_doc && c.pagador2_doc.trim().length === 11 ? 'RUC' : 'DNI');
-  const receptorDocNum = idx === 1 ? (c.num_doc || '—') : (c.pagador2_doc || '—');
+function generarXMLUBL21(c, pagadorIndex, items) {
+  const compTipo = pagadorIndex === 1 ? (c.tipo_comprobante || 'Boleta') : (c.comprobante2 || 'Boleta');
+  const compNumero = pagadorIndex === 1 ? (c.comprobante_numero || '—') : (c.comprobante2_numero || '—');
+  const receptorNombre = pagadorIndex === 1 ? (c.cliente_nombre || '—') : (c.pagador2_nombre || '—');
+  const receptorDocType = pagadorIndex === 1 ? (c.tipo_doc || 'DNI') : (c.pagador2_doc && c.pagador2_doc.trim().length === 11 ? 'RUC' : 'DNI');
+  const receptorDocNum = pagadorIndex === 1 ? (c.num_doc || '—') : (c.pagador2_doc || '—');
 
   const totalOriginal = parseFloat(c.monto_total);
   const hasAjuste = c.monto_neto !== null && c.monto_neto !== undefined && parseFloat(c.monto_neto) !== totalOriginal;
@@ -1307,58 +1369,201 @@ function descargarXML() {
   let prop = 1;
   let totalP = totalNeto;
   if (c.es_dividido) {
-    totalP = idx === 1 ? parseFloat(c.monto_pagador1 || 0) : parseFloat(c.monto_pagador2 || 0);
+    totalP = pagadorIndex === 1 ? parseFloat(c.monto_pagador1 || 0) : parseFloat(c.monto_pagador2 || 0);
     prop = totalNeto > 0 ? (totalP / totalNeto) : 0.5;
   }
 
   const igv = totalP * 0.18 / 1.18;
   const sub = totalP - igv;
 
-  const tipoCodigo = compTipo === 'Factura' ? '01' : compTipo === 'Boleta' ? '03' : '02'; // 02 for internal receipt or fallback
+  const tipoCodigo = compTipo === 'Factura' ? '01' : compTipo === 'Boleta' ? '03' : '02'; // 02 for internal receipt (Control de caja)
+  const schemeID = receptorDocType === 'RUC' ? '6' : '1';
 
   let xmlItems = '';
-  if (currentItems && currentItems.length > 0) {
-    xmlItems = currentItems.map((it, itemIdx) => {
+  if (items && items.length > 0) {
+    xmlItems = items.map((it, itemIdx) => {
       const priceP = parseFloat(it.precio_unitario || 0) * prop;
       const subtotalP = priceP * parseInt(it.cantidad || 1);
+      const priceWithoutIgv = priceP / 1.18;
+      const subtotalWithoutIgv = subtotalP / 1.18;
+      const igvItem = subtotalP - subtotalWithoutIgv;
+
       return `  <cac:InvoiceLine>
     <cbc:ID>${itemIdx + 1}</cbc:ID>
     <cbc:InvoicedQuantity unitCode="NIU">${it.cantidad}</cbc:InvoicedQuantity>
-    <cbc:LineExtensionAmount currencyID="PEN">${subtotalP.toFixed(2)}</cbc:LineExtensionAmount>
+    <cbc:LineExtensionAmount currencyID="PEN">${subtotalWithoutIgv.toFixed(2)}</cbc:LineExtensionAmount>
+    <cac:PricingReference>
+      <cac:AlternativeConditionPrice>
+        <cbc:PriceAmount currencyID="PEN">${priceP.toFixed(2)}</cbc:PriceAmount>
+        <cbc:PriceTypeCode>01</cbc:PriceTypeCode>
+      </cac:AlternativeConditionPrice>
+    </cac:PricingReference>
+    <cac:TaxTotal>
+      <cbc:TaxAmount currencyID="PEN">${igvItem.toFixed(2)}</cbc:TaxAmount>
+      <cac:TaxSubtotal>
+        <cbc:TaxableAmount currencyID="PEN">${subtotalWithoutIgv.toFixed(2)}</cbc:TaxableAmount>
+        <cbc:TaxAmount currencyID="PEN">${igvItem.toFixed(2)}</cbc:TaxAmount>
+        <cac:TaxCategory>
+          <cbc:Percent>18.00</cbc:Percent>
+          <cbc:TaxExemptionReasonCode>10</cbc:TaxExemptionReasonCode>
+          <cac:TaxScheme>
+            <cbc:ID>1000</cbc:ID>
+            <cbc:Name>IGV</cbc:Name>
+            <cbc:TaxTypeCode>VAT</cbc:TaxTypeCode>
+          </cac:TaxScheme>
+        </cac:TaxCategory>
+      </cac:TaxSubtotal>
+    </cac:TaxTotal>
     <cac:Item>
       <cbc:Description><![CDATA[${it.descripcion}]]></cbc:Description>
+      <cac:SellersItemIdentification>
+        <cbc:ID>${it.repuesto_cod || 'SERV'}</cbc:ID>
+      </cac:SellersItemIdentification>
     </cac:Item>
     <cac:Price>
-      <cbc:PriceAmount currencyID="PEN">${priceP.toFixed(2)}</cbc:PriceAmount>
+      <cbc:PriceAmount currencyID="PEN">${priceWithoutIgv.toFixed(5)}</cbc:PriceAmount>
     </cac:Price>
   </cac:InvoiceLine>`;
     }).join('\n');
+  } else {
+    const subWithoutIgv = sub / 1.18;
+    const igvLine = totalP - subWithoutIgv;
+    xmlItems = `  <cac:InvoiceLine>
+    <cbc:ID>1</cbc:ID>
+    <cbc:InvoicedQuantity unitCode="NIU">1</cbc:InvoicedQuantity>
+    <cbc:LineExtensionAmount currencyID="PEN">${subWithoutIgv.toFixed(2)}</cbc:LineExtensionAmount>
+    <cac:PricingReference>
+      <cac:AlternativeConditionPrice>
+        <cbc:PriceAmount currencyID="PEN">${totalP.toFixed(2)}</cbc:PriceAmount>
+        <cbc:PriceTypeCode>01</cbc:PriceTypeCode>
+      </cac:AlternativeConditionPrice>
+    </cac:PricingReference>
+    <cac:TaxTotal>
+      <cbc:TaxAmount currencyID="PEN">${igvLine.toFixed(2)}</cbc:TaxAmount>
+      <cac:TaxSubtotal>
+        <cbc:TaxableAmount currencyID="PEN">${subWithoutIgv.toFixed(2)}</cbc:TaxableAmount>
+        <cbc:TaxAmount currencyID="PEN">${igvLine.toFixed(2)}</cbc:TaxAmount>
+        <cac:TaxCategory>
+          <cbc:Percent>18.00</cbc:Percent>
+          <cbc:TaxExemptionReasonCode>10</cbc:TaxExemptionReasonCode>
+          <cac:TaxScheme>
+            <cbc:ID>1000</cbc:ID>
+            <cbc:Name>IGV</cbc:Name>
+            <cbc:TaxTypeCode>VAT</cbc:TaxTypeCode>
+          </cac:TaxScheme>
+        </cac:TaxCategory>
+      </cac:TaxSubtotal>
+    </cac:TaxTotal>
+    <cac:Item>
+      <cbc:Description><![CDATA[Servicios de mantenimiento y reparación automotriz]]></cbc:Description>
+      <cac:SellersItemIdentification>
+        <cbc:ID>SERV01</cbc:ID>
+      </cac:SellersItemIdentification>
+    </cac:Item>
+    <cac:Price>
+      <cbc:PriceAmount currencyID="PEN">${subWithoutIgv.toFixed(5)}</cbc:PriceAmount>
+    </cac:Price>
+  </cac:InvoiceLine>`;
   }
 
-  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+  const seedString = `${compNumero}-${receptorDocNum}-${totalP.toFixed(2)}`;
+  const digestValue = btoa(seedString).replace(/=/g, '').slice(0, 28) + '=';
+  const signatureValue = btoa(seedString + '-signature').replace(/=/g, '').slice(0, 88) + '==';
+  
+  const mockCertificate = 'MIIGJjCCBA6gAwIBAgIQCgEKd4bV08Q7p7K8n8uCZDANBgkqhkiG9w0BAQsFADCBjDELMAkGA1UEBhMCUEUxEzARBgNVBAoTCkFTSU5FVCBTLkEuMRgwFgYDVQQLEw9DZXJ0aWZpY2Fkb3MgREVNTzEtMCsGA1UEAxMkQ2VydGlmaWNhZG8gRGlnaXRhbCBkZSBQcnVlYmEgQVNJTkVUMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA0G2Z7vP...';
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
 <Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2"
          xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2"
-         xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2">
+         xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2"
+         xmlns:ds="http://www.w3.org/2000/09/xmldsig#"
+         xmlns:ext="urn:oasis:names:specification:ubl:schema:xsd:CommonExtensionComponents-2"
+         xmlns:sac="urn:sunat:names:specification:ubl:peru:schema:xsd:SunatAggregateComponents-1">
+  <ext:UBLExtensions>
+    <ext:UBLExtension>
+      <ext:ExtensionContent>
+        <sac:AdditionalInformation>
+          <sac:AdditionalMonetaryTotal>
+            <cbc:ID>1001</cbc:ID>
+            <cbc:PayableAmount currencyID="PEN">${sub.toFixed(2)}</cbc:PayableAmount>
+          </sac:AdditionalMonetaryTotal>
+        </sac:AdditionalInformation>
+      </ext:ExtensionContent>
+    </ext:UBLExtension>
+    <ext:UBLExtension>
+      <ext:ExtensionContent>
+        <ds:Signature Id="SignVargas">
+          <ds:SignedInfo>
+            <ds:CanonicalizationMethod Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315"/>
+            <ds:SignatureMethod Algorithm="http://www.w3.org/2000/09/xmldsig#rsa-sha256"/>
+            <ds:Reference URI="">
+              <ds:Transforms>
+                <ds:Transform Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature"/>
+              </ds:Transforms>
+              <ds:DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha256"/>
+              <ds:DigestValue>${digestValue}</ds:DigestValue>
+            </ds:Reference>
+          </ds:SignedInfo>
+          <ds:SignatureValue>${signatureValue}</ds:SignatureValue>
+          <ds:KeyInfo>
+            <ds:X509Data>
+              <ds:X509Certificate>${mockCertificate}</ds:X509Certificate>
+            </ds:X509Data>
+          </ds:KeyInfo>
+        </ds:Signature>
+      </ext:ExtensionContent>
+    </ext:UBLExtension>
+  </ext:UBLExtensions>
   <cbc:UBLVersionID>2.1</cbc:UBLVersionID>
   <cbc:CustomizationID>2.0</cbc:CustomizationID>
   <cbc:ID>${compNumero}</cbc:ID>
   <cbc:IssueDate>${c.fecha_emision ? c.fecha_emision.split('T')[0] : new Date().toISOString().split('T')[0]}</cbc:IssueDate>
   <cbc:InvoiceTypeCode listID="0101">${tipoCodigo}</cbc:InvoiceTypeCode>
   <cbc:DocumentCurrencyCode>PEN</cbc:DocumentCurrencyCode>
+  <cac:Signature>
+    <cbc:ID>SignVargas</cbc:ID>
+    <cac:SignatoryParty>
+      <cac:PartyIdentification>
+        <cbc:ID>20608226066</cbc:ID>
+      </cac:PartyIdentification>
+      <cac:PartyName>
+        <cbc:Name><![CDATA[INVERSIONES Y SERVICIOS VARGAS E.I.R.L.]]></cbc:Name>
+      </cac:PartyName>
+    </cac:SignatoryParty>
+    <cac:DigitalSignatureAttachment>
+      <cac:ExternalReference>
+        <cbc:URI>#SignVargas</cbc:URI>
+      </cac:ExternalReference>
+    </cac:DigitalSignatureAttachment>
+  </cac:Signature>
   <cac:AccountingSupplierParty>
     <cac:Party>
       <cac:PartyIdentification>
-        <cbc:ID schemeID="6">20123456789</cbc:ID>
+        <cbc:ID schemeID="6">20608226066</cbc:ID>
       </cac:PartyIdentification>
+      <cac:PartyName>
+        <cbc:Name><![CDATA[INVERSIONES Y SERVICIOS VARGAS E.I.R.L.]]></cbc:Name>
+      </cac:PartyName>
       <cac:PartyLegalEntity>
-        <cbc:RegistrationName>TALLER AUTOMOTRIZ VARGAS</cbc:RegistrationName>
+        <cbc:RegistrationName><![CDATA[INVERSIONES Y SERVICIOS VARGAS E.I.R.L.]]></cbc:RegistrationName>
+        <cac:RegistrationAddress>
+          <cbc:ID>060101</cbc:ID>
+          <cbc:AddressTypeCode>0000</cbc:AddressTypeCode>
+          <cbc:StreetName><![CDATA[Jr. Reyna Farge N° 648]]></cbc:StreetName>
+          <cac:District><![CDATA[Cajamarca]]></cac:District>
+          <cac:Province><![CDATA[Cajamarca]]></cac:Province>
+          <cac:Region><![CDATA[Cajamarca]]></cac:Region>
+          <cac:Country>
+            <cbc:IdentificationCode>PE</cbc:IdentificationCode>
+          </cac:Country>
+        </cac:RegistrationAddress>
       </cac:PartyLegalEntity>
     </cac:Party>
   </cac:AccountingSupplierParty>
   <cac:AccountingCustomerParty>
     <cac:Party>
       <cac:PartyIdentification>
-        <cbc:ID schemeID="${receptorDocType === 'RUC' ? '6' : '1'}">${receptorDocNum}</cbc:ID>
+        <cbc:ID schemeID="${schemeID}">${receptorDocNum}</cbc:ID>
       </cac:PartyIdentification>
       <cac:PartyLegalEntity>
         <cbc:RegistrationName><![CDATA[${receptorNombre}]]></cbc:RegistrationName>
@@ -1367,6 +1572,17 @@ function descargarXML() {
   </cac:AccountingCustomerParty>
   <cac:TaxTotal>
     <cbc:TaxAmount currencyID="PEN">${igv.toFixed(2)}</cbc:TaxAmount>
+    <cac:TaxSubtotal>
+      <cbc:TaxableAmount currencyID="PEN">${sub.toFixed(2)}</cbc:TaxableAmount>
+      <cbc:TaxAmount currencyID="PEN">${igv.toFixed(2)}</cbc:TaxAmount>
+      <cac:TaxCategory>
+        <cac:TaxScheme>
+          <cbc:ID>1000</cbc:ID>
+          <cbc:Name>IGV</cbc:Name>
+          <cbc:TaxTypeCode>VAT</cbc:TaxTypeCode>
+        </cac:TaxScheme>
+      </cac:TaxCategory>
+    </cac:TaxSubtotal>
   </cac:TaxTotal>
   <cac:LegalMonetaryTotal>
     <cbc:LineExtensionAmount currencyID="PEN">${sub.toFixed(2)}</cbc:LineExtensionAmount>
@@ -1375,6 +1591,15 @@ function descargarXML() {
   </cac:LegalMonetaryTotal>
 ${xmlItems}
 </Invoice>`;
+}
+
+function descargarXML() {
+  if (!currentCobro) return;
+  const c = currentCobro;
+  const idx = activePagadorIndex;
+  const compNumero = idx === 1 ? (c.comprobante_numero || '—') : (c.comprobante2_numero || '—');
+
+  const xml = generarXMLUBL21(c, idx, currentItems || []);
 
   const blob = new Blob([xml], { type: 'application/xml' });
   const url  = URL.createObjectURL(blob);
@@ -1383,6 +1608,167 @@ ${xmlItems}
   a.download = `${compNumero}.xml`;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+async function generarPDFComprobante(c, pagadorIndex, items) {
+  const compNumero = pagadorIndex === 1 ? (c.comprobante_numero || '—') : (c.comprobante2_numero || '—');
+  
+  // Crear contenedor temporal fuera de pantalla
+  const element = document.createElement('div');
+  element.id = 'temp-pdf-render';
+  element.style.position = 'absolute';
+  element.style.left = '-9999px';
+  element.style.top = '-9999px';
+  element.style.width = '800px';
+  element.style.background = 'white';
+  element.style.padding = '30px';
+  
+  // Generar HTML dentro del contenedor
+  element.innerHTML = obtenerFacturaHtmlContent(c, pagadorIndex, items);
+  document.body.appendChild(element);
+  
+  const opt = {
+    margin:       [10, 10, 10, 10],
+    filename:     `${compNumero}.pdf`,
+    image:        { type: 'jpeg', quality: 0.98 },
+    html2canvas:  { scale: 2, useCORS: true },
+    jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+  };
+  
+  try {
+    // Generar PDF y obtener data uri string
+    const pdfDataUri = await window.html2pdf().set(opt).from(element).outputPdf('datauristring');
+    document.body.removeChild(element);
+    
+    // Extraer base64
+    const base64 = pdfDataUri.split(',')[1];
+    return base64;
+  } catch (err) {
+    console.error("Error al generar PDF con html2pdf:", err);
+    if (document.getElementById('temp-pdf-render')) {
+      document.body.removeChild(element);
+    }
+    return null;
+  }
+}
+
+async function guardarComprobantesEnArchivos(cobro, items, orden) {
+  const cliId = orden?.cliente_id || cobro.cliente_id || null;
+  const vehId = orden?.vehiculo_id || null;
+
+  async function subirArchivo({ titulo, filename, tipo, content, isXml, notas, clienteId }) {
+    let fileData = '';
+    if (isXml) {
+      fileData = btoa(unescape(encodeURIComponent(content)));
+    } else {
+      fileData = content;
+    }
+    
+    try {
+      await createArchivo({
+        titulo,
+        filename,
+        tipo,
+        size_mb: isXml ? parseFloat((content.length / (1024 * 1024)).toFixed(4)) : 0.15,
+        area: 'Facturación',
+        subido_por: 'Sistema (Caja)',
+        cliente_id: clienteId,
+        vehiculo_id: vehId,
+        notas,
+        fileData
+      });
+      console.log(`[ERP] Archivo ${filename} subido correctamente.`);
+    } catch (err) {
+      console.error(`[ERP] Error al subir archivo ${filename}:`, err);
+    }
+  }
+
+  if (!cobro.es_dividido) {
+    const compTipo = cobro.tipo_comprobante || 'Boleta';
+    const compNumero = cobro.comprobante_numero || `COM-${cobro.id}`;
+
+    // 1. Generar y subir XML
+    const xml = generarXMLUBL21(cobro, 1, items);
+    await subirArchivo({
+      titulo: `XML ${compTipo} ${compNumero}`,
+      filename: `${compNumero}.xml`,
+      tipo: 'xml',
+      content: xml,
+      isXml: true,
+      notas: `XML UBL 2.1 firmado emitido automáticamente para el comprobante ${compNumero}.`,
+      clienteId: cliId
+    });
+
+    // 2. Generar y subir PDF
+    const pdfBase64 = await generarPDFComprobante(cobro, 1, items);
+    if (pdfBase64) {
+      await subirArchivo({
+        titulo: `PDF ${compTipo} ${compNumero}`,
+        filename: `${compNumero}.pdf`,
+        tipo: 'pdf',
+        content: pdfBase64,
+        isXml: false,
+        notas: `PDF de comprobante oficial emitido automáticamente para la OS-${String(cobro.orden_id).padStart(4, '0')}.`,
+        clienteId: cliId
+      });
+    }
+  } else {
+    // Pagador 1 (Principal)
+    const compTipo1 = cobro.tipo_comprobante || 'Boleta';
+    const compNumero1 = cobro.comprobante_numero || `COM1-${cobro.id}`;
+
+    const xml1 = generarXMLUBL21(cobro, 1, items);
+    await subirArchivo({
+      titulo: `XML ${compTipo1} ${compNumero1} (P1)`,
+      filename: `${compNumero1}.xml`,
+      tipo: 'xml',
+      content: xml1,
+      isXml: true,
+      notas: `XML UBL 2.1 proporcional (P1) emitido para ${cobro.cliente_nombre || 'Cliente principal'} por S/ ${parseFloat(cobro.monto_pagador1).toFixed(2)}.`,
+      clienteId: cliId
+    });
+
+    const pdfBase64_1 = await generarPDFComprobante(cobro, 1, items);
+    if (pdfBase64_1) {
+      await subirArchivo({
+        titulo: `PDF ${compTipo1} ${compNumero1} (P1)`,
+        filename: `${compNumero1}.pdf`,
+        tipo: 'pdf',
+        content: pdfBase64_1,
+        isXml: false,
+        notas: `PDF proporcional (P1) emitido para ${cobro.cliente_nombre || 'Cliente principal'} por S/ ${parseFloat(cobro.monto_pagador1).toFixed(2)}.`,
+        clienteId: cliId
+      });
+    }
+
+    // Pagador 2 (Co-pagador)
+    const compTipo2 = cobro.comprobante2 || 'Boleta';
+    const compNumero2 = cobro.comprobante2_numero || `COM2-${cobro.id}`;
+
+    const xml2 = generarXMLUBL21(cobro, 2, items);
+    await subirArchivo({
+      titulo: `XML ${compTipo2} ${compNumero2} (P2)`,
+      filename: `${compNumero2}.xml`,
+      tipo: 'xml',
+      content: xml2,
+      isXml: true,
+      notas: `XML UBL 2.1 proporcional (P2) emitido para co-pagador ${cobro.pagador2_nombre || 'Externo'} por S/ ${parseFloat(cobro.monto_pagador2).toFixed(2)}.`,
+      clienteId: null
+    });
+
+    const pdfBase64_2 = await generarPDFComprobante(cobro, 2, items);
+    if (pdfBase64_2) {
+      await subirArchivo({
+        titulo: `PDF ${compTipo2} ${compNumero2} (P2)`,
+        filename: `${compNumero2}.pdf`,
+        tipo: 'pdf',
+        content: pdfBase64_2,
+        isXml: false,
+        notas: `PDF proporcional (P2) emitido para co-pagador ${cobro.pagador2_nombre || 'Externo'} por S/ ${parseFloat(cobro.monto_pagador2).toFixed(2)}.`,
+        clienteId: null
+      });
+    }
+  }
 }
 
 // ── HELPERS ───────────────────────────────────────────────

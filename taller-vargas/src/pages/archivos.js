@@ -62,6 +62,7 @@ function renderError(msg) {
 function getFileIconConfig(tipo) {
   switch (tipo?.toLowerCase()) {
     case 'pdf':   return { icon: '📄', color: '#ef4444', bg: '#fee2e2',  label: 'PDF' };
+    case 'xml':   return { icon: '⚙️', color: '#f97316', bg: '#ffedd5',  label: 'XML' };
     case 'excel':
     case 'xlsx':
     case 'xls':   return { icon: '📊', color: '#10b981', bg: '#d1fae5',  label: 'Excel' };

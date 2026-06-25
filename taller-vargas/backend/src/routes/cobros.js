@@ -34,7 +34,7 @@ async function getNextComprobanteNumero(client, tipo) {
 router.get('/', async (_req, res) => {
   try {
     const result = await query(`
-      SELECT co.*, c.nombre AS cliente_nombre, c.tipo_doc, c.num_doc,
+      SELECT co.*, c.nombre AS cliente_nombre, c.tipo_doc, c.num_doc, c.telefono AS cliente_telefono,
              os.id AS orden_numero, v.placa
       FROM cobros co
       LEFT JOIN clientes c ON co.cliente_id = c.id
