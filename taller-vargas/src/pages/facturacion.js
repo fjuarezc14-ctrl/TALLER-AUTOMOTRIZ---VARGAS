@@ -314,26 +314,28 @@ function renderPage() {
               <p id="cobro-rapido-cliente" style="font-size:12px;color:var(--slate-5);margin-top:4px;"></p>
             </div>
 
-            <!-- Descuento por Cliente (Fase 2) -->
-            <div style="background:#fef3c7;border:1px solid #fde68a;padding:12px;border-radius:var(--radius-md);display:flex;flex-direction:column;gap:10px;">
-              <p style="font-size:10px;font-weight:800;color:#92400e;text-transform:uppercase;margin:0;">Descuento por Cliente (Opcional)</p>
+            <!-- Ajuste de Caja (Descuento o Recargo) -->
+            <div style="background:#f0fdf4;border:1px solid #bbf7d0;padding:12px;border-radius:var(--radius-md);display:flex;flex-direction:column;gap:10px;" id="caja-ajuste-wrapper">
+              <p style="font-size:10px;font-weight:800;color:#166534;text-transform:uppercase;margin:0;">Ajuste de Caja: Descuento / Recargo (Opcional)</p>
               <div class="grid grid-cols-2 gap-3">
                 <div class="form-group">
-                  <label class="form-label" style="color:#92400e;">Tipo Descuento</label>
+                  <label class="form-label" style="color:#166534;">Tipo Ajuste</label>
                   <select id="cobro-descuento-tipo" class="form-select" style="background:#fff;">
                     <option value="">Ninguno</option>
-                    <option value="Porcentaje">Porcentaje (%)</option>
-                    <option value="Monto">Monto Fijo (S/)</option>
+                    <option value="Desc_Pct">Descuento (%)</option>
+                    <option value="Desc_Monto">Descuento (Monto S/)</option>
+                    <option value="Cargo_Pct">Recargo Adicional (%)</option>
+                    <option value="Cargo_Monto">Recargo Adicional (Monto S/)</option>
                   </select>
                 </div>
                 <div class="form-group">
-                  <label class="form-label" style="color:#92400e;">Valor Descuento</label>
+                  <label class="form-label" style="color:#166534;">Valor Ajuste</label>
                   <input type="number" id="cobro-descuento-valor" step="0.01" min="0" class="form-input text-right font-mono" style="background:#fff;" placeholder="0.00" disabled />
                 </div>
               </div>
-              <div style="display:flex;justify-content:space-between;align-items:center;border-top:1px dashed #fde68a;padding-top:8px;margin-top:4px;">
-                <span style="font-size:11px;font-weight:700;color:#92400e;">Monto Neto Final:</span>
-                <span id="cobro-neto-display" style="font-size:16px;font-weight:900;color:#92400e;font-family:monospace;">S/ 0.00</span>
+              <div style="display:flex;justify-content:space-between;align-items:center;border-top:1px dashed #bbf7d0;padding-top:8px;margin-top:4px;">
+                <span style="font-size:11px;font-weight:700;color:#166534;">Monto Neto / Final:</span>
+                <span id="cobro-neto-display" style="font-size:16px;font-weight:900;color:#166534;font-family:monospace;">S/ 0.00</span>
               </div>
             </div>
 
@@ -533,26 +535,42 @@ function renderPage() {
       }
       
       let descRealizado = 0;
-      if (tipo === 'Porcentaje') {
+      let neto = totalOriginal;
+      if (tipo === 'Desc_Pct') {
         if (valor > 100) {
           valor = 100;
           descValorEl.value = 100;
         }
         descRealizado = parseFloat((totalOriginal * (valor / 100)).toFixed(2));
-      } else if (tipo === 'Monto') {
+        neto = parseFloat((totalOriginal - descRealizado).toFixed(2));
+      } else if (tipo === 'Desc_Monto') {
         if (valor > totalOriginal) {
           valor = totalOriginal;
           descValorEl.value = totalOriginal.toFixed(2);
         }
         descRealizado = valor;
+        neto = parseFloat((totalOriginal - descRealizado).toFixed(2));
+      } else if (tipo === 'Cargo_Pct') {
+        if (valor > 1000) {
+          valor = 1000;
+          descValorEl.value = 1000;
+        }
+        descRealizado = parseFloat((totalOriginal * (valor / 100)).toFixed(2));
+        neto = parseFloat((totalOriginal + descRealizado).toFixed(2));
+      } else if (tipo === 'Cargo_Monto') {
+        descRealizado = valor;
+        neto = parseFloat((totalOriginal + descRealizado).toFixed(2));
       }
 
-      const neto = parseFloat((totalOriginal - descRealizado).toFixed(2));
       document.getElementById('cobro-rapido-neto').value = neto;
       document.getElementById('cobro-neto-display').textContent = `S/ ${neto.toFixed(2)}`;
+      
+      const isSurcharge = tipo.startsWith('Cargo');
+      const actionColor = isSurcharge ? '#1d4ed8' : '#b45309';
+
       document.getElementById('cobro-rapido-monto').innerHTML = `
         <span style="text-decoration:line-through;font-size:18px;color:var(--slate-5);margin-right:8px;">S/ ${totalOriginal.toFixed(2)}</span>
-        <span style="color:#b45309;font-weight:bold;">S/ ${neto.toFixed(2)}</span>
+        <span style="color:${actionColor};font-weight:bold;">S/ ${neto.toFixed(2)}</span>
       `;
     }
 
@@ -737,13 +755,19 @@ function renderTableRows(cobros) {
     }
 
     let totalHtml = '';
-    if (c.monto_neto !== null && c.monto_neto !== undefined && parseFloat(c.monto_neto) < totalOriginal) {
+    if (c.monto_neto !== null && c.monto_neto !== undefined && parseFloat(c.monto_neto) !== totalOriginal) {
       const descVal = parseFloat(c.descuento_valor);
       const descRealizado = parseFloat(c.descuento_realizado || 0);
+      const isSurcharge = c.descuento_tipo && c.descuento_tipo.startsWith('Cargo');
+      const actionSymbol = isSurcharge ? '+' : '-';
+      const actionColor = isSurcharge ? '#1d4ed8' : '#b45309';
+      const actionText = isSurcharge ? 'Cargo' : 'Desc.';
+      const descLabel = c.descuento_tipo && c.descuento_tipo.includes('Pct') ? `${descVal}%` : `S/ ${descVal.toFixed(2)}`;
+      
       totalHtml = `
         <span style="text-decoration:line-through;font-size:10px;color:var(--slate-5);display:block;font-weight:normal;">S/ ${totalOriginal.toFixed(2)}</span>
-        <span style="color:#b45309;font-weight:bold;">S/ ${totalNeto.toFixed(2)}</span>
-        <div style="font-size:9px;color:#b45309;font-weight:700;margin-top:2px;">Desc. ${c.descuento_tipo === 'Porcentaje' ? `${descVal}%` : `S/ ${descVal.toFixed(2)}`}</div>
+        <span style="color:${actionColor};font-weight:bold;">S/ ${totalNeto.toFixed(2)}</span>
+        <div style="font-size:9px;color:${actionColor};font-weight:700;margin-top:2px;">${actionText} ${descLabel} (${actionSymbol}S/ ${descRealizado.toFixed(2)})</div>
       `;
     } else {
       totalHtml = `<span class="font-bold">S/ ${totalNeto.toFixed(2)}</span>`;
@@ -840,19 +864,27 @@ async function procesarCobroRapido(e) {
   const chk = document.getElementById('chk-dividir').checked;
   const metodo_pago = document.getElementById('cobro-rapido-metodo').value;
 
-  // Lógica de cálculo de descuento para persistencia
+  // Lógica de cálculo de ajuste para persistencia
   const descTipo = document.getElementById('cobro-descuento-tipo').value;
   const descVal = parseFloat(document.getElementById('cobro-descuento-valor').value) || 0;
   const totalOriginal = parseFloat(document.getElementById('cobro-rapido-total').value) || 0;
   
   let descRealizado = 0;
   let montoNeto = totalOriginal;
-  if (descTipo === 'Porcentaje' && descVal > 0) {
-    descRealizado = parseFloat((totalOriginal * (descVal / 100)).toFixed(2));
-    montoNeto = parseFloat((totalOriginal - descRealizado).toFixed(2));
-  } else if (descTipo === 'Monto' && descVal > 0) {
-    descRealizado = Math.min(totalOriginal, descVal);
-    montoNeto = parseFloat((totalOriginal - descRealizado).toFixed(2));
+  if (descTipo && descVal > 0) {
+    if (descTipo === 'Desc_Pct') {
+      descRealizado = parseFloat((totalOriginal * (descVal / 100)).toFixed(2));
+      montoNeto = parseFloat((totalOriginal - descRealizado).toFixed(2));
+    } else if (descTipo === 'Desc_Monto') {
+      descRealizado = Math.min(totalOriginal, descVal);
+      montoNeto = parseFloat((totalOriginal - descRealizado).toFixed(2));
+    } else if (descTipo === 'Cargo_Pct') {
+      descRealizado = parseFloat((totalOriginal * (descVal / 100)).toFixed(2));
+      montoNeto = parseFloat((totalOriginal + descRealizado).toFixed(2));
+    } else if (descTipo === 'Cargo_Monto') {
+      descRealizado = descVal;
+      montoNeto = parseFloat((totalOriginal + descRealizado).toFixed(2));
+    }
   }
 
   try {
@@ -988,8 +1020,8 @@ function renderFacturaDocument(c, pagadorIndex, items) {
 
   // Total calculations
   const totalOriginal = parseFloat(c.monto_total);
-  const hasDiscount = c.monto_neto !== null && c.monto_neto !== undefined && parseFloat(c.monto_neto) < totalOriginal;
-  const totalNeto = hasDiscount ? parseFloat(c.monto_neto) : totalOriginal;
+  const hasAjuste = c.monto_neto !== null && c.monto_neto !== undefined && parseFloat(c.monto_neto) !== totalOriginal;
+  const totalNeto = hasAjuste ? parseFloat(c.monto_neto) : totalOriginal;
 
   let prop = 1;
   let totalP = totalNeto;
@@ -1005,6 +1037,8 @@ function renderFacturaDocument(c, pagadorIndex, items) {
 
   const igvP = totalP * 0.18 / 1.18;
   const subP = totalP - igvP;
+
+  const isSurcharge = c.descuento_tipo && c.descuento_tipo.startsWith('Cargo');
 
   // Receptor details
   const receptorNombre = pagadorIndex === 1 ? (c.cliente_nombre || '—') : (c.pagador2_nombre || '—');
@@ -1140,14 +1174,14 @@ function renderFacturaDocument(c, pagadorIndex, items) {
       <!-- Totales -->
       <div style="display:flex;justify-content:flex-end;margin-top:0;border-top:2px solid #1e293b;padding-top:10px;margin-bottom:24px;">
         <div style="width:280px;">
-          ${hasDiscount ? `
+          ${hasAjuste ? `
           <div style="display:flex;justify-content:space-between;padding:8px 10px;border-bottom:1px solid #e2e8f0;">
             <span style="font-size:12px;color:#64748b;">Subtotal Original</span>
             <span style="font-family:monospace;font-weight:700;">S/ ${(originalP - (originalP * 0.18 / 1.18)).toFixed(2)}</span>
           </div>
-          <div style="display:flex;justify-content:space-between;padding:8px 10px;border-bottom:1px solid #e2e8f0;color:#b45309;">
-            <span style="font-size:12px;font-weight:700;">Descuento Aplicado</span>
-            <span style="font-family:monospace;font-weight:700;">-S/ ${descP.toFixed(2)}</span>
+          <div style="display:flex;justify-content:space-between;padding:8px 10px;border-bottom:1px solid #e2e8f0;color:${isSurcharge ? '#1d4ed8' : '#b45309'};">
+            <span style="font-size:12px;font-weight:700;">${isSurcharge ? 'Cargo Adicional' : 'Descuento Aplicado'}</span>
+            <span style="font-family:monospace;font-weight:700;">${isSurcharge ? '+' : '-'}S/ ${descP.toFixed(2)}</span>
           </div>
           ` : ''}
           <div style="display:flex;justify-content:space-between;padding:8px 10px;border-bottom:1px solid #e2e8f0;">
@@ -1267,8 +1301,8 @@ function descargarXML() {
   const receptorDocNum = idx === 1 ? (c.num_doc || '—') : (c.pagador2_doc || '—');
 
   const totalOriginal = parseFloat(c.monto_total);
-  const hasDiscount = c.monto_neto !== null && c.monto_neto !== undefined && parseFloat(c.monto_neto) < totalOriginal;
-  const totalNeto = hasDiscount ? parseFloat(c.monto_neto) : totalOriginal;
+  const hasAjuste = c.monto_neto !== null && c.monto_neto !== undefined && parseFloat(c.monto_neto) !== totalOriginal;
+  const totalNeto = hasAjuste ? parseFloat(c.monto_neto) : totalOriginal;
 
   let prop = 1;
   let totalP = totalNeto;
