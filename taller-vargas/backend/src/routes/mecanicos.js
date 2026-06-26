@@ -24,11 +24,13 @@ router.get("/stats", async (_req, res) => {
         COUNT(CASE WHEN os.estado = 'Finalizado' THEN 1 END)::int                            AS ordenes_completadas,
         COUNT(os.id)::int                                                                     AS ordenes_total,
         ROUND(
-          AVG(
-            CASE WHEN os.estado = 'Finalizado' AND os.fecha_entrega IS NOT NULL
-              THEN (os.fecha_entrega - os.fecha_ingreso)
-            END
-          )
+          COALESCE(
+            AVG(
+              CASE WHEN os.estado = 'Finalizado' AND os.fecha_entrega IS NOT NULL
+                THEN EXTRACT(EPOCH FROM (os.fecha_entrega - os.fecha_ingreso)) / 86400.0
+              END
+            )
+          , 0)::numeric
         , 1) AS dias_promedio_finalizacion
       FROM mecanicos m
       LEFT JOIN ordenes_servicio os ON os.mecanico_id = m.id
