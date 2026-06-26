@@ -1,13 +1,33 @@
 import { Router } from 'express';
 import { query, getClient } from '../db.js';
+import bcrypt from 'bcryptjs';
 
 const router = Router();
 
+// Helper para verificar el PIN administrativo (soporta bcrypt y texto plano)
+export function verificarPin(inputPin, correctPin) {
+  const cleanInput = String(inputPin || '').trim();
+  const cleanCorrect = String(correctPin || '1234').trim();
+
+  // Si el PIN guardado parece ser un hash de bcrypt, comparamos usando bcrypt
+  if (cleanCorrect.startsWith('$2a$') || cleanCorrect.startsWith('$2b$') || cleanCorrect.startsWith('$2y$')) {
+    try {
+      return bcrypt.compareSync(cleanInput, cleanCorrect);
+    } catch (err) {
+      console.error('[PIN] Error al verificar hash bcrypt:', err.message);
+      return false;
+    }
+  }
+
+  // De lo contrario, fallback a comparación directa en texto plano
+  return cleanInput === cleanCorrect;
+}
+
 // Middleware para validar que se provea el PIN correcto de administración
 export function requiereAdmin(req, res, next) {
-  const pinHeader = String(req.headers['x-admin-pin'] || '').trim();
-  const correctPin = String(process.env.ADMIN_PIN || '1234').trim();
-  if (pinHeader !== correctPin) {
+  const pinHeader = req.headers['x-admin-pin'];
+  const correctPin = process.env.ADMIN_PIN || '1234';
+  if (!verificarPin(pinHeader, correctPin)) {
     return res.status(401).json({ error: 'Acceso no autorizado. PIN incorrecto.' });
   }
   next();
@@ -16,9 +36,8 @@ export function requiereAdmin(req, res, next) {
 // POST /api/cobros/verificar-pin
 router.post('/verificar-pin', (req, res) => {
   const { pin } = req.body;
-  const correctPin = String(process.env.ADMIN_PIN || '1234').trim();
-  const inputPin = String(pin || '').trim();
-  if (inputPin === correctPin) {
+  const correctPin = process.env.ADMIN_PIN || '1234';
+  if (verificarPin(pin, correctPin)) {
     return res.json({ valido: true });
   }
   res.status(401).json({ error: 'PIN de administración incorrecto.' });

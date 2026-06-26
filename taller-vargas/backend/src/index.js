@@ -99,9 +99,25 @@ app.use("/api/almacen",    almacenRouter);
 app.use("/api/cobros",     cobrosRouter);
 app.use("/api/archivos",   archivosRouter);
 
+import bcrypt from "bcryptjs";
+
 app.use((_req, res) => res.status(404).json({ error: "Ruta no encontrada" }));
 app.use((err, _req, res, _next) => res.status(500).json({ error: err.message }));
 
 app.listen(PORT, () => {
   console.log(`🔧 Taller Vargas API en http://localhost:${PORT}`);
+  
+  // Imprimir recomendación de PIN con bcrypt si detecta texto plano
+  const rawPin = process.env.ADMIN_PIN || "1234";
+  if (!rawPin.startsWith("$2a$") && !rawPin.startsWith("$2b$") && !rawPin.startsWith("$2y$")) {
+    const salt = bcrypt.genSaltSync(10);
+    const hash = bcrypt.hashSync(rawPin, salt);
+    console.log(`\n=============================================================`);
+    console.log(`🛡️  RECOMENDACIÓN DE SEGURIDAD (ADMIN_PIN)`);
+    console.log(`Tu ADMIN_PIN actualmente está guardado en texto plano.`);
+    console.log(`Para producción, se recomienda encriptarlo en tu archivo .env.`);
+    console.log(`Copia y reemplaza la variable con el siguiente hash:`);
+    console.log(`ADMIN_PIN="${hash}"`);
+    console.log(`=============================================================\n`);
+  }
 });

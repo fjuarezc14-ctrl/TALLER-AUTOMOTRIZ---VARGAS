@@ -34,13 +34,38 @@ router.get('/', async (_req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// Extensiones permitidas de uso común en taller
+const ALLOWED_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp', '.pdf', '.txt', '.csv', '.doc', '.docx', '.xls', '.xlsx'];
+
 // POST /api/archivos
 router.post('/', async (req, res) => {
   const { titulo, filename, tipo, size_mb, area, subido_por, cliente_id, vehiculo_id, notas, fileData } = req.body;
   try {
+    // Validar nombre de archivo y extensión
+    if (!filename || typeof filename !== 'string') {
+      return res.status(400).json({ error: 'Nombre de archivo inválido.' });
+    }
+
+    const ext = path.extname(filename).toLowerCase();
+    if (!ALLOWED_EXTENSIONS.includes(ext)) {
+      return res.status(400).json({
+        error: `Formato de archivo no permitido. Solo se permiten imágenes, PDFs y documentos de oficina (${ALLOWED_EXTENSIONS.join(', ')}).`
+      });
+    }
+
+    let finalSizeMb = size_mb || 0;
+
     // Si viene fileData (base64), decodificarlo y guardarlo en el disco
     if (fileData) {
       const buffer = Buffer.from(fileData, 'base64');
+      const maxSizeBytes = 10 * 1024 * 1024; // 10MB
+      
+      if (buffer.length > maxSizeBytes) {
+        return res.status(400).json({ error: 'El archivo excede el tamaño máximo permitido de 10MB.' });
+      }
+
+      finalSizeMb = parseFloat((buffer.length / (1024 * 1024)).toFixed(2));
+      
       const uploadsDir = path.join(process.cwd(), 'uploads');
       
       // Crear la carpeta si no existe
@@ -53,7 +78,7 @@ router.post('/', async (req, res) => {
     const result = await query(
       `INSERT INTO archivos (titulo, filename, tipo, size_mb, area, subido_por, cliente_id, vehiculo_id, notas)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
-      [titulo, filename, tipo, size_mb || 0, area, subido_por || 'Administrador',
+      [titulo, filename, tipo, finalSizeMb, area, subido_por || 'Administrador',
        cliente_id || null, vehiculo_id || null, notas || null]
     );
     res.status(201).json(result.rows[0]);
