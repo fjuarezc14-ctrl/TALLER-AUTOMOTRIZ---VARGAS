@@ -242,7 +242,7 @@ function renderAdminView(total, bajo, critico, valorCosto, valorVenta) {
           <p style="font-size:10px;color:var(--slate-5);">${critico} agotados · ${bajo} bajos</p>
         </div>
       </div>
-      <div class="stat-kpi">
+      <div class="stat-kpi" style="${window.isAdminAuthorized() ? '' : 'display:none;'}">
         <div style="width:44px;height:44px;background:linear-gradient(135deg,#f0fdf4,#dcfce7);border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="#15803d" stroke-width="2"><rect width="20" height="12" x="2" y="6" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/></svg>
         </div>
@@ -252,7 +252,7 @@ function renderAdminView(total, bajo, critico, valorCosto, valorVenta) {
           <p style="font-size:10px;color:#15803d;font-weight:700;">Venta: S/ ${valorVenta.toLocaleString('es-PE',{minimumFractionDigits:2,maximumFractionDigits:2})}</p>
         </div>
       </div>
-      <div class="stat-kpi" style="border-color:#c084fc;">
+      <div class="stat-kpi" style="border-color:#c084fc; ${window.isAdminAuthorized() ? '' : 'display:none;'}">
         <div style="width:44px;height:44px;background:linear-gradient(135deg,#faf5ff,#ede9fe);border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="#7c3aed" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
         </div>
@@ -290,7 +290,7 @@ function renderAdminView(total, bajo, critico, valorCosto, valorVenta) {
               <th>Descripción</th>
               <th>Categoría</th>
               <th class="text-center" style="width:140px;">Stock / Nivel</th>
-              <th class="text-right">Costo</th>
+              ${window.isAdminAuthorized() ? '<th class="text-right">Costo</th>' : ''}
               <th class="text-right">P. Venta</th>
               <th class="text-right">Acciones</th>
             </tr>
@@ -553,7 +553,7 @@ function renderAdminTableRows(productos) {
         <td class="font-mono" style="font-weight:800;color:var(--brand);letter-spacing:.5px;">${p.codigo}</td>
         <td>
           <strong style="display:block;color:var(--dark);">${p.descripcion}</strong>
-          <span style="font-size:10px;color:var(--slate-5);">Margen: S/ ${margen.toFixed(2)}</span>
+          ${window.isAdminAuthorized() ? `<span style="font-size:10px;color:var(--slate-5);">Margen: S/ ${margen.toFixed(2)}</span>` : ''}
         </td>
         <td>
           <span style="font-size:10px;font-weight:700;color:var(--slate-5);text-transform:uppercase;background:var(--slate-9);padding:3px 8px;border-radius:99px;border:1px solid var(--slate-8);">${p.categoria}</span>
@@ -567,7 +567,7 @@ function renderAdminTableRows(productos) {
             <span style="font-size:9px;color:var(--slate-5);">mín: ${p.stock_min}</span>
           </div>
         </td>
-        <td class="text-right font-mono" style="color:var(--slate-5);">S/ ${parseFloat(p.costo || 0).toFixed(2)}</td>
+        ${window.isAdminAuthorized() ? `<td class="text-right font-mono" style="color:var(--slate-5);">S/ ${parseFloat(p.costo || 0).toFixed(2)}</td>` : ''}
         <td class="text-right font-mono font-bold" style="color:var(--brand);">S/ ${parseFloat(p.precio_venta || 0).toFixed(2)}</td>
         <td class="text-right">
           <div class="flex justify-end gap-1">
@@ -685,9 +685,9 @@ function renderModales() {
                 <label class="form-label">Stock Mínimo</label>
                 <input type="number" id="prod-stock-min" min="0" class="form-input text-center" required value="2" />
               </div>
-              <div class="form-group">
+              <div class="form-group" style="${window.isAdminAuthorized() ? '' : 'display:none;'}">
                 <label class="form-label">Costo (S/)</label>
-                <input type="number" id="prod-costo" step="0.01" min="0" class="form-input font-mono text-right" required placeholder="0.00" />
+                <input type="number" id="prod-costo" step="0.01" min="0" class="form-input font-mono text-right" ${window.isAdminAuthorized() ? 'required' : ''} placeholder="0.00" />
               </div>
               <div class="form-group">
                 <label class="form-label">P. Venta (S/)</label>

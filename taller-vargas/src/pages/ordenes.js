@@ -2509,8 +2509,22 @@ async function verDetalleOrden(id) {
     const garWrapper = document.getElementById('det-garantia-wrapper');
     if (garWrapper) {
       if (o.es_garantia) {
-        document.getElementById('det-garantia-mecanico').textContent = o.mecanico_negligente || 'No especificado';
-        document.getElementById('det-garantia-motivo').textContent = o.garantia_motivo || 'No especificado';
+        const isAuth = window.isAdminAuthorized && window.isAdminAuthorized();
+        const mecLabel = document.getElementById('det-garantia-mecanico');
+        const motLabel = document.getElementById('det-garantia-motivo');
+        if (isAuth) {
+          if (mecLabel) {
+            mecLabel.textContent = o.mecanico_negligente || 'No especificado';
+            mecLabel.parentNode.style.display = 'block';
+          }
+          if (motLabel) {
+            motLabel.textContent = o.garantia_motivo || 'No especificado';
+            motLabel.parentNode.style.display = 'block';
+          }
+        } else {
+          if (mecLabel) mecLabel.parentNode.style.display = 'none';
+          if (motLabel) motLabel.parentNode.style.display = 'none';
+        }
         garWrapper.classList.remove('hidden');
       } else {
         garWrapper.classList.add('hidden');

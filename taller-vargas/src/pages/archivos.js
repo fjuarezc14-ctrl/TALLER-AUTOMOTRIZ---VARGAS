@@ -360,7 +360,19 @@ function renderArchivos() {
    ══════════════════════════════════════════════════════════ */
 function aplicarFiltros() {
   const { q, tipo, fechaInicio, fechaFin } = filtros;
-  return archivosList.filter(a => {
+  
+  let lista = archivosList;
+  if (window.isAdminAuthorized && !window.isAdminAuthorized()) {
+    lista = lista.filter(a => {
+      const isInvoice = (a.titulo && (a.titulo.startsWith('F0') || a.titulo.startsWith('B0') || a.titulo.startsWith('RI-'))) ||
+                        (a.filename && (a.filename.startsWith('F0') || a.filename.startsWith('B0') || a.filename.startsWith('RI-'))) ||
+                        (a.area && a.area.toLowerCase() === 'facturacion') ||
+                        a.tipo === 'xml';
+      return !isInvoice;
+    });
+  }
+
+  return lista.filter(a => {
     const matchQ = !q || [a.titulo, a.area, a.filename, a.cliente_nombre, a.vehiculo_placa]
       .some(v => v?.toLowerCase().includes(q.toLowerCase()));
     const matchTipo = tipo === 'todos' || a.tipo === tipo;

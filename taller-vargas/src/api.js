@@ -14,14 +14,21 @@ class ApiError extends Error {
 
 async function request(path, options = {}) {
   const url = `${BASE_URL}/api${path}`;
+  const headers = { 
+    'Content-Type': 'application/json',
+    'Cache-Control': 'no-cache',
+    'Pragma': 'no-cache',
+    'Expires': '0',
+    ...options.headers 
+  };
+  
+  const adminPin = sessionStorage.getItem('vargas_admin_pin');
+  if (adminPin) {
+    headers['x-admin-pin'] = adminPin;
+  }
+
   const res = await fetch(url, {
-    headers: { 
-      'Content-Type': 'application/json',
-      'Cache-Control': 'no-cache',
-      'Pragma': 'no-cache',
-      'Expires': '0',
-      ...options.headers 
-    },
+    headers,
     ...options,
     body: options.body ? JSON.stringify(options.body) : undefined,
   });
@@ -86,6 +93,7 @@ export const getCobros    = ()         => request('/cobros');
 export const getStatsCobros = ()       => request('/cobros/stats');
 export const registrarCobro = (id, d)  => request(`/cobros/${id}/cobrar`, { method: 'PATCH', body: d });
 export const dividirCobro   = (id, d)  => request(`/cobros/${id}/dividir`, { method: 'PATCH', body: d });
+export const verificarAdminPin = (pin) => request('/cobros/verificar-pin', { method: 'POST', body: { pin } });
 
 // ── Archivos ──────────────────────────────────────────────
 export const getArchivos    = ()       => request('/archivos');

@@ -3,6 +3,26 @@ import { query, getClient } from '../db.js';
 
 const router = Router();
 
+// Middleware para validar que se provea el PIN correcto de administración
+function requiereAdmin(req, res, next) {
+  const pinHeader = req.headers['x-admin-pin'];
+  const correctPin = process.env.ADMIN_PIN || '1234';
+  if (String(pinHeader) !== String(correctPin)) {
+    return res.status(401).json({ error: 'Acceso no autorizado. PIN incorrecto.' });
+  }
+  next();
+}
+
+// POST /api/cobros/verificar-pin
+router.post('/verificar-pin', (req, res) => {
+  const { pin } = req.body;
+  const correctPin = process.env.ADMIN_PIN || '1234';
+  if (String(pin) === String(correctPin)) {
+    return res.json({ valido: true });
+  }
+  res.status(401).json({ error: 'PIN de administración incorrecto.' });
+});
+
 async function getNextComprobanteNumero(client, tipo) {
   let prefix = '';
   if (tipo === 'Factura') prefix = 'F001-';
@@ -31,7 +51,7 @@ async function getNextComprobanteNumero(client, tipo) {
 }
 
 // GET /api/cobros
-router.get('/', async (_req, res) => {
+router.get('/', requiereAdmin, async (_req, res) => {
   try {
     const result = await query(`
       SELECT co.*, c.nombre AS cliente_nombre, c.tipo_doc, c.num_doc, c.telefono AS cliente_telefono,
@@ -47,7 +67,7 @@ router.get('/', async (_req, res) => {
 });
 
 // GET /api/cobros/stats
-router.get('/stats', async (_req, res) => {
+router.get('/stats', requiereAdmin, async (_req, res) => {
   try {
     const result = await query(`
       SELECT
@@ -61,7 +81,7 @@ router.get('/stats', async (_req, res) => {
 });
 
 // PATCH /api/cobros/:id/cobrar  (registrar pago - cobro simple)
-router.patch('/:id/cobrar', async (req, res) => {
+router.patch('/:id/cobrar', requiereAdmin, async (req, res) => {
   const { metodo_pago, tipo_comprobante, descuento_tipo, descuento_valor, descuento_realizado, monto_neto } = req.body;
   const client = await getClient();
   try {
@@ -123,7 +143,7 @@ router.patch('/:id/cobrar', async (req, res) => {
 });
 
 // PATCH /api/cobros/:id/dividir  (pago dividido - requerimiento AÑADIR.txt)
-router.patch('/:id/dividir', async (req, res) => {
+router.patch('/:id/dividir', requiereAdmin, async (req, res) => {
   const {
     metodo_pago, tipo_comprobante,
     pagador2_nombre, pagador2_doc,

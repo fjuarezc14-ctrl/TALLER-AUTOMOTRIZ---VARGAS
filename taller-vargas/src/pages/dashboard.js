@@ -446,7 +446,7 @@ function renderDashboard(data) {
     <!-- KPIs Grid -->
     <div class="kpi-grid">
       <!-- Cobrado Mes -->
-      <div class="metric-card cobros">
+      <div class="metric-card cobros" style="${window.isAdminAuthorized() ? '' : 'display:none;'}">
         <div class="metric-header">
           <span class="metric-title">Ingresos Cobrados</span>
           <div class="metric-icon-wrap">S/</div>
@@ -475,7 +475,7 @@ function renderDashboard(data) {
       </div>
 
       <!-- Ticket Promedio -->
-      <div class="metric-card ticket">
+      <div class="metric-card ticket" style="${window.isAdminAuthorized() ? '' : 'display:none;'}">
         <div class="metric-header">
           <span class="metric-title">Ticket Promedio</span>
           <div class="metric-icon-wrap">
@@ -517,7 +517,7 @@ function renderDashboard(data) {
       </div>
 
       <!-- Pendiente por Cobrar -->
-      <div class="metric-card pendientes">
+      <div class="metric-card pendientes" style="${window.isAdminAuthorized() ? '' : 'display:none;'}">
         <div class="metric-header">
           <span class="metric-title">Cuentas por Cobrar</span>
           <div class="metric-icon-wrap">!</div>
@@ -595,7 +595,7 @@ function renderDashboard(data) {
     </div>
 
     <!-- Tendencia de Ingresos -->
-    <div class="chart-container">
+    <div class="chart-container" style="${window.isAdminAuthorized() ? '' : 'display:none;'}">
       <div class="chart-header">
         <div>
           <h3 style="font-size:16px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px;">Tendencia y Desempeño Comercial</h3>
@@ -645,7 +645,7 @@ function renderDashboard(data) {
                   </div>
                   <div style="display:flex; justify-content:space-between; font-size:10px; color:var(--slate-5); margin-top:2px;">
                     <span>Servicio Automotriz</span>
-                    <span style="font-weight:bold;">S/ ${parseFloat(s.total || 0).toFixed(2)}</span>
+                    <span style="font-weight:bold; ${window.isAdminAuthorized() ? '' : 'display:none;'}">S/ ${parseFloat(s.total || 0).toFixed(2)}</span>
                   </div>
                 </div>
               `;

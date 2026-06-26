@@ -21,7 +21,21 @@ let currentModule = null;
 export async function navigate(path = '/') {
   const pathname = path.split('?')[0];
   const matchedPath = pathname.startsWith('/confirmar') ? '/confirmar' : pathname;
-  
+
+  if (matchedPath === '/facturacion') {
+    const isAuth = window.isAdminAuthorized && window.isAdminAuthorized();
+    if (!isAuth) {
+      if (window.promptAdminLogin) {
+        window.promptAdminLogin(() => {
+          navigate('/facturacion');
+        });
+      } else {
+        alert('Acceso restringido. Requiere PIN de administración.');
+      }
+      return;
+    }
+  }
+
   const loader = routes[matchedPath] || routes['/'];
   
   const sidebar = document.getElementById('sidebar-menu');
