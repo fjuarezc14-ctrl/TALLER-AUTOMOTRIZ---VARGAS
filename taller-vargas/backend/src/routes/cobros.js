@@ -5,9 +5,9 @@ const router = Router();
 
 // Middleware para validar que se provea el PIN correcto de administración
 function requiereAdmin(req, res, next) {
-  const pinHeader = req.headers['x-admin-pin'];
-  const correctPin = process.env.ADMIN_PIN || '1234';
-  if (String(pinHeader) !== String(correctPin)) {
+  const pinHeader = String(req.headers['x-admin-pin'] || '').trim();
+  const correctPin = String(process.env.ADMIN_PIN || '1234').trim();
+  if (pinHeader !== correctPin) {
     return res.status(401).json({ error: 'Acceso no autorizado. PIN incorrecto.' });
   }
   next();
@@ -16,8 +16,9 @@ function requiereAdmin(req, res, next) {
 // POST /api/cobros/verificar-pin
 router.post('/verificar-pin', (req, res) => {
   const { pin } = req.body;
-  const correctPin = process.env.ADMIN_PIN || '1234';
-  if (String(pin) === String(correctPin)) {
+  const correctPin = String(process.env.ADMIN_PIN || '1234').trim();
+  const inputPin = String(pin || '').trim();
+  if (inputPin === correctPin) {
     return res.json({ valido: true });
   }
   res.status(401).json({ error: 'PIN de administración incorrecto.' });
