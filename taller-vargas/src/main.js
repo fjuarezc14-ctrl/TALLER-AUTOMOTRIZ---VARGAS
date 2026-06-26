@@ -1,5 +1,5 @@
 import { navigate } from './router.js';
-import { getAlertasStock, verificarAdminPin } from './api.js';
+import { getAlertasStock, verificarAdminPin, getVehiculos } from './api.js';
 import { createIcons, icons } from 'lucide';
 
 // ── Gestión Global de Sesión de Administración (PIN) ────────
@@ -152,6 +152,9 @@ async function init() {
 
   // Inicializar UI de administrador
   window.updateAdminUI();
+
+  // Inicializar buscador global predictivo
+  initGlobalSearch();
 }
 
 // ── Alertas de stock globales ─────────────────────────────
@@ -320,5 +323,117 @@ window.alert = function(message) {
     });
   }, 3500);
 };
+
+// ── Buscador Global Predictivo (Fase 4) ────────────────────
+let globalVehiculosCache = [];
+let selectedSearchIndex = -1;
+
+async function fetchVehiclesForGlobalSearch() {
+  if (globalVehiculosCache.length > 0) return;
+  try {
+    globalVehiculosCache = await getVehiculos();
+  } catch (e) {
+    console.error('Error al precargar vehículos para buscador global:', e);
+  }
+}
+
+function initGlobalSearch() {
+  const searchInput = document.getElementById('global-search-input');
+  const resultsContainer = document.getElementById('global-search-results');
+  
+  if (!searchInput || !resultsContainer) return;
+  
+  searchInput.addEventListener('focus', fetchVehiclesForGlobalSearch);
+  
+  searchInput.addEventListener('input', (e) => {
+    const query = e.target.value.trim().toUpperCase();
+    if (!query) {
+      resultsContainer.classList.add('hidden');
+      resultsContainer.innerHTML = '';
+      return;
+    }
+    
+    const matches = globalVehiculosCache.filter(v => 
+      (v.placa && v.placa.includes(query)) ||
+      (v.marca_modelo && v.marca_modelo.toUpperCase().includes(query)) ||
+      (v.cliente_nombre && v.cliente_nombre.toUpperCase().includes(query))
+    ).slice(0, 8);
+    
+    if (matches.length === 0) {
+      resultsContainer.innerHTML = `<div style="padding:10px 14px;font-size:11px;color:var(--slate-5);text-align:center;">⚠️ Sin coincidencias</div>`;
+      resultsContainer.classList.remove('hidden');
+      selectedSearchIndex = -1;
+      return;
+    }
+    
+    selectedSearchIndex = -1;
+    resultsContainer.innerHTML = matches.map((v, index) => `
+      <div class="search-result-item" data-id="${v.id}" data-index="${index}" style="padding:10px 14px;border-bottom:1px solid var(--slate-8);cursor:pointer;display:flex;justify-content:space-between;align-items:center;transition:background 0.1s;background:var(--white);">
+        <div>
+          <span style="font-family:monospace;font-weight:900;color:var(--brand);background:var(--slate-9);padding:2px 6px;border-radius:4px;font-size:11px;border:1px solid var(--slate-8);">${v.placa}</span>
+          <span style="font-size:12px;font-weight:700;color:var(--dark);margin-left:8px;">${v.marca_modelo}</span>
+        </div>
+        <div style="font-size:10px;color:var(--slate-5);text-align:right;">
+          👤 ${v.cliente_nombre || 'Sin propietario'}
+        </div>
+      </div>
+    `).join('');
+    resultsContainer.classList.remove('hidden');
+    
+    resultsContainer.querySelectorAll('.search-result-item').forEach(item => {
+      item.addEventListener('click', () => {
+        const id = item.dataset.id;
+        navigate(`/vehiculos?abrir=${id}`);
+        searchInput.value = '';
+        resultsContainer.classList.add('hidden');
+      });
+      
+      item.addEventListener('mouseenter', () => {
+        highlightSearchItem(parseInt(item.dataset.index, 10));
+      });
+    });
+  });
+  
+  searchInput.addEventListener('keydown', (e) => {
+    const items = resultsContainer.querySelectorAll('.search-result-item');
+    if (resultsContainer.classList.contains('hidden') || items.length === 0) return;
+    
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      selectedSearchIndex = (selectedSearchIndex + 1) % items.length;
+      highlightSearchItem(selectedSearchIndex);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      selectedSearchIndex = (selectedSearchIndex - 1 + items.length) % items.length;
+      highlightSearchItem(selectedSearchIndex);
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (selectedSearchIndex >= 0 && selectedSearchIndex < items.length) {
+        items[selectedSearchIndex].click();
+      }
+    } else if (e.key === 'Escape') {
+      resultsContainer.classList.add('hidden');
+      searchInput.blur();
+    }
+  });
+  
+  document.addEventListener('click', (e) => {
+    if (!searchInput.contains(e.target) && !resultsContainer.contains(e.target)) {
+      resultsContainer.classList.add('hidden');
+    }
+  });
+  
+  function highlightSearchItem(index) {
+    selectedSearchIndex = index;
+    const items = resultsContainer.querySelectorAll('.search-result-item');
+    items.forEach((item, idx) => {
+      const isSelected = idx === index;
+      item.style.background = isSelected ? 'var(--slate-9)' : 'var(--white)';
+      if (isSelected) {
+        item.scrollIntoView({ block: 'nearest' });
+      }
+    });
+  }
+}
 
 init().catch(console.error);

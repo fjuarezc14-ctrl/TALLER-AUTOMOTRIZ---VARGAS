@@ -45,6 +45,16 @@ async function cargarDatos() {
   vehiculosList = v;
   clientesList  = c;
   renderVehiculos(vehiculosList);
+
+  // Auto-abrir modal si viene ?abrir=ID en la URL (Buscador Predictivo Global - Fase 4)
+  const params = new URLSearchParams(window.location.search);
+  const abrirId = params.get('abrir');
+  if (abrirId) {
+    const idNum = parseInt(abrirId, 10);
+    if (!isNaN(idNum)) {
+      setTimeout(() => verHistorial(idNum), 100);
+    }
+  }
 }
 
 // ── Skeleton / Error ──────────────────────────────────────

@@ -1080,6 +1080,22 @@ function renderPage() {
   document.getElementById('btn-save-ord').addEventListener('click', guardarNuevaOrden);
   document.getElementById('form-nueva-orden').addEventListener('input', () => window.guardarBorradorEnLocalStorage());
   document.getElementById('form-nueva-orden').addEventListener('change', () => window.guardarBorradorEnLocalStorage());
+  document.getElementById('form-nueva-orden').addEventListener('click', (e) => {
+    const btn = e.target.closest('.btn-quick-sintoma');
+    if (btn) {
+      const textarea = document.getElementById('ord-falla');
+      if (textarea) {
+        const val = btn.dataset.val;
+        const currentVal = textarea.value.trim();
+        if (currentVal) {
+          textarea.value = currentVal + ', ' + val;
+        } else {
+          textarea.value = val;
+        }
+        textarea.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+    }
+  });
   document.getElementById('veh-select-id').addEventListener('change', autoAsignarClienteYKm);
   document.getElementById('cli-select-id').addEventListener('change', filtrarVehiculosPorCliente);
   
@@ -1399,6 +1415,15 @@ function renderModales() {
               <div class="form-group">
                 <label class="form-label">Otros / Especificaciones</label>
                 <textarea id="ord-falla" class="form-textarea" rows="2" placeholder="Especifica fallas adicionales aquí..."></textarea>
+                <div class="flex gap-2 mt-2" style="flex-wrap:wrap;">
+                  <span style="font-size:10px;font-weight:700;color:var(--slate-5);display:flex;align-items:center;">⚡ Rápido:</span>
+                  <button type="button" class="btn-quick-sintoma" data-val="Cambio de Aceite y Filtro" style="font-size:10px;padding:3px 8px;background:var(--slate-9);border:1px solid var(--slate-8);border-radius:4px;cursor:pointer;color:var(--dark);font-weight:600;">🛢️ Aceite</button>
+                  <button type="button" class="btn-quick-sintoma" data-val="Afinamiento Motor" style="font-size:10px;padding:3px 8px;background:var(--slate-9);border:1px solid var(--slate-8);border-radius:4px;cursor:pointer;color:var(--dark);font-weight:600;">🔧 Afinamiento</button>
+                  <button type="button" class="btn-quick-sintoma" data-val="Revisión de Frenos" style="font-size:10px;padding:3px 8px;background:var(--slate-9);border:1px solid var(--slate-8);border-radius:4px;cursor:pointer;color:var(--dark);font-weight:600;">🛑 Frenos</button>
+                  <button type="button" class="btn-quick-sintoma" data-val="Alineamiento y Balanceo" style="font-size:10px;padding:3px 8px;background:var(--slate-9);border:1px solid var(--slate-8);border-radius:4px;cursor:pointer;color:var(--dark);font-weight:600;">🛞 Alineamiento</button>
+                  <button type="button" class="btn-quick-sintoma" data-val="Lavado y Salón" style="font-size:10px;padding:3px 8px;background:var(--slate-9);border:1px solid var(--slate-8);border-radius:4px;cursor:pointer;color:var(--dark);font-weight:600;">🧼 Lavado</button>
+                  <button type="button" class="btn-quick-sintoma" data-val="Diagnóstico Eléctrico" style="font-size:10px;padding:3px 8px;background:var(--slate-9);border:1px solid var(--slate-8);border-radius:4px;cursor:pointer;color:var(--dark);font-weight:600;">⚡ Electricidad</button>
+                </div>
               </div>
 
               <div class="form-section-title" style="margin:4px 0 0 0;">Servicios Adicionales</div>
