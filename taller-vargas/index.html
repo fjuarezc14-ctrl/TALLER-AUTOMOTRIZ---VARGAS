@@ -21,6 +21,13 @@
     body > *:not(#print-area) { display: none !important; }
     #print-area { display: block !important; position: absolute; left: 0; top: 0; width: 100%; }
   </style>
+  <!-- PWA Manifest & Icons configuration -->
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#10b981">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="TallerVargas">
+  <link rel="apple-touch-icon" href="/icono-192x192.png">
 </head>
 <body class="flex h-screen overflow-hidden">
 
@@ -161,5 +168,15 @@
 
   <div id="print-area" style="display:none"></div>
   <script type="module" src="/src/main.js"></script>
+  <!-- PWA Service Worker Registration -->
+  <script>
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('/sw.js')
+                .then(reg => console.log('Service Worker registrado con éxito', reg))
+                .catch(err => console.log('Error al registrar Service Worker', err));
+        });
+    }
+  </script>
 </body>
 </html>

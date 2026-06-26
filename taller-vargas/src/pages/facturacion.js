@@ -1246,7 +1246,7 @@ function obtenerFacturaHtmlContent(c, pagadorIndex, items) {
           </p>
         </div>
         <div style="text-align:center;">
-          ${renderQRSimuladoPequeno()}
+          ${renderQRReal(c, pagadorIndex, 75)}
           <p style="font-size:9px;color:#64748b;margin-top:4px;">Validación Interna</p>
         </div>
       </div>
@@ -1351,6 +1351,52 @@ function renderQRSimuladoPequeno() {
     }
   }
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${SIZE*10} ${SIZE*10}" style="width:70px;height:70px;border:2px solid #e2e8f0;border-radius:6px;padding:4px;background:#fff;">${cells.join('')}</svg>`;
+}
+
+function renderQRReal(c, pagadorIndex, size = 90) {
+  const tipo = pagadorIndex === 1 ? (c.tipo_comprobante || 'Boleta') : (c.comprobante2 || 'Boleta');
+  const tipoCode = tipo === 'Factura' ? '01' : tipo === 'Boleta' ? '03' : '00';
+  const compNumero = pagadorIndex === 1 ? (c.comprobante_numero || '') : (c.comprobante2_numero || '');
+  const parts = compNumero.split('-');
+  const serie = parts[0] || '—';
+  const numero = parts[1] || '—';
+
+  const totalOriginal = parseFloat(c.monto_total);
+  const totalNeto = (c.monto_neto !== null && c.monto_neto !== undefined) ? parseFloat(c.monto_neto) : totalOriginal;
+  let totalP = totalNeto;
+  if (c.es_dividido) {
+    totalP = pagadorIndex === 1 ? parseFloat(c.monto_pagador1 || 0) : parseFloat(c.monto_pagador2 || 0);
+  }
+  const igvP = totalP * 0.18 / 1.18;
+
+  const dateObj = c.fecha_emision ? new Date(c.fecha_emision) : new Date();
+  const y = dateObj.getFullYear();
+  const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+  const d = String(dateObj.getDate()).padStart(2, '0');
+  const fechaFormatted = `${y}-${m}-${d}`;
+
+  const receptorNombre = pagadorIndex === 1 ? (c.cliente_nombre || '—') : (c.pagador2_nombre || '—');
+  const docType2 = c.pagador2_doc && c.pagador2_doc.trim().length === 11 ? 'RUC' : 'DNI';
+  const receptorDocType = pagadorIndex === 1 ? (c.tipo_doc || 'DNI') : docType2;
+  const receptorDocNum = pagadorIndex === 1 ? (c.num_doc || '—') : (c.pagador2_doc || '—');
+  const tipoDocCode = receptorDocType === 'RUC' ? '6' : receptorDocType === 'DNI' ? '1' : '0';
+
+  const hashSimulado = btoa(compNumero + receptorNombre + totalP).replace(/=/g,'').slice(0,40).toUpperCase();
+
+  const qrText = `20608226066|${tipoCode}|${serie}|${numero}|${igvP.toFixed(2)}|${totalP.toFixed(2)}|${fechaFormatted}|${tipoDocCode}|${receptorDocNum}|${hashSimulado}|`;
+  const encoded = encodeURIComponent(qrText);
+
+  const idFallback = `qr-fallback-${Math.floor(Math.random() * 100000)}`;
+  
+  window[idFallback] = function() {
+    const el = document.getElementById(idFallback);
+    if (el) el.outerHTML = renderQRSimuladoPequeno();
+  };
+
+  return `<img id="${idFallback}" src="https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encoded}" 
+               alt="QR SUNAT" 
+               style="width:${size}px;height:${size}px;border:2px solid #e2e8f0;border-radius:6px;padding:4px;background:#fff;" 
+               onerror="window['${idFallback}']()" />`;
 }
 
 // ── XML SIMULADO UBL 2.1 ──────────────────────────────────

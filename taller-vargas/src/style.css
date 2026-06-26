@@ -1382,10 +1382,10 @@ html[data-theme="dark"] [style*="background:var(--dark)"] {
    PORTAL DE MECÁNICO (MODO TALLER INDUSTRIAL) — STYLING
    ============================================================ */
 
-/* Wrapper que fuerza colores industriales oscuros */
+/* Wrapper que fuerza colores industriales adaptables en este portal */
 .modo-taller-wrapper {
-  background-color: #0b0f19 !important;
-  color: #e2e8f0 !important;
+  background-color: var(--slate-9) !important;
+  color: var(--dark) !important;
   min-height: 100vh;
   margin: -24px; /* Contrarrestar padding del main container */
   padding: 24px;
@@ -1462,23 +1462,23 @@ html[data-theme="dark"] [style*="background:var(--dark)"] {
 }
 
 .taller-login-box {
-  background-color: #111827;
-  border: 1px solid #1e293b;
+  background-color: var(--white);
+  border: 1px solid var(--slate-8);
   border-radius: 16px;
   padding: 32px;
-  box-shadow: 0 10px 25px -5px rgba(0,0,0,0.3);
+  box-shadow: var(--shadow-md);
 }
 
 .taller-login-box h2 {
   font-size: 20px;
   font-weight: 800;
-  color: #f1f5f9;
+  color: var(--dark);
   text-align: center;
 }
 
 .taller-subtitle {
   text-align: center;
-  color: #94a3b8;
+  color: var(--slate-5);
   font-size: 14px;
   margin-bottom: 32px;
 }
@@ -1490,8 +1490,8 @@ html[data-theme="dark"] [style*="background:var(--dark)"] {
 }
 
 .taller-mecanico-card {
-  background: #1f2937;
-  border: 2px solid #374151;
+  background: var(--white);
+  border: 2px solid var(--slate-8);
   border-radius: 14px;
   padding: 24px;
   display: flex;
@@ -1499,12 +1499,12 @@ html[data-theme="dark"] [style*="background:var(--dark)"] {
   align-items: center;
   cursor: pointer;
   transition: all 0.2s ease;
-  color: white;
+  color: var(--dark);
 }
 
 .taller-mecanico-card:hover {
-  border-color: #10b981;
-  background-color: #111827;
+  border-color: var(--brand);
+  background-color: var(--slate-9);
   transform: translateY(-4px);
   box-shadow: 0 8px 20px rgba(16,185,129,0.15);
 }
@@ -1535,8 +1535,8 @@ html[data-theme="dark"] [style*="background:var(--dark)"] {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background-color: #111827;
-  border: 1px solid #1e293b;
+  background-color: var(--white);
+  border: 1px solid var(--slate-8);
   border-radius: 12px;
   padding: 16px 24px;
 }
@@ -1560,7 +1560,7 @@ html[data-theme="dark"] [style*="background:var(--dark)"] {
 .taller-topbar h2, .taller-topbar-detail h2 {
   font-size: 18px;
   font-weight: 850;
-  color: white;
+  color: var(--dark);
 }
 
 .taller-topbar-right {
@@ -1606,9 +1606,9 @@ html[data-theme="dark"] [style*="background:var(--dark)"] {
 }
 
 .taller-tab-btn {
-  background-color: #111827;
-  border: 1px solid #1e293b;
-  color: #94a3b8;
+  background-color: var(--white);
+  border: 1px solid var(--slate-8);
+  color: var(--slate-5);
   padding: 12px 20px;
   border-radius: 8px;
   font-weight: 800;
@@ -1618,8 +1618,8 @@ html[data-theme="dark"] [style*="background:var(--dark)"] {
 }
 
 .taller-tab-btn:hover {
-  background-color: #1f2937;
-  color: white;
+  background-color: var(--slate-8);
+  color: var(--dark);
 }
 
 .taller-tab-btn.taller-tab-active {
@@ -1631,9 +1631,9 @@ html[data-theme="dark"] [style*="background:var(--dark)"] {
 
 .taller-btn-refrescar {
   margin-left: auto;
-  background-color: #1e293b;
-  border: 1px solid #334155;
-  color: white;
+  background-color: var(--white);
+  border: 1px solid var(--slate-8);
+  color: var(--dark);
   padding: 10px 16px;
   border-radius: 8px;
   font-size: 12px;
@@ -1649,8 +1649,8 @@ html[data-theme="dark"] [style*="background:var(--dark)"] {
 }
 
 .taller-trabajo-card {
-  background-color: #111827;
-  border: 1px solid #1e293b;
+  background-color: var(--white);
+  border: 1px solid var(--slate-8);
   border-radius: 12px;
   overflow: hidden;
   display: flex;
@@ -1669,18 +1669,18 @@ html[data-theme="dark"] [style*="background:var(--dark)"] {
 }
 
 .taller-card-header {
-  background-color: #1f2937;
+  background-color: var(--slate-9);
   padding: 12px 16px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 1px solid #1e293b;
+  border-bottom: 1px solid var(--slate-8);
 }
 
 .taller-card-placa {
-  background-color: #0b0f19;
-  border: 1px solid #374151;
-  color: #f3f4f6;
+  background-color: var(--dark);
+  border: 1px solid var(--slate-8);
+  color: var(--brand);
   font-family: monospace;
   font-weight: 900;
   font-size: 14px;
@@ -1710,7 +1710,7 @@ html[data-theme="dark"] [style*="background:var(--dark)"] {
 .taller-card-body h3 {
   font-size: 16px;
   font-weight: 800;
-  color: white;
+  color: var(--dark);
   margin-bottom: 4px;
 }
 
@@ -1726,7 +1726,7 @@ html[data-theme="dark"] [style*="background:var(--dark)"] {
 }
 
 .taller-card-field span {
-  color: #cbd5e1;
+  color: var(--dark);
   text-align: right;
 }
 
@@ -1743,10 +1743,10 @@ html[data-theme="dark"] [style*="background:var(--dark)"] {
 }
 
 .taller-btn-tactile-open {
-  background-color: #1f2937;
+  background-color: var(--slate-9);
   border: none;
-  border-top: 1px solid #1e293b;
-  color: #3b82f6;
+  border-top: 1px solid var(--slate-8);
+  color: var(--brand);
   font-weight: 800;
   font-size: 13px;
   padding: 12px;
@@ -1773,8 +1773,8 @@ html[data-theme="dark"] [style*="background:var(--dark)"] {
 }
 
 .taller-col-silueta {
-  background-color: #111827;
-  border: 1px solid #1e293b;
+  background-color: var(--white);
+  border: 1px solid var(--slate-8);
   border-radius: 16px;
   padding: 24px;
   display: flex;
@@ -1802,9 +1802,9 @@ html[data-theme="dark"] [style*="background:var(--dark)"] {
 .taller-svg-wrapper {
   width: 100%;
   max-width: 320px;
-  background-color: #0b0f19;
+  background-color: var(--slate-9);
   border-radius: 12px;
-  border: 1px dashed #374151;
+  border: 1px dashed var(--slate-7);
   padding: 12px;
 }
 
@@ -1842,8 +1842,8 @@ html[data-theme="dark"] [style*="background:var(--dark)"] {
 }
 
 .taller-detail-box {
-  background-color: #111827;
-  border: 1px solid #1e293b;
+  background-color: var(--white);
+  border: 1px solid var(--slate-8);
   border-radius: 12px;
   padding: 20px;
 }
@@ -1854,13 +1854,13 @@ html[data-theme="dark"] [style*="background:var(--dark)"] {
   color: #64748b;
   margin-bottom: 12px;
   text-transform: uppercase;
-  border-bottom: 1px solid #1e293b;
+  border-bottom: 1px solid var(--slate-8);
   padding-bottom: 6px;
 }
 
 .info-cliente-box p {
   font-size: 13px;
-  color: #cbd5e1;
+  color: var(--dark);
   margin-bottom: 6px;
 }
 
@@ -1937,17 +1937,17 @@ html[data-theme="dark"] [style*="background:var(--dark)"] {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background-color: #1f2937;
+  background-color: var(--white);
   padding: 10px 14px;
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.15s;
-  border: 1px solid transparent;
+  border: 1px solid var(--slate-8);
 }
 
 .taller-chk-row:hover {
-  border-color: #3b82f6;
-  background-color: #111827;
+  border-color: var(--brand);
+  background-color: var(--slate-9);
 }
 
 .taller-chk-left {
@@ -1957,7 +1957,7 @@ html[data-theme="dark"] [style*="background:var(--dark)"] {
 
 .taller-chk-left strong {
   font-size: 13px;
-  color: white;
+  color: var(--dark);
 }
 
 .taller-chk-desc-label {
@@ -1999,22 +1999,22 @@ html[data-theme="dark"] [style*="background:var(--dark)"] {
 }
 
 .taller-bottom-drawer {
-  background-color: #111827;
+  background-color: var(--white);
   border-top-left-radius: 20px;
   border-top-right-radius: 20px;
   width: 100%;
   max-width: 600px;
   max-height: 90vh;
-  box-shadow: 0 -10px 25px -5px rgba(0,0,0,0.5);
+  box-shadow: var(--shadow-lg);
   display: flex;
   flex-direction: column;
-  border: 1px solid #1e293b;
+  border: 1px solid var(--slate-8);
   border-bottom: none;
 }
 
 .taller-drawer-header {
   padding: 20px 24px;
-  border-bottom: 1px solid #1e293b;
+  border-bottom: 1px solid var(--slate-8);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -2033,7 +2033,7 @@ html[data-theme="dark"] [style*="background:var(--dark)"] {
 .taller-drawer-title h3 {
   font-size: 18px;
   font-weight: 900;
-  color: white;
+  color: var(--dark);
 }
 
 .taller-drawer-close {
@@ -2066,11 +2066,11 @@ html[data-theme="dark"] [style*="background:var(--dark)"] {
 }
 
 .taller-drawer-status-btn {
-  background-color: #1f2937;
-  border: 2px solid #374151;
+  background-color: var(--white);
+  border: 2px solid var(--slate-8);
   border-radius: 10px;
   padding: 12px;
-  color: white;
+  color: var(--dark);
   text-align: left;
   cursor: pointer;
   display: flex;
@@ -2115,10 +2115,10 @@ html[data-theme="dark"] [style*="background:var(--dark)"] {
 }
 
 .taller-drawer-textarea {
-  background-color: #0b0f19;
-  border: 1px solid #374151;
+  background-color: var(--slate-9);
+  border: 1px solid var(--slate-8);
   border-radius: 8px;
-  color: white;
+  color: var(--dark);
   padding: 12px;
   font-size: 13px;
   min-height: 80px;
@@ -2159,20 +2159,20 @@ html[data-theme="dark"] [style*="background:var(--dark)"] {
 }
 
 .taller-modal {
-  background-color: #111827;
-  border: 1px solid #1e293b;
+  background-color: var(--white);
+  border: 1px solid var(--slate-8);
   border-radius: 16px;
   width: 100%;
   max-width: 500px;
   max-height: 85vh;
-  box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+  box-shadow: var(--shadow-lg);
   display: flex;
   flex-direction: column;
 }
 
 .taller-modal-header {
   padding: 16px 20px;
-  border-bottom: 1px solid #1e293b;
+  border-bottom: 1px solid var(--slate-8);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -2181,7 +2181,7 @@ html[data-theme="dark"] [style*="background:var(--dark)"] {
 .taller-modal-header h3 {
   font-size: 16px;
   font-weight: 900;
-  color: white;
+  color: var(--dark);
 }
 
 .taller-modal-close {
@@ -2202,10 +2202,10 @@ html[data-theme="dark"] [style*="background:var(--dark)"] {
 
 .taller-search-box input {
   width: 100%;
-  background-color: #0b0f19;
-  border: 1px solid #374151;
+  background-color: var(--slate-9);
+  border: 1px solid var(--slate-8);
   border-radius: 8px;
-  color: white;
+  color: var(--dark);
   padding: 10px 14px;
   font-size: 13px;
 }
@@ -2213,7 +2213,7 @@ html[data-theme="dark"] [style*="background:var(--dark)"] {
 .taller-modal-table-wrapper {
   max-height: 180px;
   overflow-y: auto;
-  border: 1px solid #1e293b;
+  border: 1px solid var(--slate-8);
   border-radius: 8px;
 }
 
@@ -2225,16 +2225,16 @@ html[data-theme="dark"] [style*="background:var(--dark)"] {
 }
 
 .taller-modal-table th {
-  background-color: #1f2937;
-  color: #94a3b8;
+  background-color: var(--slate-9);
+  color: var(--slate-5);
   padding: 8px 12px;
   font-weight: 800;
 }
 
 .taller-modal-table td {
   padding: 8px 12px;
-  border-bottom: 1px solid #1e293b;
-  color: #cbd5e1;
+  border-bottom: 1px solid var(--slate-8);
+  color: var(--dark);
 }
 
 .taller-btn-seleccionar-repuesto {
@@ -2254,7 +2254,7 @@ html[data-theme="dark"] [style*="background:var(--dark)"] {
 }
 
 .taller-divider {
-  border-color: #1e293b;
+  border-color: var(--slate-8);
   margin: 10px 0;
 }
 
@@ -2267,8 +2267,8 @@ html[data-theme="dark"] [style*="background:var(--dark)"] {
 .taller-counter-wrapper {
   display: flex;
   align-items: center;
-  background-color: #0b0f19;
-  border: 1px solid #374151;
+  background-color: var(--slate-9);
+  border: 1px solid var(--slate-8);
   border-radius: 8px;
   overflow: hidden;
 }
@@ -2276,7 +2276,7 @@ html[data-theme="dark"] [style*="background:var(--dark)"] {
 .taller-btn-counter {
   background: none;
   border: none;
-  color: white;
+  color: var(--dark);
   font-size: 20px;
   width: 40px;
   height: 40px;
@@ -2291,7 +2291,7 @@ html[data-theme="dark"] [style*="background:var(--dark)"] {
   border: none;
   width: 50px;
   height: 40px;
-  color: white;
+  color: var(--dark);
   text-align: center;
   font-weight: 900;
   font-size: 16px;
