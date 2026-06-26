@@ -1,5 +1,5 @@
 import {
-  getCobros, getStatsCobros, registrarCobro, dividirCobro, getOrden
+  getCobros, getStatsCobros, registrarCobro, dividirCobro, getOrden, exportarCobrosCSV
 } from '../api.js';
 
 function safeFormatDate(dateVal, options = { day: '2-digit', month: 'short', year: 'numeric' }) {
@@ -88,7 +88,33 @@ function calcMetrics() {
     label: k, valor: v, pct: Math.round((v / totalPagado) * 100)
   })).sort((a, b) => b.pct - a.pct);
 
-  return { porCobrar, ingresos, igv, cobrados, metodoPct };
+  // Arqueo de Caja (Hoy)
+  const todayStr = new Date().toLocaleDateString('en-US');
+  let totalHoy = 0;
+  const hoyMetodos = {
+    'Efectivo': 0,
+    'Tarjeta': 0,
+    'Yape/Plin': 0,
+    'Transferencia': 0
+  };
+
+  cobrosList.forEach(c => {
+    if (c.estado === 'Cancelado' || c.estado === 'Dividido') {
+      const cDateStr = new Date(c.fecha_cobro).toLocaleDateString('en-US');
+      if (cDateStr === todayStr) {
+        const m = c.metodo_pago || 'Efectivo';
+        const total = parseFloat(c.monto_neto !== null && c.monto_neto !== undefined ? c.monto_neto : c.monto_total);
+        totalHoy += total;
+        if (hoyMetodos[m] !== undefined) {
+          hoyMetodos[m] += total;
+        } else {
+          hoyMetodos[m] = (hoyMetodos[m] || 0) + total;
+        }
+      }
+    }
+  });
+
+  return { porCobrar, ingresos, igv, cobrados, metodoPct, totalHoy, hoyMetodos };
 }
 
 // ── RENDER PRINCIPAL ─────────────────────────────────────────
@@ -96,7 +122,7 @@ function calcMetrics() {
 function renderPage() {
   const root = document.getElementById('fact-root');
   if (!root) return;
-  const { porCobrar, ingresos, igv, cobrados, metodoPct } = calcMetrics();
+  const { porCobrar, ingresos, igv, cobrados, metodoPct, totalHoy, hoyMetodos } = calcMetrics();
   const pendientes = cobrosList.filter(c => c.estado === 'Pendiente').length;
 
   const METODO_COLORS = {
@@ -190,7 +216,13 @@ function renderPage() {
           <p style="font-size:12px;color:var(--slate-5);margin-top:1px;">Cobros, comprobantes SUNAT y cierre administrativo del taller</p>
         </div>
       </div>
-      <input type="text" id="search-cobros" placeholder="🔍 Buscar por orden, cliente o placa..." class="form-input" style="width:300px;font-size:12px;" />
+      <div class="flex gap-2" style="flex-wrap:wrap;">
+        <button id="btn-exportar-cobros" class="btn-secondary flex items-center gap-2" style="font-size:12px;padding:8px 12px;height:38px;">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Exportar Cobros (CSV)
+        </button>
+        <input type="text" id="search-cobros" placeholder="🔍 Buscar por orden, cliente o placa..." class="form-input" style="width:300px;font-size:12px;" />
+      </div>
     </div>
 
     <!-- KPI Cards -->
@@ -233,6 +265,36 @@ function renderPage() {
           <p style="font-size:10px;font-weight:700;color:var(--slate-5);text-transform:uppercase;letter-spacing:.5px;">Transacciones</p>
           <p style="font-size:20px;font-weight:900;color:#1d4ed8;line-height:1.1;margin-top:2px;">${cobrosList.length}</p>
           <p style="font-size:10px;color:var(--slate-5);">registros en el sistema</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Arqueo de Caja Diario -->
+    <div class="card" style="padding:16px 20px;margin-bottom:20px;border-left:4px solid var(--emerald-500);background:var(--slate-9);">
+      <div class="flex justify-between items-center" style="flex-wrap:wrap;gap:12px;width:100%;">
+        <div class="flex items-center gap-3">
+          <div style="font-size:20px;">💰</div>
+          <div>
+            <h3 style="font-size:13px;font-weight:900;color:var(--dark);margin:0;">Arqueo de Caja (Cierre de Hoy)</h3>
+            <p style="font-size:11px;color:var(--slate-5);margin:0;">Consolidado diario de cobros exitosos (Cancelados/Divididos)</p>
+          </div>
+        </div>
+        <div class="flex gap-3" style="flex-wrap:wrap;font-family:monospace;font-size:11px;font-weight:700;">
+          <div style="background:var(--white);padding:6px 10px;border-radius:6px;border:1px solid var(--slate-8);display:flex;gap:4px;">
+            <span style="color:var(--slate-5);">Efectivo:</span> <span style="color:var(--dark);">S/ ${hoyMetodos['Efectivo'].toFixed(2)}</span>
+          </div>
+          <div style="background:var(--white);padding:6px 10px;border-radius:6px;border:1px solid var(--slate-8);display:flex;gap:4px;">
+            <span style="color:var(--slate-5);">Yape/Plin:</span> <span style="color:var(--dark);">S/ ${hoyMetodos['Yape/Plin'].toFixed(2)}</span>
+          </div>
+          <div style="background:var(--white);padding:6px 10px;border-radius:6px;border:1px solid var(--slate-8);display:flex;gap:4px;">
+            <span style="color:var(--slate-5);">Tarjeta:</span> <span style="color:var(--dark);">S/ ${hoyMetodos['Tarjeta'].toFixed(2)}</span>
+          </div>
+          <div style="background:var(--white);padding:6px 10px;border-radius:6px;border:1px solid var(--slate-8);display:flex;gap:4px;">
+            <span style="color:var(--slate-5);">Transferencia:</span> <span style="color:var(--dark);">S/ ${hoyMetodos['Transferencia'].toFixed(2)}</span>
+          </div>
+          <div style="background:var(--emerald-500);color:white;padding:6px 12px;border-radius:6px;box-shadow:var(--shadow-sm);display:flex;gap:6px;">
+            <span>TOTAL HOY:</span> <span>S/ ${totalHoy.toFixed(2)}</span>
+          </div>
         </div>
       </div>
     </div>
@@ -505,6 +567,22 @@ function renderPage() {
 
   // ── Eventos
   document.getElementById('search-cobros').addEventListener('input', filtrarCobros);
+
+  document.getElementById('btn-exportar-cobros').addEventListener('click', async () => {
+    try {
+      const csvText = await exportarCobrosCSV();
+      const blob = new Blob([csvText], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', `reporte_cobros_${new Date().toISOString().slice(0, 10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (err) {
+      alert('Error al exportar cobros: ' + err.message);
+    }
+  });
 
   // Botones de cierre
   document.getElementById('btn-close-cobro-x').addEventListener('click', () => cerrarModal('modal-cobro-rapido'));

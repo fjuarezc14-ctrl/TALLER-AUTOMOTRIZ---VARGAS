@@ -86,6 +86,62 @@ router.get('/', requiereAdmin, async (_req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// GET /api/cobros/exportar
+router.get('/exportar', requiereAdmin, async (_req, res) => {
+  try {
+    const result = await query(`
+      SELECT co.*, c.nombre AS cliente_nombre, c.tipo_doc, c.num_doc,
+             os.id AS orden_numero, v.placa
+      FROM cobros co
+      LEFT JOIN clientes c ON co.cliente_id = c.id
+      LEFT JOIN ordenes_servicio os ON co.orden_id = os.id
+      LEFT JOIN vehiculos v ON os.vehiculo_id = v.id
+      ORDER BY co.fecha_emision DESC, co.id DESC
+    `);
+    
+    const headers = [
+      'ID Cobro', 'ID Orden', 'Cliente', 'Tipo Doc', 'Num Doc', 'Placa',
+      'Comprobante 1', 'Num Comprobante 1', 'Comprobante 2', 'Num Comprobante 2',
+      'Monto Total', 'Descuento Tipo', 'Descuento Valor', 'Descuento Realizado',
+      'Monto Neto', 'Metodo Pago', 'Estado', 'Fecha Emision', 'Fecha Cobro'
+    ];
+    
+    let csvContent = '\uFEFF' + headers.join(',') + '\n';
+    
+    for (const row of result.rows) {
+      const line = [
+        row.id,
+        row.orden_id,
+        `"${String(row.cliente_nombre || '').replace(/"/g, '""')}"`,
+        row.tipo_doc || '',
+        row.num_doc || '',
+        row.placa || '',
+        row.tipo_comprobante || '',
+        row.comprobante_numero || '',
+        row.comprobante2 || '',
+        row.comprobante2_numero || '',
+        row.monto_total || '0.00',
+        row.descuento_tipo || 'Ninguno',
+        row.descuento_valor || '0.00',
+        row.descuento_realizado || '0.00',
+        row.monto_neto || row.monto_total || '0.00',
+        row.metodo_pago || '',
+        row.estado || '',
+        row.fecha_emision ? new Date(row.fecha_emision).toISOString().slice(0, 10) : '',
+        row.fecha_cobro ? new Date(row.fecha_cobro).toISOString().slice(0, 10) : ''
+      ];
+      csvContent += line.join(',') + '\n';
+    }
+    
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename=reporte_cobros.csv');
+    res.send(csvContent);
+  } catch (err) {
+    console.error('[cobros] Error al exportar CSV:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // GET /api/cobros/stats
 router.get('/stats', requiereAdmin, async (_req, res) => {
   try {

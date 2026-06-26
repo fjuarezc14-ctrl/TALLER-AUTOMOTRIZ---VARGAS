@@ -94,6 +94,19 @@ export const getStatsCobros = ()       => request('/cobros/stats');
 export const registrarCobro = (id, d)  => request(`/cobros/${id}/cobrar`, { method: 'PATCH', body: d });
 export const dividirCobro   = (id, d)  => request(`/cobros/${id}/dividir`, { method: 'PATCH', body: d });
 export const verificarAdminPin = (pin) => request('/cobros/verificar-pin', { method: 'POST', body: { pin } });
+export const exportarCobrosCSV = async () => {
+  const adminPin = sessionStorage.getItem('vargas_admin_pin');
+  const headers = { 'Cache-Control': 'no-cache' };
+  if (adminPin) {
+    headers['x-admin-pin'] = adminPin;
+  }
+  const res = await fetch(`${BASE_URL}/api/cobros/exportar`, { headers });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || 'Error al exportar cobros');
+  }
+  return res.text();
+};
 
 // ── Archivos ──────────────────────────────────────────────
 export const getArchivos    = ()       => request('/archivos');
