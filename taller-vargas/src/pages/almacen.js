@@ -106,7 +106,7 @@ function renderPage() {
         </div>
       </div>
       <div class="flex items-center gap-2">
-        ${activeTab === 'admin' ? `
+        ${activeTab === 'admin' && window.isAdminAuthorized() ? `
           <button class="btn-primary" id="btn-nuevo-producto-header" style="font-size:12px;padding:8px 14px;display:flex;align-items:center;gap:6px;">
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M12 4v16m8-8H4"/></svg>
             Nuevo Producto
@@ -292,7 +292,7 @@ function renderAdminView(total, bajo, critico, valorCosto, valorVenta) {
               <th class="text-center" style="width:140px;">Stock / Nivel</th>
               ${window.isAdminAuthorized() ? '<th class="text-right">Costo</th>' : ''}
               <th class="text-right">P. Venta</th>
-              <th class="text-right">Acciones</th>
+              ${window.isAdminAuthorized() ? '<th class="text-right">Acciones</th>' : ''}
             </tr>
           </thead>
           <tbody id="tabla-almacen-body">
@@ -443,14 +443,18 @@ function renderSolicitudesView() {
                         : `<span style="color:#78350f;font-style:italic;font-size:11px;">Retiro directo</span>`}
                     </td>
                     <td class="text-center">
-                      <div style="display:flex;gap:6px;justify-content:center;align-items:center;">
-                        <button class="btn-confirmar-sol" data-id="${s.id}" style="background:#10b981;color:white;border:none;padding:5px 12px;border-radius:6px;font-weight:800;font-size:11px;cursor:pointer;box-shadow:0 2px 4px rgba(16,185,129,0.2); transition: all 0.1s;">
-                          ✓ Confirmar Entrega
-                        </button>
-                        <button class="btn-rechazar-sol" data-id="${s.id}" style="background:#ef4444;color:white;border:none;padding:5px 10px;border-radius:6px;font-weight:800;font-size:11px;cursor:pointer;box-shadow:0 2px 4px rgba(239,68,68,0.2); transition: all 0.1s;">
-                          ✕ Rechazar
-                        </button>
-                      </div>
+                      ${window.isAdminAuthorized() ? `
+                        <div style="display:flex;gap:6px;justify-content:center;align-items:center;">
+                          <button class="btn-confirmar-sol" data-id="${s.id}" style="background:#10b981;color:white;border:none;padding:5px 12px;border-radius:6px;font-weight:800;font-size:11px;cursor:pointer;box-shadow:0 2px 4px rgba(16,185,129,0.2); transition: all 0.1s;">
+                            ✓ Confirmar Entrega
+                          </button>
+                          <button class="btn-rechazar-sol" data-id="${s.id}" style="background:#ef4444;color:white;border:none;padding:5px 10px;border-radius:6px;font-weight:800;font-size:11px;cursor:pointer;box-shadow:0 2px 4px rgba(239,68,68,0.2); transition: all 0.1s;">
+                            ✕ Rechazar
+                          </button>
+                        </div>
+                      ` : `
+                        <span style="color:var(--slate-5);font-style:italic;font-size:11px;">🔒 Requiere Admin</span>
+                      `}
                     </td>
                   </tr>`;
               }).join('')}
@@ -569,19 +573,21 @@ function renderAdminTableRows(productos) {
         </td>
         ${window.isAdminAuthorized() ? `<td class="text-right font-mono" style="color:var(--slate-5);">S/ ${parseFloat(p.costo || 0).toFixed(2)}</td>` : ''}
         <td class="text-right font-mono font-bold" style="color:var(--brand);">S/ ${parseFloat(p.precio_venta || 0).toFixed(2)}</td>
-        <td class="text-right">
-          <div class="flex justify-end gap-1">
-            <button class="btn-icon btn-adjust-stock" data-id="${p.id}" title="Ajustar Stock" style="color:#10b981;">
-              <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M12 4v16m8-8H4"/></svg>
-            </button>
-            <button class="btn-icon btn-edit-prod" data-id="${p.id}" title="Editar">
-              <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4Z"/></svg>
-            </button>
-            <button class="btn-icon btn-delete-prod" data-id="${p.id}" title="Eliminar" style="color:#ef4444;">
-              <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2M10 11v6M14 11v6"/></svg>
-            </button>
-          </div>
-        </td>
+        ${window.isAdminAuthorized() ? `
+          <td class="text-right">
+            <div class="flex justify-end gap-1">
+              <button class="btn-icon btn-adjust-stock" data-id="${p.id}" title="Ajustar Stock" style="color:#10b981;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M12 4v16m8-8H4"/></svg>
+              </button>
+              <button class="btn-icon btn-edit-prod" data-id="${p.id}" title="Editar">
+                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4Z"/></svg>
+              </button>
+              <button class="btn-icon btn-delete-prod" data-id="${p.id}" title="Eliminar" style="color:#ef4444;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2M10 11v6M14 11v6"/></svg>
+              </button>
+            </div>
+          </td>
+        ` : ''}
       </tr>
     `;
   }).join('');

@@ -4,7 +4,7 @@ import { query, getClient } from '../db.js';
 const router = Router();
 
 // Middleware para validar que se provea el PIN correcto de administración
-function requiereAdmin(req, res, next) {
+export function requiereAdmin(req, res, next) {
   const pinHeader = String(req.headers['x-admin-pin'] || '').trim();
   const correctPin = String(process.env.ADMIN_PIN || '1234').trim();
   if (pinHeader !== correctPin) {
