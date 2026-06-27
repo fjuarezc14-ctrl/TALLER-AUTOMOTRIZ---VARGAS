@@ -2247,6 +2247,13 @@ function abrirOpcionesGarantia(data) {
 
   document.getElementById('btn-gar-opt-devolucion').onclick = () => {
     modal.classList.remove('active');
+    
+    // Alerta de confirmación de devolución solo si la garantía está vencida
+    if (data.activa !== 'true') {
+      const msg = `⚠️ La garantía de la unidad ${data.placa} ya expiró.\n¿Desea registrar igualmente una devolución de dinero de forma excepcional?`;
+      if (!confirm(msg)) return;
+    }
+    
     abrirModalGarantiaDevolucion(data);
   };
 
@@ -2277,6 +2284,15 @@ async function guardarGarantiaDevolucion(e) {
 
   try {
     const orden = await getOrden(id);
+    
+    // Validación de tope máximo: no exceder el total de la orden
+    const totalOrden = parseFloat(orden.total_estimado || 0);
+    if (monto > totalOrden) {
+      alert(`No es posible registrar la devolución.\nEl monto ingresado (S/ ${monto.toFixed(2)}) supera el total facturado en la orden original (S/ ${totalOrden.toFixed(2)}).`);
+      btn.disabled = false;
+      return;
+    }
+
     const notaAnterior = orden.nota_interna ? orden.nota_interna + '\n' : '';
     const nuevaNota = `${notaAnterior}[DEVOLUCIÓN DE GARANTÍA - ${new Date().toLocaleDateString('es-PE')}] Monto devuelto: S/ ${monto.toFixed(2)}. Motivo: ${motivo}`;
 
