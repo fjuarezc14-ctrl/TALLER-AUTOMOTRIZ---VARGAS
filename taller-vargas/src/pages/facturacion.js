@@ -1174,6 +1174,12 @@ function obtenerFacturaHtmlContent(c, pagadorIndex, items) {
 
   const isSurcharge = c.descuento_tipo && c.descuento_tipo.startsWith('Cargo');
 
+  // Alternativa A: si hay recargo, repartirlo entre los ítems de mano de obra para el render
+  // (el total cobrado ya es correcto; solo se redistribuye visualmente en la boleta)
+  let surchargeToAbsorb = isSurcharge ? descP : 0;
+  const laborItems = items.filter(it => it.tipo !== 'almacen');
+  const laborCount = laborItems.length;
+
   // Receptor details
   const receptorNombre = pagadorIndex === 1 ? (c.cliente_nombre || '—') : (c.pagador2_nombre || '—');
   const docType2 = c.pagador2_doc && c.pagador2_doc.trim().length === 11 ? 'RUC' : 'DNI';
@@ -1258,7 +1264,13 @@ function obtenerFacturaHtmlContent(c, pagadorIndex, items) {
         <tbody>
           ${items.length > 0 ? items.map((it, idx) => {
             const priceP = parseFloat(it.precio_unitario || 0) * prop;
-            const subtotalP = priceP * parseInt(it.cantidad || 1);
+            // Alternativa A: si hay recargo, sumarlo proporcionalmente a los ítems de mano de obra
+            let adjustedPrice = priceP;
+            if (isSurcharge && surchargeToAbsorb > 0 && it.tipo !== 'almacen') {
+              const surchargePerLabor = parseFloat((surchargeToAbsorb / Math.max(laborCount, 1)).toFixed(2));
+              adjustedPrice = priceP + surchargePerLabor;
+            }
+            const subtotalP = adjustedPrice * parseInt(it.cantidad || 1);
             return `
             <tr style="background:${idx%2===0?'#fff':'#f8fafc'};border-bottom:1px solid #e2e8f0;">
               <td style="padding:8px 10px;text-align:center;font-weight:800;font-family:monospace;">${it.cantidad}</td>
@@ -1269,7 +1281,7 @@ function obtenerFacturaHtmlContent(c, pagadorIndex, items) {
               <td style="padding:8px 10px;text-align:center;">
                 <span style="font-size:9px;font-weight:700;text-transform:uppercase;padding:2px 6px;border-radius:99px;${it.tipo==='almacen'?'background:#eff6ff;color:#1d4ed8;':'background:#f0fdf4;color:#15803d;'}">${it.tipo==='almacen'?'Repuesto':'M. Obra'}</span>
               </td>
-              <td style="padding:8px 10px;text-align:right;font-family:monospace;">S/ ${priceP.toFixed(2)}</td>
+              <td style="padding:8px 10px;text-align:right;font-family:monospace;">S/ ${adjustedPrice.toFixed(2)}</td>
               <td style="padding:8px 10px;text-align:right;font-family:monospace;font-weight:700;">S/ ${subtotalP.toFixed(2)}</td>
             </tr>`;
           }).join('') : `
@@ -1284,14 +1296,14 @@ function obtenerFacturaHtmlContent(c, pagadorIndex, items) {
       <!-- Totales -->
       <div style="display:flex;justify-content:flex-end;margin-top:0;border-top:2px solid #1e293b;padding-top:10px;margin-bottom:24px;">
         <div style="width:280px;">
-          ${hasAjuste ? `
+          ${(hasAjuste && !isSurcharge) ? `
           <div style="display:flex;justify-content:space-between;padding:8px 10px;border-bottom:1px solid #e2e8f0;">
             <span style="font-size:12px;color:#64748b;">Subtotal Original</span>
             <span style="font-family:monospace;font-weight:700;">S/ ${(originalP - (originalP * 0.18 / 1.18)).toFixed(2)}</span>
           </div>
-          <div style="display:flex;justify-content:space-between;padding:8px 10px;border-bottom:1px solid #e2e8f0;color:${isSurcharge ? '#1d4ed8' : '#b45309'};">
-            <span style="font-size:12px;font-weight:700;">${isSurcharge ? 'Cargo Adicional' : 'Descuento Aplicado'}</span>
-            <span style="font-family:monospace;font-weight:700;">${isSurcharge ? '+' : '-'}S/ ${descP.toFixed(2)}</span>
+          <div style="display:flex;justify-content:space-between;padding:8px 10px;border-bottom:1px solid #e2e8f0;color:#b45309;">
+            <span style="font-size:12px;font-weight:700;">Descuento Aplicado</span>
+            <span style="font-family:monospace;font-weight:700;">-S/ ${descP.toFixed(2)}</span>
           </div>
           ` : ''}
           <div style="display:flex;justify-content:space-between;padding:8px 10px;border-bottom:1px solid #e2e8f0;">
