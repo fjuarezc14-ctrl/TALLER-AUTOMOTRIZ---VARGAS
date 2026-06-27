@@ -73,7 +73,8 @@ export const updateOrden    = (id, data) => request(`/ordenes/${id}`, { method: 
 export const cambiarEstado  = (id, data) => request(`/ordenes/${id}/estado`, { method: 'PATCH', body: data });
 export const addItem        = (id, data) => request(`/ordenes/${id}/items`, { method: 'POST', body: data });
 export const deleteItem     = (oid, iid) => request(`/ordenes/${oid}/items/${iid}`, { method: 'DELETE' });
-export const guardarDiagnosticoOrden = (id, diagnostico) => request(`/ordenes/${id}/diagnostico`, { method: 'PATCH', body: { diagnostico } });
+export const guardarDiagnosticoOrden   = (id, diagnostico) => request(`/ordenes/${id}/diagnostico`, { method: 'PATCH', body: { diagnostico } });
+export const patchNotaInternaOrden     = (id, nota_interna) => request(`/ordenes/${id}`, { method: 'PUT', body: { _solo_nota_interna: true, nota_interna } });
 
 // ── Almacén ───────────────────────────────────────────────
 export const getAlmacen       = ()           => request('/almacen');

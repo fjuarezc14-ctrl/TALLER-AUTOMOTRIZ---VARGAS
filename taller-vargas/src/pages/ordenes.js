@@ -1,7 +1,7 @@
 import { 
   getOrdenes, getOrdenesEnProceso, getOrden, createOrden, updateOrden,
   cambiarEstado, addItem, deleteItem, getVehiculos, getMecanicos, getAlmacen,
-  getClientes, guardarDiagnosticoOrden
+  getClientes, guardarDiagnosticoOrden, patchNotaInternaOrden
 } from '../api.js';
 
 function safeFormatDate(dateVal, options = { day: '2-digit', month: 'short', year: 'numeric' }) {
@@ -45,7 +45,7 @@ function safeFormatDateTime(dateVal) {
 }
 
 let containerElement = null;
-let activeTab = 'all'; // 'all' o 'process'
+let activeTab = 'all'; // 'all' | 'process' | 'warranty'
 let ordenesList = [];
 let vehiculosList = [];
 let mecanicosList = [];
@@ -346,9 +346,11 @@ function renderPage() {
   const root = document.getElementById('ordenes-root');
 
   // 1. Filtrar según pestaña
-  let filtradas = activeTab === 'process' 
+  let filtradas = activeTab === 'process'
     ? ordenesList.filter(o => o.estado === 'En Proceso' || o.estado === 'Esperando Repuestos' || o.estado === 'Diagnostico')
-    : ordenesList;
+    : activeTab === 'warranty'
+      ? ordenesList.filter(o => o.estado === 'Entregado' && o.fecha_entrega)
+      : ordenesList;
 
   // 2. Filtrar por estado select
   if (filterEstadoVal) {
@@ -399,6 +401,7 @@ function renderPage() {
       <div class="flex gap-2" style="background:var(--slate-8);padding:4px;border-radius:10px;">
         <button class="btn-tab ${activeTab === 'all' ? 'active-tab' : ''}" id="tab-ord-all" style="font-size:12px;padding:6px 12px;border:none;background:transparent;cursor:pointer;font-weight:700;border-radius:6px;">Todas las Órdenes</button>
         <button class="btn-tab ${activeTab === 'process' ? 'active-tab' : ''}" id="tab-ord-proc" style="font-size:12px;padding:6px 12px;border:none;background:transparent;cursor:pointer;font-weight:700;border-radius:6px;">Vehículos en Proceso</button>
+        <button class="btn-tab ${activeTab === 'warranty' ? 'active-tab' : ''}" id="tab-ord-warranty" style="font-size:12px;padding:6px 12px;border:none;background:transparent;cursor:pointer;font-weight:700;border-radius:6px;">🛡️ Garantías</button>
       </div>
     </div>
 
@@ -477,6 +480,7 @@ function renderPage() {
   // Registrar eventos principales
   document.getElementById('tab-ord-all').addEventListener('click', () => { activeTab = 'all'; renderPage(); });
   document.getElementById('tab-ord-proc').addEventListener('click', () => { activeTab = 'process'; renderPage(); });
+  document.getElementById('tab-ord-warranty').addEventListener('click', () => { activeTab = 'warranty'; renderPage(); });
   document.getElementById('search-ordenes').addEventListener('input', filtrarOrdenes);
   document.getElementById('filter-orden-estado').addEventListener('change', () => { filterEstadoVal = document.getElementById('filter-orden-estado').value; filtrarOrdenes(); });
   document.getElementById('filter-orden-mecanico').addEventListener('change', () => { filterMecanicoVal = document.getElementById('filter-orden-mecanico').value; filtrarOrdenes(); });
@@ -1178,11 +1182,25 @@ function renderPage() {
     const viewBtn = e.target.closest('.btn-view-ord');
     const costBtn = e.target.closest('.btn-costs-ord');
     const statusBtn = e.target.closest('.btn-status-ord');
+    const garBtn = e.target.closest('.btn-garantia-ord');
 
     if (viewBtn) verDetalleOrden(viewBtn.dataset.id);
     else if (costBtn) abrirModalCostos(costBtn.dataset.id);
     else if (statusBtn) abrirModalEstado(statusBtn.dataset.id);
+    else if (garBtn) abrirOpcionesGarantia(garBtn.dataset);
   });
+
+  // Eventos de Modales de Garantía
+  document.getElementById('btn-close-gar-opt-x').addEventListener('click', () => {
+    document.getElementById('modal-garantia-opciones').classList.remove('active');
+  });
+  document.getElementById('btn-close-gar-dev-x').addEventListener('click', () => {
+    document.getElementById('modal-garantia-devolucion').classList.remove('active');
+  });
+  document.getElementById('btn-close-gar-dev-cancel').addEventListener('click', () => {
+    document.getElementById('modal-garantia-devolucion').classList.remove('active');
+  });
+  document.getElementById('form-garantia-devolucion').addEventListener('submit', guardarGarantiaDevolucion);
 
   // Auto-abrir modal si se solicitó desde el Dashboard
   if (window.autoOpenNuevaOrden) {
@@ -1224,7 +1242,19 @@ function renderTableRows(ordenes) {
         ${o.conductor_nombre ? `<div style="font-size:10px;color:var(--slate-5);margin-top:2px;"><span style="color:var(--brand);font-weight:bold;">Cond:</span> ${o.conductor_nombre}</div>` : ''}
       </td>
       <td><span style="font-weight:500;color:var(--slate-4);">${o.mecanico || '—'}</span></td>
-      <td>${badgeEstado(o.estado)}</td>
+      <td>
+        ${badgeEstado(o.estado)}
+        ${o.estado === 'Entregado' && o.fecha_entrega && activeTab === 'warranty' ? (() => {
+          const dias = Math.floor((new Date() - new Date(o.fecha_entrega)) / 86400000);
+          const activa = dias <= 90;
+          const restantes = 90 - dias;
+          return `<div style="margin-top:4px;">
+            <span class="badge ${activa ? 'badge-green' : 'badge-slate'}" style="font-size:9px;">
+              ${activa ? `✅ ${restantes}d restantes` : `⏰ Vencida +${-restantes}d`}
+            </span>
+          </div>`;
+        })() : ''}
+      </td>
       <td class="text-right font-mono font-bold">S/ ${parseFloat(o.total_estimado || 0).toFixed(2)}</td>
       <td class="text-right">
         <div class="flex justify-end gap-1">
@@ -1240,6 +1270,19 @@ function renderTableRows(ordenes) {
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 6.002L16.24 11M4 9h5M4 9l4.76-4.76"/></svg>
             Estado
           </button>
+          ${o.estado === 'Entregado' && o.fecha_entrega && activeTab === 'warranty' ? (() => {
+            const dias = Math.floor((new Date() - new Date(o.fecha_entrega)) / 86400000);
+            const activa = dias <= 90;
+            return `<button class="btn-action-ord btn-garantia-ord"
+              data-id="${o.id}" data-placa="${o.placa || ''}"
+              data-cliente="${(o.cliente || '').replace(/"/g,'&quot;')}"
+              data-mecanico-id="${o.mecanico_id || ''}" data-mecanico="${(o.mecanico || '').replace(/"/g,'&quot;')}"
+              data-dias="${dias}" data-activa="${activa}"
+              title="${activa ? 'Garantía activa (' + (90 - dias) + ' días restantes)' : 'Garantía expirada hace ' + (dias - 90) + ' días'}"
+              style="background:${activa ? '#f0fdf4' : '#f8fafc'};color:${activa ? '#15803d' : '#94a3b8'};border:1px solid ${activa ? '#bbf7d0' : '#e2e8f0'};">
+              🛡️
+            </button>`;
+          })() : ''}
         </div>
       </td>
     </tr>
@@ -1979,6 +2022,64 @@ function renderModales() {
         </div>
       </div>
     </div>
+
+    <!-- Modal Opciones de Garantía -->
+    <div id="modal-garantia-opciones" class="modal-overlay">
+      <div class="modal modal-sm">
+        <div class="modal-header">
+          <div class="flex items-center gap-3">
+            <span class="modal-title">🛡️ Opciones de Garantía</span>
+          </div>
+          <button class="modal-close" id="btn-close-gar-opt-x">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+          </button>
+        </div>
+        <div class="modal-body" style="display:flex; flex-direction:column; gap:16px; padding:20px;">
+          <p style="font-size:13px; color:var(--slate-4); line-height:1.4;">
+            Selecciona cómo proceder con el reclamo de garantía de la unidad <strong id="gar-opt-placa"></strong> (<span id="gar-opt-cliente"></span>):
+          </p>
+          
+          <button id="btn-gar-opt-reparar" class="btn-success" style="width:100%; justify-content:center; padding:12px; font-weight:800; font-size:13px; display:flex; align-items:center; gap:6px;">
+            🔧 Reparación sin costo (Nueva OS)
+          </button>
+          
+          <button id="btn-gar-opt-devolucion" class="btn-ghost" style="width:100%; justify-content:center; padding:12px; font-weight:800; font-size:13px; border:1px solid var(--slate-7); color:var(--dark); background:#f8fafc; display:flex; align-items:center; gap:6px;">
+            💸 Devolución de Dinero (Nota Interna)
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal Registrar Devolución de Dinero -->
+    <div id="modal-garantia-devolucion" class="modal-overlay">
+      <div class="modal modal-sm">
+        <div class="modal-header">
+          <div class="flex items-center gap-3">
+            <span class="modal-title">💸 Registrar Devolución</span>
+          </div>
+          <button class="modal-close" id="btn-close-gar-dev-x">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+          </button>
+        </div>
+        <form id="form-garantia-devolucion">
+          <input type="hidden" id="gar-dev-orden-id" />
+          <div class="modal-body" style="display:flex; flex-direction:column; gap:14px; padding:20px;">
+            <div class="form-group" style="margin:0;">
+              <label class="form-label">Monto a Devolver (S/)</label>
+              <input type="number" id="gar-dev-monto" step="0.01" min="0.01" class="form-input" required placeholder="0.00" style="font-weight:bold;" />
+            </div>
+            <div class="form-group" style="margin:0;">
+              <label class="form-label">Detalles / Motivo de la Devolución</label>
+              <textarea id="gar-dev-motivo" class="form-input" style="height:90px; resize:none; font-size:12px; padding:8px;" required placeholder="Ej: Devolución de dinero por disconformidad con el servicio de amortiguadores..."></textarea>
+            </div>
+          </div>
+          <div class="modal-footer" style="padding-top:10px;">
+            <button type="button" class="btn-ghost" id="btn-close-gar-dev-cancel">Cancelar</button>
+            <button type="submit" class="btn-primary">Registrar Devolución</button>
+          </div>
+        </form>
+      </div>
+    </div>
   `;
 }
 
@@ -2060,6 +2161,51 @@ function abrirModalNuevaOrden() {
       }
     }, 120);
   }
+
+  // Detectar reclamo de garantía desde el portal de garantías
+  const garantiaDataRaw = sessionStorage.getItem('vargas_nueva_orden_garantia_de');
+  if (garantiaDataRaw) {
+    sessionStorage.removeItem('vargas_nueva_orden_garantia_de');
+    try {
+      const gData = JSON.parse(garantiaDataRaw);
+      setTimeout(() => {
+        // Activar checkbox de garantía
+        const chkGar = document.getElementById('ord-es-garantia');
+        if (chkGar) {
+          chkGar.checked = true;
+          const garFields = document.getElementById('garantia-fields');
+          if (garFields) garFields.style.display = 'grid';
+        }
+        // Asignar mecánico negligente (el que hizo la orden original)
+        if (gData.mecanicoId) {
+          const selMecNeg = document.getElementById('ord-mecanico-negligente-id');
+          if (selMecNeg) selMecNeg.value = gData.mecanicoId;
+        }
+        // Rellenar motivo con referencia a la orden original
+        const motivoInput = document.getElementById('ord-garantia-motivo');
+        if (motivoInput) {
+          motivoInput.value = `Reclamo de garantía por falla en trabajo de OS-${String(gData.ordenOrigenId).padStart(4,'0')} · Mecánico: ${gData.mecanico || '—'}`;
+        }
+        // Buscar el vehículo por placa para pre-seleccionarlo
+        if (gData.placa) {
+          const vehSearch = document.getElementById('veh-search-input');
+          const vehSelect = document.getElementById('veh-select-id');
+          if (vehSearch && vehSelect) {
+            vehSearch.value = gData.placa;
+            // Filtrar y seleccionar
+            Array.from(vehSelect.options).forEach(opt => {
+              opt.style.display = opt.textContent.toLowerCase().includes(gData.placa.toLowerCase()) || !opt.value ? '' : 'none';
+            });
+            const match = Array.from(vehSelect.options).find(o => o.value && o.textContent.toLowerCase().includes(gData.placa.toLowerCase()));
+            if (match) {
+              vehSelect.value = match.value;
+              autoAsignarClienteYKm();
+            }
+          }
+        }
+      }, 200);
+    } catch (_) { /* silenciar error de parse */ }
+  }
 }
 
 function cerrarModalNuevaOrden() {
@@ -2070,6 +2216,78 @@ function cerrarModalNuevaOrden() {
   if (titleEl) titleEl.textContent = 'Registrar Orden de Servicio';
   const saveBtn = document.getElementById('btn-save-ord');
   if (saveBtn) saveBtn.textContent = '✅ Registrar Recepción';
+}
+
+function abrirOpcionesGarantia(data) {
+  const modal = document.getElementById('modal-garantia-opciones');
+  document.getElementById('gar-opt-placa').textContent = data.placa;
+  document.getElementById('gar-opt-cliente').textContent = data.cliente;
+
+  document.getElementById('btn-gar-opt-reparar').onclick = () => {
+    modal.classList.remove('active');
+    
+    const activa = data.activa === 'true';
+    const msg = activa
+      ? `¿Iniciar reclamo de reparación por garantía para la unidad ${data.placa}?`
+      : `⚠️ La garantía de ${data.placa} ya expiró.\n¿Registrar igualmente una orden de garantía?`;
+
+    if (!confirm(msg)) return;
+
+    sessionStorage.setItem('vargas_nueva_orden_garantia_de', JSON.stringify({
+      ordenOrigenId: data.id,
+      placa: data.placa,
+      cliente: data.cliente,
+      mecanicoId: data.mecanicoId,
+      mecanico: data.mecanico
+    }));
+
+    abrirModalNuevaOrden();
+  };
+
+  document.getElementById('btn-gar-opt-devolucion').onclick = () => {
+    modal.classList.remove('active');
+    abrirModalGarantiaDevolucion(data);
+  };
+
+  modal.classList.add('active');
+}
+
+function abrirModalGarantiaDevolucion(data) {
+  const modal = document.getElementById('modal-garantia-devolucion');
+  document.getElementById('form-garantia-devolucion').reset();
+  document.getElementById('gar-dev-orden-id').value = data.id;
+  document.getElementById('gar-dev-motivo').value = `Devolución de dinero por disconformidad con el servicio original OS-${String(data.id).padStart(4,'0')}.`;
+  modal.classList.add('active');
+}
+
+async function guardarGarantiaDevolucion(e) {
+  e.preventDefault();
+  const id = document.getElementById('gar-dev-orden-id').value;
+  const monto = parseFloat(document.getElementById('gar-dev-monto').value) || 0;
+  const motivo = document.getElementById('gar-dev-motivo').value.trim();
+
+  if (monto <= 0) {
+    alert('Por favor ingrese un monto de devolución válido.');
+    return;
+  }
+
+  const btn = e.target.querySelector('button[type="submit"]');
+  btn.disabled = true;
+
+  try {
+    const orden = await getOrden(id);
+    const notaAnterior = orden.nota_interna ? orden.nota_interna + '\n' : '';
+    const nuevaNota = `${notaAnterior}[DEVOLUCIÓN DE GARANTÍA - ${new Date().toLocaleDateString('es-PE')}] Monto devuelto: S/ ${monto.toFixed(2)}. Motivo: ${motivo}`;
+
+    await patchNotaInternaOrden(id, nuevaNota);
+    alert('Devolución registrada exitosamente en la Nota Interna de la orden original.');
+    document.getElementById('modal-garantia-devolucion').classList.remove('active');
+    await cargarDatos();
+  } catch (err) {
+    alert('Error al registrar la devolución: ' + err.message);
+  } finally {
+    btn.disabled = false;
+  }
 }
 
 async function abrirEditarOrden(id) {
