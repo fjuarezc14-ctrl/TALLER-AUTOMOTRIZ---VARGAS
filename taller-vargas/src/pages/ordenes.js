@@ -1131,6 +1131,37 @@ function renderPage() {
     }
   });
 
+  // Buscador dinámico de vehículo/placa
+  document.getElementById('veh-search-input').addEventListener('input', (e) => {
+    const q = e.target.value.toLowerCase().trim();
+    const vehSelect = document.getElementById('veh-select-id');
+    Array.from(vehSelect.options).forEach(opt => {
+      opt.style.display = (!q || opt.textContent.toLowerCase().includes(q) || !opt.value) ? '' : 'none';
+    });
+    // Auto-seleccionar si hay exactamente una coincidencia visible
+    const visibles = Array.from(vehSelect.options).filter(o => o.value && o.style.display !== 'none');
+    if (visibles.length === 1) {
+      vehSelect.value = visibles[0].value;
+      autoAsignarClienteYKm();
+    }
+  });
+
+  // Buscador dinámico de repuesto en almacén (modal de costos)
+  document.getElementById('item-repuesto-search-input').addEventListener('input', (e) => {
+    const q = e.target.value.toLowerCase().trim();
+    const repSelect = document.getElementById('item-repuesto-select');
+    Array.from(repSelect.options).forEach(opt => {
+      opt.style.display = (!q || opt.textContent.toLowerCase().includes(q) || !opt.value) ? '' : 'none';
+    });
+    // Auto-seleccionar y auto-asignar precio si hay exactamente una coincidencia
+    const visibles = Array.from(repSelect.options).filter(o => o.value && o.style.display !== 'none');
+    if (visibles.length === 1) {
+      repSelect.value = visibles[0].value;
+      const precio = visibles[0].dataset.precio;
+      if (precio) document.getElementById('item-precio').value = parseFloat(precio).toFixed(2);
+    }
+  });
+
   document.getElementById('btn-close-det-x').addEventListener('click', cerrarModalDetalle);
   document.getElementById('btn-close-status-x').addEventListener('click', cerrarModalEstado);
   document.getElementById('btn-close-status-cancel').addEventListener('click', cerrarModalEstado);
@@ -1327,7 +1358,8 @@ function renderModales() {
                   </div>
                   <div class="form-group" style="margin:0;">
                     <label class="form-label">Vehículo / Placa</label>
-                    <select id="veh-select-id" class="form-select" required>
+                    <input type="text" id="veh-search-input" class="form-input" placeholder="🔍 Buscar por placa o modelo..." autocomplete="off" style="font-size:12px;" />
+                    <select id="veh-select-id" class="form-select" required style="margin-top:6px;">
                       <option value="">-- Primero selecciona un cliente --</option>
                       ${vehiculosList.map(v => `<option value="${v.id}" data-cliente-id="${v.cliente_id}" data-km="${v.km_actual || 0}">${v.placa} — ${v.marca_modelo}</option>`).join('')}
                     </select>
@@ -1890,7 +1922,8 @@ function renderModales() {
               <!-- Si es Repuesto de almacén (select dinámico) -->
               <div class="form-group hidden" id="wrapper-item-almacen">
                 <label class="form-label">Seleccionar Insumo de Almacén</label>
-                <select id="item-repuesto-select" class="form-select">
+                <input type="text" id="item-repuesto-search-input" class="form-input" placeholder="🔍 Buscar por código o descripción..." autocomplete="off" style="font-size:12px;" />
+                <select id="item-repuesto-select" class="form-select" style="margin-top:6px;">
                   <option value="">-- Seleccionar --</option>
                   ${almacenList.map(p => `<option value="${p.codigo}" data-precio="${p.precio_venta}">${p.descripcion} (Stock: ${p.stock})</option>`).join('')}
                 </select>
@@ -1962,6 +1995,8 @@ function abrirModalNuevaOrden() {
   // Limpiar el autocompletado y Km anterior
   document.getElementById('km-anterior-hint').style.display = 'none';
   document.getElementById('cli-search-input').value = '';
+  const vehSearchInput = document.getElementById('veh-search-input');
+  if (vehSearchInput) vehSearchInput.value = '';
   // Filtrar todos los vehículos para restablecer
   filtrarVehiculosPorCliente();
   
@@ -3187,6 +3222,7 @@ function toggleTipoCostoForm() {
   const wrpAlmacen = document.getElementById('wrapper-item-almacen');
   const inputManual = document.getElementById('item-desc-manual');
   const selectRepuesto = document.getElementById('item-repuesto-select');
+  const searchRepuesto = document.getElementById('item-repuesto-search-input');
   const priceInput = document.getElementById('item-precio');
 
   if (tipo === 'almacen') {
@@ -3194,6 +3230,7 @@ function toggleTipoCostoForm() {
     wrpAlmacen.classList.remove('hidden');
     inputManual.required = false;
     selectRepuesto.required = true;
+    if (searchRepuesto) searchRepuesto.focus();
     
     // Auto asignar precio al cambiar repuesto
     selectRepuesto.onchange = () => {
@@ -3210,6 +3247,11 @@ function toggleTipoCostoForm() {
     selectRepuesto.value = '';
     selectRepuesto.onchange = null;
     priceInput.value = '';
+    // Limpiar buscador y restaurar todas las opciones
+    if (searchRepuesto) {
+      searchRepuesto.value = '';
+      Array.from(selectRepuesto.options).forEach(opt => opt.style.display = '');
+    }
   }
 }
 

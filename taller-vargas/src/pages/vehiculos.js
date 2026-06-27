@@ -138,6 +138,20 @@ function renderVehiculos(vehiculos) {
   document.getElementById('btn-close-veh-modal-cancel').addEventListener('click', cerrarModalVehiculo);
   document.getElementById('form-vehiculo').addEventListener('submit', guardarVehiculo);
 
+  // Buscador dinámico de cliente en el modal de vehículo
+  document.getElementById('veh-cliente-search').addEventListener('input', (e) => {
+    const q = e.target.value.toLowerCase().trim();
+    const cliSelect = document.getElementById('veh-cliente-id');
+    Array.from(cliSelect.options).forEach(opt => {
+      opt.style.display = (!q || opt.textContent.toLowerCase().includes(q) || !opt.value) ? '' : 'none';
+    });
+    // Auto-seleccionar si hay exactamente una coincidencia
+    const visibles = Array.from(cliSelect.options).filter(o => o.value && o.style.display !== 'none');
+    if (visibles.length === 1) {
+      cliSelect.value = visibles[0].value;
+    }
+  });
+
   // VIN Decoder
   document.getElementById('veh-vin').addEventListener('input', decodeVIN);
 
@@ -525,7 +539,8 @@ function renderModalVehiculo() {
               <div class="form-section-title">👤 Vinculación a Cliente</div>
               <div class="form-group">
                 <label class="form-label">Cliente Propietario *</label>
-                <select id="veh-cliente-id" class="form-select" required>
+                <input type="text" id="veh-cliente-search" class="form-input" placeholder="🔍 Buscar cliente por nombre o documento..." autocomplete="off" style="font-size:12px;" />
+                <select id="veh-cliente-id" class="form-select" required style="margin-top:6px;">
                   <option value="">— Seleccionar Cliente —</option>
                   ${clientesList.map(c => `<option value="${c.id}">${c.nombre} (${c.num_doc})</option>`).join('')}
                 </select>
@@ -736,6 +751,12 @@ function abrirModalVehiculo(id = null) {
   document.getElementById('form-vehiculo').reset();
   document.getElementById('vin-decode-result').className = 'vin-decode-result';
 
+  // Limpiar buscador de cliente y restaurar todas las opciones
+  const cliSearch = document.getElementById('veh-cliente-search');
+  const cliSelect = document.getElementById('veh-cliente-id');
+  if (cliSearch) cliSearch.value = '';
+  if (cliSelect) Array.from(cliSelect.options).forEach(opt => opt.style.display = '');
+
   const titulo    = document.getElementById('modal-veh-titulo');
   const btnSubmit = document.getElementById('btn-save-vehiculo');
 
@@ -785,6 +806,11 @@ function abrirModalVehiculo(id = null) {
 
 function cerrarModalVehiculo() {
   document.getElementById('modal-vehiculo').classList.remove('active');
+  // Limpiar buscador y restablecer opciones al cerrar
+  const cliSearch = document.getElementById('veh-cliente-search');
+  const cliSelect = document.getElementById('veh-cliente-id');
+  if (cliSearch) cliSearch.value = '';
+  if (cliSelect) Array.from(cliSelect.options).forEach(opt => opt.style.display = '');
 }
 
 // ── Guardar Vehículo ──────────────────────────────────────
