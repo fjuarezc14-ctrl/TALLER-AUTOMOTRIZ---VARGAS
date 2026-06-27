@@ -193,6 +193,21 @@ function renderPage() {
   } else if (activeTab === 'mecanico') {
     document.getElementById('search-mecanico').addEventListener('input', filtrarMecanico);
     document.getElementById('form-solicitud-mecanico').addEventListener('submit', guardarSolicitudMecanico);
+
+    const prodSearch = document.getElementById('sol-producto-search');
+    const prodSelect = document.getElementById('sol-producto-id');
+    if (prodSearch && prodSelect) {
+      prodSearch.addEventListener('input', (e) => {
+        const q = e.target.value.toLowerCase().trim();
+        Array.from(prodSelect.options).forEach(opt => {
+          opt.style.display = (!q || opt.textContent.toLowerCase().includes(q) || !opt.value) ? '' : 'none';
+        });
+        const visibles = Array.from(prodSelect.options).filter(o => o.value && o.style.display !== 'none');
+        if (visibles.length === 1) {
+          prodSelect.value = visibles[0].value;
+        }
+      });
+    }
   } else if (activeTab === 'solicitudes') {
     const listBody = document.getElementById('tabla-solicitudes-body');
     if (listBody) {
@@ -359,6 +374,7 @@ function renderMecanicoView() {
 
             <div class="form-group">
               <label class="form-label">Repuesto / Insumo a Retirar</label>
+              <input type="text" id="sol-producto-search" class="form-input" placeholder="🔍 Escribir descripción o SKU para buscar..." autocomplete="off" style="font-size:12px; margin-bottom:6px;" />
               <select id="sol-producto-id" class="form-select" required>
                 <option value="">-- Seleccionar Repuesto --</option>
                 ${productosMecanico.map(p => `<option value="${p.id}" ${p.stock <= 0 ? 'disabled' : ''}>${p.descripcion} (${p.stock} disp.)</option>`).join('')}
@@ -884,6 +900,12 @@ async function guardarSolicitudMecanico(e) {
     await crearSolicitudMecanico(data);
     // Reset form
     document.getElementById('form-solicitud-mecanico').reset();
+    const prodSearch = document.getElementById('sol-producto-search');
+    if (prodSearch) prodSearch.value = '';
+    const prodSelect = document.getElementById('sol-producto-id');
+    if (prodSelect) {
+      Array.from(prodSelect.options).forEach(opt => opt.style.display = '');
+    }
     // Mensaje de éxito inline
     const btn = document.querySelector('#form-solicitud-mecanico button[type="submit"]');
     const original = btn.innerHTML;
