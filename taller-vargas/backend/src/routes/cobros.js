@@ -195,12 +195,12 @@ router.patch('/:id/cobrar', requiereAdmin, async (req, res) => {
       return res.status(404).json({ error: 'Cobro no encontrado' });
     }
 
-    // Auto-pasar la orden de servicio a estado 'Entregado' para que salga del Kanban
+    // Auto-pasar la orden de servicio a estado 'Entregado' para que salga del Kanban y registrar fecha de entrega real
     const cobro = result.rows[0];
     if (cobro.orden_id) {
       try {
         await client.query(
-          `UPDATE ordenes_servicio SET estado='Entregado' WHERE id=$1 AND estado NOT IN ('Entregado')`,
+          `UPDATE ordenes_servicio SET estado='Entregado', fecha_entrega=NOW() WHERE id=$1 AND estado NOT IN ('Entregado')`,
           [cobro.orden_id]
         );
       } catch (orderErr) {
@@ -276,12 +276,12 @@ router.patch('/:id/dividir', requiereAdmin, async (req, res) => {
       return res.status(404).json({ error: 'Cobro no encontrado' });
     }
 
-    // Auto-pasar la orden de servicio a estado 'Entregado' para que salga del Kanban
+    // Auto-pasar la orden de servicio a estado 'Entregado' para que salga del Kanban y registrar fecha de entrega real
     const cobro = result.rows[0];
     if (cobro.orden_id) {
       try {
         await client.query(
-          `UPDATE ordenes_servicio SET estado='Entregado' WHERE id=$1 AND estado NOT IN ('Entregado')`,
+          `UPDATE ordenes_servicio SET estado='Entregado', fecha_entrega=NOW() WHERE id=$1 AND estado NOT IN ('Entregado')`,
           [cobro.orden_id]
         );
       } catch (orderErr) {
