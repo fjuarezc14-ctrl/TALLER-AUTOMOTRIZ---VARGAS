@@ -627,6 +627,7 @@ body {
 .justify-between { justify-content: space-between; }
 .justify-end     { justify-content: flex-end; }
 .flex-1  { flex: 1; }
+.flex-col { flex-direction: column; }
 .overflow-hidden { overflow: hidden; }
 .relative { position: relative; }
 .font-mono { font-family: 'Courier New', monospace; }
