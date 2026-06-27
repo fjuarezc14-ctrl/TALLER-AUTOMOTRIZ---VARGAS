@@ -2228,6 +2228,12 @@ function abrirOpcionesGarantia(data) {
   document.getElementById('btn-gar-opt-reparar').onclick = () => {
     modal.classList.remove('active');
     
+    // Alerta de confirmación solo si la garantía está vencida
+    if (data.activa !== 'true') {
+      const msg = `⚠️ La garantía de la unidad ${data.placa} ya expiró.\n¿Desea registrar igualmente una orden de garantía de forma excepcional?`;
+      if (!confirm(msg)) return;
+    }
+
     sessionStorage.setItem('vargas_nueva_orden_garantia_de', JSON.stringify({
       ordenOrigenId: data.id,
       placa: data.placa,
