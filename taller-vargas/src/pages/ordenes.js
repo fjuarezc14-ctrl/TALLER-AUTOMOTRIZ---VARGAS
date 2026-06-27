@@ -2228,13 +2228,6 @@ function abrirOpcionesGarantia(data) {
   document.getElementById('btn-gar-opt-reparar').onclick = () => {
     modal.classList.remove('active');
     
-    const activa = data.activa === 'true';
-    const msg = activa
-      ? `¿Iniciar reclamo de reparación por garantía para la unidad ${data.placa}?`
-      : `⚠️ La garantía de ${data.placa} ya expiró.\n¿Registrar igualmente una orden de garantía?`;
-
-    if (!confirm(msg)) return;
-
     sessionStorage.setItem('vargas_nueva_orden_garantia_de', JSON.stringify({
       ordenOrigenId: data.id,
       placa: data.placa,
