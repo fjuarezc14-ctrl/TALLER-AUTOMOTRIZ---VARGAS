@@ -349,7 +349,7 @@ function renderPage() {
   let filtradas = activeTab === 'process'
     ? ordenesList.filter(o => o.estado === 'En Proceso' || o.estado === 'Esperando Repuestos' || o.estado === 'Diagnostico')
     : activeTab === 'warranty'
-      ? ordenesList.filter(o => o.estado === 'Entregado' && o.fecha_entrega)
+      ? ordenesList.filter(o => o.estado === 'Entregado')
       : ordenesList;
 
   // 2. Filtrar por estado select
@@ -1244,8 +1244,9 @@ function renderTableRows(ordenes) {
       <td><span style="font-weight:500;color:var(--slate-4);">${o.mecanico || '—'}</span></td>
       <td>
         ${badgeEstado(o.estado)}
-        ${o.estado === 'Entregado' && o.fecha_entrega && activeTab === 'warranty' ? (() => {
-          const dias = Math.floor((new Date() - new Date(o.fecha_entrega)) / 86400000);
+        ${o.estado === 'Entregado' && activeTab === 'warranty' ? (() => {
+          const fEntrega = o.fecha_entrega || o.fecha_ingreso || new Date();
+          const dias = Math.floor((new Date() - new Date(fEntrega)) / 86400000);
           const activa = dias <= 90;
           const restantes = 90 - dias;
           return `<div style="margin-top:4px;">
@@ -1270,8 +1271,9 @@ function renderTableRows(ordenes) {
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 6.002L16.24 11M4 9h5M4 9l4.76-4.76"/></svg>
             Estado
           </button>
-          ${o.estado === 'Entregado' && o.fecha_entrega && activeTab === 'warranty' ? (() => {
-            const dias = Math.floor((new Date() - new Date(o.fecha_entrega)) / 86400000);
+          ${o.estado === 'Entregado' && activeTab === 'warranty' ? (() => {
+            const fEntrega = o.fecha_entrega || o.fecha_ingreso || new Date();
+            const dias = Math.floor((new Date() - new Date(fEntrega)) / 86400000);
             const activa = dias <= 90;
             return `<button class="btn-action-ord btn-garantia-ord"
               data-id="${o.id}" data-placa="${o.placa || ''}"
