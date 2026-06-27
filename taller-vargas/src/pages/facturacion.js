@@ -745,8 +745,11 @@ function enviarComprobantePorWhatsApp() {
     telefono = String(c.cliente_telefono).replace(/[^0-9]/g, '');
   }
 
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-  const urlPdf = `${API_URL}/uploads/${compNumero}.pdf`;
+  const envApiUrl = import.meta.env.VITE_API_URL;
+  // Si la API URL no está definida, es relativa o es localhost, usamos el origen actual (dominio de producción)
+  // ya que Nginx actúa como proxy reverso para la carpeta /uploads/ en el mismo dominio.
+  const baseUrl = (envApiUrl && !envApiUrl.includes('localhost')) ? envApiUrl : window.location.origin;
+  const urlPdf = `${baseUrl}/uploads/${compNumero}.pdf`;
 
   const mensaje = `Hola ${receptorNombre}, adjuntamos su comprobante ${compTipo} N° ${compNumero} de Inversiones y Servicios Vargas E.I.R.L. Descargue aquí el PDF oficial: ${urlPdf}`;
   const mensajeEncoded = encodeURIComponent(mensaje);
