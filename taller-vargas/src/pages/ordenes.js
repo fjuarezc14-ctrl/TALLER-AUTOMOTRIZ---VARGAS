@@ -1247,8 +1247,8 @@ function renderTableRows(ordenes) {
         ${o.estado === 'Entregado' && activeTab === 'warranty' ? (() => {
           const fEntrega = o.fecha_entrega || o.fecha_ingreso || new Date();
           const dias = Math.floor((new Date() - new Date(fEntrega)) / 86400000);
-          const activa = dias <= 90;
-          const restantes = 90 - dias;
+          const activa = dias <= 15;
+          const restantes = 15 - dias;
           return `<div style="margin-top:4px;">
             <span class="badge ${activa ? 'badge-green' : 'badge-slate'}" style="font-size:9px;">
               ${activa ? `✅ ${restantes}d restantes` : `⏰ Vencida +${-restantes}d`}
@@ -1274,13 +1274,13 @@ function renderTableRows(ordenes) {
           ${o.estado === 'Entregado' && activeTab === 'warranty' ? (() => {
             const fEntrega = o.fecha_entrega || o.fecha_ingreso || new Date();
             const dias = Math.floor((new Date() - new Date(fEntrega)) / 86400000);
-            const activa = dias <= 90;
+            const activa = dias <= 15;
             return `<button class="btn-action-ord btn-garantia-ord"
               data-id="${o.id}" data-placa="${o.placa || ''}"
               data-cliente="${(o.cliente || '').replace(/"/g,'&quot;')}"
               data-mecanico-id="${o.mecanico_id || ''}" data-mecanico="${(o.mecanico || '').replace(/"/g,'&quot;')}"
               data-dias="${dias}" data-activa="${activa}"
-              title="${activa ? 'Garantía activa (' + (90 - dias) + ' días restantes)' : 'Garantía expirada hace ' + (dias - 90) + ' días'}"
+              title="${activa ? 'Garantía activa (' + (15 - dias) + ' días restantes)' : 'Garantía expirada hace ' + (dias - 15) + ' días'}"
               style="background:${activa ? '#f0fdf4' : '#f8fafc'};color:${activa ? '#15803d' : '#94a3b8'};border:1px solid ${activa ? '#bbf7d0' : '#e2e8f0'};">
               🛡️
             </button>`;
