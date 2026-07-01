@@ -2,6 +2,18 @@ import { navigate } from './router.js';
 import { getAlertasStock, getVehiculos, logout } from './api.js';
 import { createIcons, icons } from 'lucide';
 
+// Helper global para verificar si el usuario logueado es Administrador
+window.isAdminAuthorized = () => {
+  const userStr = localStorage.getItem('vargas_user');
+  if (!userStr) return false;
+  try {
+    const user = JSON.parse(userStr);
+    return user && user.rol === 'administrador';
+  } catch (_) {
+    return false;
+  }
+};
+
 // ── Inicialización ────────────────────────────────────────
 async function init() {
   // Actualizar UI de usuario autenticado
@@ -16,9 +28,6 @@ async function init() {
 
   // Refrescar alertas cada 60s
   setInterval(refreshStockAlerts, 60_000);
-
-  // Inicializar UI de administrador
-  window.updateAdminUI();
 
   // Inicializar buscador global predictivo
   initGlobalSearch();
