@@ -5,6 +5,7 @@
 
 const routes = {
   '/':             () => import('./pages/dashboard.js'),
+  '/login':        () => import('./pages/login.js'),
   '/ordenes':      () => import('./pages/ordenes.js'),
   '/vehiculos':    () => import('./pages/vehiculos.js'),
   '/clientes':     () => import('./pages/clientes.js'),
@@ -16,22 +17,33 @@ const routes = {
   '/confirmar':    () => import('./pages/confirmar.js'),
 };
 
+/** Verifica si el usuario tiene sesión activa */
+function isAuthenticated() {
+  return !!localStorage.getItem('vargas_token');
+}
+
 let currentModule = null;
 
 export async function navigate(path = '/') {
   const pathname = path.split('?')[0];
   const matchedPath = pathname.startsWith('/confirmar') ? '/confirmar' : pathname;
 
+  // Guard de autenticación: rutas públicas
+  const publicRoutes = ['/login', '/confirmar'];
+  if (!publicRoutes.includes(matchedPath) && !isAuthenticated()) {
+    return navigate('/login');
+  }
+
+  // Si ya está logueado y va al login, redirigir al dashboard
+  if (matchedPath === '/login' && isAuthenticated()) {
+    return navigate('/');
+  }
+
   if (matchedPath === '/facturacion') {
-    const isAuth = window.isAdminAuthorized && window.isAdminAuthorized();
-    if (!isAuth) {
-      if (window.promptAdminLogin) {
-        window.promptAdminLogin(() => {
-          navigate('/facturacion');
-        });
-      } else {
-        alert('Acceso restringido. Requiere PIN de administración.');
-      }
+    const userStr = localStorage.getItem('vargas_user');
+    const user = userStr ? JSON.parse(userStr) : null;
+    if (!user || user.rol !== 'administrador') {
+      alert('Acceso restringido. Solo administradores pueden acceder a Facturación.');
       return;
     }
   }
@@ -43,7 +55,7 @@ export async function navigate(path = '/') {
   const globalHeader = document.querySelector('header');
   const mainParent = document.querySelector('.flex-1.flex.flex-col.overflow-hidden.relative');
 
-  if (matchedPath === '/confirmar') {
+  if (matchedPath === '/confirmar' || matchedPath === '/login') {
     if (sidebar) sidebar.style.display = 'none';
     if (menuBtn) menuBtn.style.display = 'none';
     if (globalHeader) globalHeader.style.display = 'none';

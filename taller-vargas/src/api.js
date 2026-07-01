@@ -21,10 +21,11 @@ async function request(path, options = {}) {
     'Expires': '0',
     ...options.headers 
   };
-  
-  const adminPin = sessionStorage.getItem('vargas_admin_pin');
-  if (adminPin) {
-    headers['x-admin-pin'] = adminPin;
+
+  // Inyectar JWT Bearer Token si existe en localStorage
+  const token = localStorage.getItem('vargas_token');
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
   }
 
   const res = await fetch(url, {
@@ -33,8 +34,29 @@ async function request(path, options = {}) {
     body: options.body ? JSON.stringify(options.body) : undefined,
   });
   const data = await res.json().catch(() => ({}));
+
+  // Si el token expiró o es inválido, redirigir al login
+  if (res.status === 401 && path !== '/auth/login') {
+    localStorage.removeItem('vargas_token');
+    localStorage.removeItem('vargas_user');
+    window.navigate && window.navigate('/login');
+    throw new ApiError('Sesión expirada. Por favor vuelve a iniciar sesión.', 401);
+  }
+
   if (!res.ok) throw new ApiError(data.error || 'Error de servidor', res.status);
   return data;
+}
+
+// ── Autenticación ───────────────────────────────────────
+const loginRaw = (username, password) => request('/auth/login', {
+  method: 'POST',
+  body: { username, password }
+});
+export const login = loginRaw;
+export const getMe = () => request('/auth/me');
+export function logout() {
+  localStorage.removeItem('vargas_token');
+  localStorage.removeItem('vargas_user');
 }
 
 // ── Dashboard ────────────────────────────────────────────

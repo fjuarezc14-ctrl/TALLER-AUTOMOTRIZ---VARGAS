@@ -1,5 +1,5 @@
 import { navigate } from './router.js';
-import { getAlertasStock, verificarAdminPin, getVehiculos } from './api.js';
+import { getAlertasStock, verificarAdminPin, getVehiculos, logout } from './api.js';
 import { createIcons, icons } from 'lucide';
 
 // ── Gestión Global de Sesión de Administración (PIN) ────────
@@ -140,6 +140,9 @@ window.promptAdminLogin = function(onSuccess = null) {
 
 // ── Inicialización ────────────────────────────────────────
 async function init() {
+  // Actualizar UI de usuario autenticado
+  updateUserSidebar();
+
   // Ruta inicial según URL actual
   const path = window.location.pathname;
   await navigate(path);
@@ -156,6 +159,35 @@ async function init() {
   // Inicializar buscador global predictivo
   initGlobalSearch();
 }
+
+// ── Actualizar sidebar con datos del usuario logueado ─────
+function updateUserSidebar() {
+  const userStr = localStorage.getItem('vargas_user');
+  if (!userStr) return;
+  try {
+    const user = JSON.parse(userStr);
+    const avatarEl   = document.getElementById('sidebar-avatar');
+    const usernameEl = document.getElementById('sidebar-username');
+    const userroleEl = document.getElementById('sidebar-userrole');
+    if (avatarEl)   avatarEl.textContent   = (user.username || 'U').slice(0, 2).toUpperCase();
+    if (usernameEl) usernameEl.textContent = user.username || 'Usuario';
+    if (userroleEl) userroleEl.textContent = user.rol === 'administrador' ? 'Administrador' : 'Operario';
+
+    // Ocultar botón de facturación para operarios
+    const facBtn = document.querySelector('button[data-route="/facturacion"]');
+    if (facBtn && user.rol !== 'administrador') {
+      facBtn.style.display = 'none';
+    }
+  } catch (_) {}
+}
+window.updateUserSidebar = updateUserSidebar;
+
+// ── Cerrar sesión ─────────────────────────────────────────
+window.doLogout = function() {
+  if (!confirm('¿Deseas cerrar sesión?')) return;
+  logout();
+  navigate('/login');
+};
 
 // ── Alertas de stock globales ─────────────────────────────
 window.refreshStockAlerts = refreshStockAlerts;

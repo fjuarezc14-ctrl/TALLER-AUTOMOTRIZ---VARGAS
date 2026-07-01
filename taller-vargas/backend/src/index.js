@@ -2,6 +2,7 @@ import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import path from "path";
+import bcrypt from "bcryptjs";
 import { query } from "./db.js";
 
 import clientesRouter   from "./routes/clientes.js";
@@ -12,6 +13,7 @@ import almacenRouter    from "./routes/almacen.js";
 import cobrosRouter     from "./routes/cobros.js";
 import archivosRouter   from "./routes/archivos.js";
 import dashboardRouter  from "./routes/dashboard.js";
+import authRouter       from "./routes/auth.js";
 
 // Redefinir la vista v_ordenes_completas para incluir la columna diagnostico y cliente_telefono
 async function runDbMigrations() {
@@ -74,6 +76,41 @@ async function runDbMigrations() {
 }
 runDbMigrations();
 
+// ── Migración y seed de tabla de usuarios (auth) ────────────
+async function runAuthMigration() {
+  try {
+    await query(`
+      CREATE TABLE IF NOT EXISTS usuarios (
+        id SERIAL PRIMARY KEY,
+        username VARCHAR(50) NOT NULL UNIQUE,
+        password_hash VARCHAR(255) NOT NULL,
+        rol VARCHAR(50) NOT NULL CHECK (rol IN ('administrador', 'operario')),
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+    `);
+
+    // Crear usuarios por defecto si la tabla está vacía
+    const existentes = await query('SELECT COUNT(*) FROM usuarios');
+    if (parseInt(existentes.rows[0].count) === 0) {
+      const salt = await bcrypt.genSalt(10);
+      const adminHash    = await bcrypt.hash(process.env.ADMIN_PASSWORD || 'vargas2026', salt);
+      const operarioHash = await bcrypt.hash(process.env.OPERARIO_PASSWORD || 'taller123', salt);
+      await query(
+        `INSERT INTO usuarios (username, password_hash, rol) VALUES
+         ($1, $2, 'administrador'),
+         ($3, $4, 'operario')
+         ON CONFLICT (username) DO NOTHING`,
+        ['admin', adminHash, 'operario', operarioHash]
+      );
+      console.log('[Auth] Usuarios por defecto creados: admin (administrador), operario (operario)');
+    }
+    console.log('[DB] Tabla de usuarios verificada/migrada correctamente.');
+  } catch (err) {
+    console.error('[DB ERROR] Error al migrar tabla de usuarios:', err.message);
+  }
+}
+runAuthMigration();
+
 const app = express();
 const PORT = process.env.PORT || 3001;
 
@@ -95,6 +132,7 @@ app.get("/health", (_req, res) => {
   res.json({ status: "ok", project: "taller-vargas", port: PORT, timestamp: new Date().toISOString() });
 });
 
+app.use("/api/auth",       authRouter);
 app.use("/api/dashboard",  dashboardRouter);
 app.use("/api/clientes",   clientesRouter);
 app.use("/api/vehiculos",  vehiculosRouter);
@@ -103,8 +141,6 @@ app.use("/api/ordenes",    ordenesRouter);
 app.use("/api/almacen",    almacenRouter);
 app.use("/api/cobros",     cobrosRouter);
 app.use("/api/archivos",   archivosRouter);
-
-import bcrypt from "bcryptjs";
 
 app.use((_req, res) => res.status(404).json({ error: "Ruta no encontrada" }));
 app.use((err, _req, res, _next) => res.status(500).json({ error: err.message }));
