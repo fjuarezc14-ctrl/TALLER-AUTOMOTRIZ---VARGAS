@@ -1,47 +1,8 @@
 import { Router } from 'express';
 import { query, getClient } from '../db.js';
-import bcrypt from 'bcryptjs';
+import { requiereToken, soloAdmin } from '../middleware/auth.js';
 
 const router = Router();
-
-// Helper para verificar el PIN administrativo (soporta bcrypt y texto plano)
-export function verificarPin(inputPin, correctPin) {
-  const cleanInput = String(inputPin || '').trim();
-  const cleanCorrect = String(correctPin || '1234').trim();
-
-  // Si el PIN guardado parece ser un hash de bcrypt, comparamos usando bcrypt
-  if (cleanCorrect.startsWith('$2a$') || cleanCorrect.startsWith('$2b$') || cleanCorrect.startsWith('$2y$')) {
-    try {
-      return bcrypt.compareSync(cleanInput, cleanCorrect);
-    } catch (err) {
-      console.error('[PIN] Error al verificar hash bcrypt:', err.message);
-      return false;
-    }
-  }
-
-  // De lo contrario, fallback a comparación directa en texto plano
-  return cleanInput === cleanCorrect;
-}
-
-// Middleware para validar que se provea el PIN correcto de administración
-export function requiereAdmin(req, res, next) {
-  const pinHeader = req.headers['x-admin-pin'];
-  const correctPin = process.env.ADMIN_PIN || '1234';
-  if (!verificarPin(pinHeader, correctPin)) {
-    return res.status(401).json({ error: 'Acceso no autorizado. PIN incorrecto.' });
-  }
-  next();
-}
-
-// POST /api/cobros/verificar-pin
-router.post('/verificar-pin', (req, res) => {
-  const { pin } = req.body;
-  const correctPin = process.env.ADMIN_PIN || '1234';
-  if (verificarPin(pin, correctPin)) {
-    return res.json({ valido: true });
-  }
-  res.status(401).json({ error: 'PIN de administración incorrecto.' });
-});
 
 async function getNextComprobanteNumero(client, tipo) {
   let prefix = '';
@@ -71,7 +32,7 @@ async function getNextComprobanteNumero(client, tipo) {
 }
 
 // GET /api/cobros
-router.get('/', requiereAdmin, async (_req, res) => {
+router.get('/', requiereToken, soloAdmin, async (_req, res) => {
   try {
     const result = await query(`
       SELECT co.*, c.nombre AS cliente_nombre, c.tipo_doc, c.num_doc, c.telefono AS cliente_telefono,
@@ -87,7 +48,7 @@ router.get('/', requiereAdmin, async (_req, res) => {
 });
 
 // GET /api/cobros/exportar
-router.get('/exportar', requiereAdmin, async (_req, res) => {
+router.get('/exportar', requiereToken, soloAdmin, async (_req, res) => {
   try {
     const result = await query(`
       SELECT co.*, c.nombre AS cliente_nombre, c.tipo_doc, c.num_doc,
@@ -143,7 +104,7 @@ router.get('/exportar', requiereAdmin, async (_req, res) => {
 });
 
 // GET /api/cobros/stats
-router.get('/stats', requiereAdmin, async (_req, res) => {
+router.get('/stats', requiereToken, soloAdmin, async (_req, res) => {
   try {
     const result = await query(`
       SELECT
@@ -157,7 +118,7 @@ router.get('/stats', requiereAdmin, async (_req, res) => {
 });
 
 // PATCH /api/cobros/:id/cobrar  (registrar pago - cobro simple)
-router.patch('/:id/cobrar', requiereAdmin, async (req, res) => {
+router.patch('/:id/cobrar', requiereToken, soloAdmin, async (req, res) => {
   const { metodo_pago, tipo_comprobante, descuento_tipo, descuento_valor, descuento_realizado, monto_neto } = req.body;
   const client = await getClient();
   try {
@@ -219,7 +180,7 @@ router.patch('/:id/cobrar', requiereAdmin, async (req, res) => {
 });
 
 // PATCH /api/cobros/:id/dividir  (pago dividido - requerimiento AÑADIR.txt)
-router.patch('/:id/dividir', requiereAdmin, async (req, res) => {
+router.patch('/:id/dividir', requiereToken, soloAdmin, async (req, res) => {
   const {
     metodo_pago, tipo_comprobante,
     pagador2_nombre, pagador2_doc,

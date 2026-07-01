@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { query, getClient } from '../db.js';
-import { requiereAdmin } from './cobros.js';
+import { requiereToken, soloAdmin } from '../middleware/auth.js';
 
 const router = Router();
 
@@ -37,7 +37,7 @@ router.get('/mecanico', async (_req, res) => {
 });
 
 // POST /api/almacen
-router.post('/', requiereAdmin, async (req, res) => {
+router.post('/', requiereToken, soloAdmin, async (req, res) => {
   const { codigo, descripcion, categoria, stock, stock_min, costo, precio_venta } = req.body;
   try {
     const result = await query(
@@ -53,7 +53,7 @@ router.post('/', requiereAdmin, async (req, res) => {
 });
 
 // PUT /api/almacen/:id
-router.put('/:id', requiereAdmin, async (req, res) => {
+router.put('/:id', requiereToken, soloAdmin, async (req, res) => {
   const { codigo, descripcion, categoria, stock, stock_min, costo, precio_venta } = req.body;
   try {
     const result = await query(
@@ -67,7 +67,7 @@ router.put('/:id', requiereAdmin, async (req, res) => {
 });
 
 // PATCH /api/almacen/:id/stock  (ajuste rápido de stock)
-router.patch('/:id/stock', requiereAdmin, async (req, res) => {
+router.patch('/:id/stock', requiereToken, soloAdmin, async (req, res) => {
   const { operacion, cantidad } = req.body; // operacion: 'sumar' | 'restar'
   try {
     const op = operacion === 'sumar' ? '+' : '-';
@@ -85,7 +85,7 @@ router.patch('/:id/stock', requiereAdmin, async (req, res) => {
 });
 
 // DELETE /api/almacen/:id
-router.delete('/:id', requiereAdmin, async (req, res) => {
+router.delete('/:id', requiereToken, soloAdmin, async (req, res) => {
   try {
     await query('DELETE FROM almacen WHERE id=$1', [req.params.id]);
     res.json({ message: 'Producto eliminado' });
@@ -140,7 +140,7 @@ router.get('/solicitudes', async (_req, res) => {
 });
 
 // PATCH /api/almacen/solicitudes/:id/confirmar
-router.patch('/solicitudes/:id/confirmar', requiereAdmin, async (req, res) => {
+router.patch('/solicitudes/:id/confirmar', requiereToken, soloAdmin, async (req, res) => {
   const { id } = req.params;
   const client = await getClient();
   try {
@@ -222,7 +222,7 @@ router.patch('/solicitudes/:id/confirmar', requiereAdmin, async (req, res) => {
 });
 
 // DELETE /api/almacen/solicitudes/:id
-router.delete('/solicitudes/:id', requiereAdmin, async (req, res) => {
+router.delete('/solicitudes/:id', requiereToken, soloAdmin, async (req, res) => {
   const { id } = req.params;
   try {
     const solRes = await query('SELECT * FROM solicitudes_mecanico WHERE id = $1', [id]);

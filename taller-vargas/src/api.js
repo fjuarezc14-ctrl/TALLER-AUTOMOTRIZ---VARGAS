@@ -116,12 +116,11 @@ export const getCobros    = ()         => request('/cobros');
 export const getStatsCobros = ()       => request('/cobros/stats');
 export const registrarCobro = (id, d)  => request(`/cobros/${id}/cobrar`, { method: 'PATCH', body: d });
 export const dividirCobro   = (id, d)  => request(`/cobros/${id}/dividir`, { method: 'PATCH', body: d });
-export const verificarAdminPin = (pin) => request('/cobros/verificar-pin', { method: 'POST', body: { pin } });
 export const exportarCobrosCSV = async () => {
-  const adminPin = sessionStorage.getItem('vargas_admin_pin');
+  const token = localStorage.getItem('vargas_token');
   const headers = { 'Cache-Control': 'no-cache' };
-  if (adminPin) {
-    headers['x-admin-pin'] = adminPin;
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
   }
   const res = await fetch(`${BASE_URL}/api/cobros/exportar`, { headers });
   if (!res.ok) {
