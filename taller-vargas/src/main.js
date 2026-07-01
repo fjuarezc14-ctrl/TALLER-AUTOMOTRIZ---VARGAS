@@ -36,7 +36,15 @@ async function init() {
 // ── Actualizar sidebar con datos del usuario logueado ─────
 function updateUserSidebar() {
   const userStr = localStorage.getItem('vargas_user');
-  if (!userStr) return;
+  if (!userStr) {
+    const avatarEl   = document.getElementById('sidebar-avatar');
+    const usernameEl = document.getElementById('sidebar-username');
+    const userroleEl = document.getElementById('sidebar-userrole');
+    if (avatarEl)   avatarEl.textContent   = 'US';
+    if (usernameEl) usernameEl.textContent = 'Usuario';
+    if (userroleEl) userroleEl.textContent = 'Taller Vargas';
+    return;
+  }
   try {
     const user = JSON.parse(userStr);
     const avatarEl   = document.getElementById('sidebar-avatar');
@@ -48,8 +56,14 @@ function updateUserSidebar() {
 
     // Ocultar botón de facturación para operarios
     const facBtn = document.querySelector('button[data-route="/facturacion"]');
-    if (facBtn && user.rol !== 'administrador') {
-      facBtn.style.display = 'none';
+    if (facBtn) {
+      facBtn.style.display = user.rol === 'administrador' ? '' : 'none';
+    }
+
+    // Ocultar botón de usuarios para operarios
+    const usrBtn = document.getElementById('sidebar-btn-usuarios');
+    if (usrBtn) {
+      usrBtn.style.display = user.rol === 'administrador' ? '' : 'none';
     }
   } catch (_) {}
 }

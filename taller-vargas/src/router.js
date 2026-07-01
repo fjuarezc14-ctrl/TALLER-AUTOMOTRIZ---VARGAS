@@ -13,6 +13,7 @@ const routes = {
   '/almacen':      () => import('./pages/almacen.js'),
   '/facturacion':  () => import('./pages/facturacion.js'),
   '/archivos':     () => import('./pages/archivos.js'),
+  '/usuarios':     () => import('./pages/usuarios.js'),
   '/taller':       () => import('./pages/operaciones.js'),
   '/confirmar':    () => import('./pages/confirmar.js'),
 };
@@ -25,6 +26,9 @@ function isAuthenticated() {
 let currentModule = null;
 
 export async function navigate(path = '/') {
+  if (window.updateUserSidebar) {
+    window.updateUserSidebar();
+  }
   const pathname = path.split('?')[0];
   const matchedPath = pathname.startsWith('/confirmar') ? '/confirmar' : pathname;
 
@@ -39,11 +43,11 @@ export async function navigate(path = '/') {
     return navigate('/');
   }
 
-  if (matchedPath === '/facturacion') {
+  if (matchedPath === '/facturacion' || matchedPath === '/usuarios') {
     const userStr = localStorage.getItem('vargas_user');
     const user = userStr ? JSON.parse(userStr) : null;
     if (!user || user.rol !== 'administrador') {
-      alert('Acceso restringido. Solo administradores pueden acceder a Facturación.');
+      alert('Acceso restringido. Solo administradores pueden acceder a esta sección.');
       return;
     }
   }
@@ -150,6 +154,7 @@ const breadcrumbs = {
   '/almacen':      ['Almacén / Repuestos', 'Control de Inventario'],
   '/facturacion':  ['Finanzas', 'Facturación y Cobros'],
   '/archivos':     ['Documentos', 'Repositorio General'],
+  '/usuarios':     ['Configuración', 'Administración de Usuarios'],
   '/taller':       ['Taller y Operaciones', 'Portal de Diagnóstico y Operaciones Mecánicas'],
 };
 

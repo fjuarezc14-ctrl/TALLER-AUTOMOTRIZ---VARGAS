@@ -15,6 +15,7 @@ import cobrosRouter     from "./routes/cobros.js";
 import archivosRouter   from "./routes/archivos.js";
 import dashboardRouter  from "./routes/dashboard.js";
 import authRouter       from "./routes/auth.js";
+import usuariosRouter   from "./routes/usuarios.js";
 
 // Redefinir la vista v_ordenes_completas para incluir la columna diagnostico y cliente_telefono
 async function runDbMigrations() {
@@ -142,6 +143,7 @@ app.use("/api/ordenes",    ordenesRouter);
 app.use("/api/almacen",    almacenRouter);
 app.use("/api/cobros",     cobrosRouter);
 app.use("/api/archivos",   archivosRouter);
+app.use("/api/usuarios",   usuariosRouter);
 
 // ── Login inline (redundante, garantiza compatibilidad Docker) ──
 const JWT_SECRET = process.env.JWT_SECRET || 'taller_vargas_secret_key_2026';

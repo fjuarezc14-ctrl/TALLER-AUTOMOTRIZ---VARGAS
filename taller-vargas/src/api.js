@@ -138,3 +138,9 @@ export const deleteArchivo  = (id)     => request(`/archivos/${id}`, { method: '
 // ── Confirmación Pública del Cliente ──────────────────────
 export const getOrdenPublica = (id) => request(`/ordenes/${id}/publica`);
 export const confirmarOrdenPublica = (id) => request(`/ordenes/${id}/confirmar`, { method: 'POST' });
+
+// ── Gestión de Usuarios ───────────────────────────────────
+export const getUsuarios    = ()         => request('/usuarios');
+export const createUsuario  = (data)     => request('/usuarios', { method: 'POST', body: data });
+export const updateUsuario  = (id, data) => request(`/usuarios/${id}`, { method: 'PUT', body: data });
+export const deleteUsuario  = (id)       => request(`/usuarios/${id}`, { method: 'DELETE' });
