@@ -3,7 +3,10 @@ import { query } from '../db.js';
 import fs from 'fs/promises';
 import path from 'path';
 
+import { requiereToken, soloAdmin } from '../middleware/auth.js';
+
 const router = Router();
+router.use(requiereToken);
 
 // Migración inline: asegurar columnas cliente_id y vehiculo_id en archivos
 (async () => {
@@ -89,7 +92,7 @@ router.post('/', async (req, res) => {
 });
 
 // DELETE /api/archivos/:id
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', soloAdmin, async (req, res) => {
   try {
     // Primero buscar el nombre del archivo para borrarlo del disco
     const fileResult = await query('SELECT filename FROM archivos WHERE id=$1', [req.params.id]);

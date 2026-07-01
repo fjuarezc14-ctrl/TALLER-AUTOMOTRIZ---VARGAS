@@ -1,6 +1,49 @@
 import { Router } from "express";
 import { query, getClient } from "../db.js";
+import { requiereToken } from "../middleware/auth.js";
 const router = Router();
+
+// ── Rutas públicas para clientes (no requieren token) ─────
+
+// GET /ordenes/:id/publica — consulta pública y segura de la orden para el cliente
+router.get("/:id/publica", async (req, res) => {
+  try {
+    const [ord, items] = await Promise.all([
+      query(`
+        SELECT id, estado, kilometraje, total_estimado, created_at,
+               placa, vehiculo, cliente, cliente_telefono, num_doc
+        FROM v_ordenes_completas
+        WHERE id=$1`, [req.params.id]),
+      query("SELECT * FROM v_items_por_orden WHERE orden_id=$1 ORDER BY id", [req.params.id])
+    ]);
+    if (!ord.rows.length) return res.status(404).json({ error: "Orden no encontrada" });
+    res.json({ ...ord.rows[0], items: items.rows });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// POST /ordenes/:id/confirmar — aprobación digital del cliente para iniciar trabajos
+router.post("/:id/confirmar", async (req, res) => {
+  try {
+    const r = await query(
+      `UPDATE ordenes_servicio
+       SET estado='En Proceso'
+       WHERE id=$1 AND estado='Diagnostico'
+       RETURNING *`,
+      [req.params.id]
+    );
+    if (!r.rows.length) {
+      const check = await query("SELECT estado FROM ordenes_servicio WHERE id=$1", [req.params.id]);
+      if (!check.rows.length) return res.status(404).json({ error: "Orden no encontrada" });
+      return res.status(400).json({ 
+        error: `La orden ya se encuentra en estado: ${check.rows[0].estado}.` 
+      });
+    }
+    res.json({ message: "Orden confirmada correctamente", orden: r.rows[0] });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ── A partir de aquí todas las rutas requieren token de autenticación ──
+router.use(requiereToken);
 
 router.get("/", async (_req, res) => {
   try { res.json((await query("SELECT * FROM v_ordenes_completas ORDER BY id DESC")).rows); }
@@ -294,43 +337,6 @@ router.patch("/:id/diagnostico", async (req, res) => {
     );
     if (!r.rows.length) return res.status(404).json({ error: "Orden no encontrada" });
     res.json(r.rows[0]);
-  } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-// GET /ordenes/:id/publica — consulta pública y segura de la orden para el cliente
-router.get("/:id/publica", async (req, res) => {
-  try {
-    const [ord, items] = await Promise.all([
-      query(`
-        SELECT id, estado, kilometraje, total_estimado, created_at,
-               placa, vehiculo, cliente, cliente_telefono, num_doc
-        FROM v_ordenes_completas
-        WHERE id=$1`, [req.params.id]),
-      query("SELECT * FROM v_items_por_orden WHERE orden_id=$1 ORDER BY id", [req.params.id])
-    ]);
-    if (!ord.rows.length) return res.status(404).json({ error: "Orden no encontrada" });
-    res.json({ ...ord.rows[0], items: items.rows });
-  } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-// POST /ordenes/:id/confirmar — aprobación digital del cliente para iniciar trabajos
-router.post("/:id/confirmar", async (req, res) => {
-  try {
-    const r = await query(
-      `UPDATE ordenes_servicio
-       SET estado='En Proceso'
-       WHERE id=$1 AND estado='Diagnostico'
-       RETURNING *`,
-      [req.params.id]
-    );
-    if (!r.rows.length) {
-      const check = await query("SELECT estado FROM ordenes_servicio WHERE id=$1", [req.params.id]);
-      if (!check.rows.length) return res.status(404).json({ error: "Orden no encontrada" });
-      return res.status(400).json({ 
-        error: `La orden ya se encuentra en estado: ${check.rows[0].estado}.` 
-      });
-    }
-    res.json({ message: "Orden confirmada correctamente", orden: r.rows[0] });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 

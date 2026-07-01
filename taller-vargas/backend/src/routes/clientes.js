@@ -1,6 +1,9 @@
 import { Router } from "express";
 import { query } from "../db.js";
+import { requiereToken } from "../middleware/auth.js";
+
 const router = Router();
+router.use(requiereToken);
 
 // Auto-migración: asegurar que la columna 'notas' exista
 (async () => {
