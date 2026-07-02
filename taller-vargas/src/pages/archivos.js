@@ -755,15 +755,20 @@ async function abrirPreview(fileId) {
       const result = await window.mammoth.convertToHtml({ arrayBuffer });
       const html = result.value || '<p style="color:var(--slate-5); text-align:center;">El documento está vacío.</p>';
       
+      // Sanitizar etiquetas de imagen para ocultarlas si fallan (como viñetas o formas no web)
+      const cleanHtml = html.replace(/<img /gi, '<img onerror="this.style.display=\'none\'; this.onerror=null;" ');
+
       previewBody.innerHTML = `
         <div class="docx-preview-container" style="width:100%; max-width:800px; margin:0 auto; padding:40px; background:white; color:#333; text-align:left; border-radius:12px; box-shadow:0 4px 20px rgba(0,0,0,0.08); font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif; line-height:1.6; min-height:60vh; box-sizing:border-box;">
           <style>
             .docx-preview-container img { max-width: 100% !important; height: auto !important; display: block; margin: 16px auto; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+            /* Ocultar imágenes rotas con esquemas MS Office */
+            .docx-preview-container img:not([src^="data:image/"]):not([src^="http://"]):not([src^="https://"]):not([src^="/"]) { display: none !important; }
             .docx-preview-container table { width: 100% !important; border-collapse: collapse; margin: 16px 0; }
             .docx-preview-container th, .docx-preview-container td { border: 1px solid #cbd5e1; padding: 8px 12px; }
             .docx-preview-container p { margin-bottom: 12px; }
           </style>
-          ${html}
+          ${cleanHtml}
         </div>
       `;
     } catch (err) {
