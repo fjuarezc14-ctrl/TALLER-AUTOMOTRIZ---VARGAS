@@ -1380,7 +1380,7 @@ function renderModales() {
             </div>
           </div>
 
-          <div class="modal-body" style="display:flex; flex-direction:column; gap:14px; min-height:360px; overflow-y:auto; max-height:calc(80vh - 150px);">
+          <div class="modal-body" style="display:flex; flex-direction:column; gap:14px; overflow-y:auto; flex:1;">
             
             <!-- PASO 1: CLIENTE Y VEHICULO -->
             <div class="stepper-step active" id="step-1">
