@@ -753,8 +753,21 @@ async function abrirPreview(fileId) {
       const arrayBuffer = await res.arrayBuffer();
       
       const result = await window.mammoth.convertToHtml({ arrayBuffer });
-      const html = result.value || '<p style="color:var(--slate-5); text-align:center;">El documento está vacío.</p>';
+      const html = result.value || '';
       
+      // Comprobar si tiene texto legible o imágenes web compatibles
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = html;
+      const hasText = tempDiv.textContent.trim().length > 0;
+      const hasValidImages = Array.from(tempDiv.querySelectorAll('img')).some(img => {
+        const src = img.getAttribute('src') || '';
+        return src.startsWith('data:image/') || src.startsWith('http://') || src.startsWith('https://') || src.startsWith('/');
+      });
+
+      if (!hasText && !hasValidImages) {
+        throw new Error('El documento no contiene texto ni imágenes compatibles con la vista previa web.');
+      }
+
       // Sanitizar etiquetas de imagen para ocultarlas si fallan (como viñetas o formas no web)
       const cleanHtml = html.replace(/<img /gi, '<img onerror="this.style.display=\'none\'; this.onerror=null;" ');
 
