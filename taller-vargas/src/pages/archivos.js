@@ -170,7 +170,7 @@ function renderArchivos() {
               <div style="font-size:32px;margin-bottom:8px;">☁️</div>
               <p style="font-weight:700;color:var(--dark);font-size:13px;">Haz clic para buscar o arrastra tu archivo aquí</p>
               <p style="font-size:11px;color:var(--slate-5);margin-top:4px;">PDF, JPG, PNG, DOCX, XLSX (Máx. 25MB)</p>
-              <input type="file" id="file-upload-input" class="hidden" required />
+              <input type="file" id="file-upload-input" class="hidden" />
             </div>
 
             <div id="file-name-display" class="hidden flex items-center gap-2" style="background:#ecfdf5;border:1px solid #a7f3d0;color:#047857;padding:10px 14px;border-radius:var(--radius-md);font-weight:600;font-size:12px;">
