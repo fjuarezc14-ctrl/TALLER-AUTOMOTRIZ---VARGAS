@@ -155,6 +155,23 @@ function renderVehiculos(vehiculos) {
   // VIN Decoder
   document.getElementById('veh-vin').addEventListener('input', decodeVIN);
 
+  // Navegación de pestañas del modal de vehículo
+  document.querySelectorAll('.veh-tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      // Estilo botones
+      document.querySelectorAll('.veh-tab-btn').forEach(b => {
+        b.style.borderBottomColor = 'transparent';
+        b.style.color = 'var(--slate-4)';
+      });
+      btn.style.borderBottomColor = 'var(--brand)';
+      btn.style.color = 'var(--dark)';
+      // Mostrar/ocultar paneles
+      document.querySelectorAll('.veh-tab-panel').forEach(p => p.style.display = 'none');
+      const target = document.getElementById(btn.dataset.tab);
+      if (target) target.style.display = 'flex';
+    });
+  });
+
   // Historial
   document.getElementById('btn-close-historial-x').addEventListener('click', cerrarModalHistorial);
 
@@ -391,164 +408,202 @@ function renderModalVehiculo() {
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
           </button>
         </div>
-        <form id="form-vehiculo" style="display: flex; flex-direction: column; flex: 1; overflow: hidden;">
-          <div class="modal-body" style="display:flex;flex-direction:column;gap:18px;">
-            <input type="hidden" id="vehiculo-id" />
 
-            <!-- Sección 1: Identificación -->
-            <div>
-              <div class="form-section-title">🚗 Identificación del Vehículo</div>
-              <div class="grid grid-cols-3 gap-3">
-                <div class="form-group">
-                  <label class="form-label">Placa *</label>
-                  <input type="text" id="veh-placa" class="form-input font-mono uppercase font-bold" required placeholder="Ej: ABC-123" />
-                </div>
-                <div class="form-group">
-                  <label class="form-label">Marca / Modelo *</label>
-                  <input type="text" id="veh-marca" class="form-input" required placeholder="Ej: Toyota Corolla" />
-                </div>
-                <div class="form-group">
-                  <label class="form-label">Año</label>
-                  <input type="number" id="veh-anio" class="form-input" placeholder="Ej: 2020" min="1950" max="2035" />
+        <!-- Navegación de Pestañas -->
+        <div id="veh-tabs-nav" style="display:flex; border-bottom:2px solid var(--slate-8); background:var(--slate-9); padding:0 20px; gap:4px; flex-shrink:0;">
+          <button type="button" class="veh-tab-btn veh-tab-active" data-tab="tab-veh-principal"
+            style="padding:10px 14px; font-size:12px; font-weight:700; border:none; background:none; cursor:pointer; border-bottom:2px solid var(--brand); margin-bottom:-2px; color:var(--dark); white-space:nowrap;">
+            🚗 Datos Principales
+          </button>
+          <button type="button" class="veh-tab-btn" data-tab="tab-veh-tecnica"
+            style="padding:10px 14px; font-size:12px; font-weight:700; border:none; background:none; cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-2px; color:var(--slate-4); white-space:nowrap;">
+            ⚙️ Ficha Técnica
+          </button>
+          <button type="button" class="veh-tab-btn" data-tab="tab-veh-km"
+            style="padding:10px 14px; font-size:12px; font-weight:700; border:none; background:none; cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-2px; color:var(--slate-4); white-space:nowrap;">
+            ⏱️ Kilometrajes
+          </button>
+        </div>
+
+        <form id="form-vehiculo" style="display:flex; flex-direction:column; flex:1; overflow:hidden;">
+          <input type="hidden" id="vehiculo-id" />
+          <div class="modal-body" style="padding:20px; flex:1; overflow-y:auto;">
+
+            <!-- ══════ TAB 1: DATOS PRINCIPALES ══════ -->
+            <div id="tab-veh-principal" class="veh-tab-panel" style="display:flex; flex-direction:column; gap:16px;">
+              <div>
+                <div style="font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.8px; color:var(--slate-5); margin-bottom:10px; padding-bottom:6px; border-bottom:1px solid var(--slate-8);">🔖 Identificación</div>
+                <div class="grid grid-cols-3 gap-3">
+                  <div class="form-group" style="margin:0;">
+                    <label class="form-label">Placa *</label>
+                    <input type="text" id="veh-placa" class="form-input font-mono uppercase font-bold" required placeholder="Ej: ABC-123" style="font-size:15px; font-weight:900; letter-spacing:2px;" />
+                  </div>
+                  <div class="form-group" style="margin:0;">
+                    <label class="form-label">Marca / Modelo *</label>
+                    <input type="text" id="veh-marca" class="form-input" required placeholder="Ej: Toyota Corolla" />
+                  </div>
+                  <div class="form-group" style="margin:0;">
+                    <label class="form-label">Año de Fabricación</label>
+                    <input type="number" id="veh-anio" class="form-input" placeholder="Ej: 2020" min="1950" max="2035" />
+                  </div>
                 </div>
               </div>
-            </div>
-
-            <!-- Sección 2: Tipo y Color -->
-            <div>
-              <div class="form-section-title">🎨 Clasificación</div>
-              <div class="grid grid-cols-3 gap-3">
-                <div class="form-group">
-                  <label class="form-label">Tipo de Vehículo</label>
-                  <select id="veh-tipo" class="form-select">
-                    <option value="Sedán">Sedán</option>
-                    <option value="SUV">SUV</option>
-                    <option value="Pickup">Pickup / 4x4</option>
-                    <option value="Van">Van / Minivan</option>
-                    <option value="Camión">Camión</option>
-                    <option value="Moto">Moto</option>
-                    <option value="Otro">Otro</option>
+              <div>
+                <div style="font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.8px; color:var(--slate-5); margin-bottom:10px; padding-bottom:6px; border-bottom:1px solid var(--slate-8);">🎨 Clasificación Visual</div>
+                <div class="grid grid-cols-2 gap-3">
+                  <div class="form-group" style="margin:0;">
+                    <label class="form-label">Tipo de Vehículo</label>
+                    <select id="veh-tipo" class="form-select">
+                      <option value="Sedán">🚗 Sedán</option>
+                      <option value="SUV">🚙 SUV</option>
+                      <option value="Pickup">🛻 Pickup / 4x4</option>
+                      <option value="Van">🚐 Van / Minivan</option>
+                      <option value="Camión">🚛 Camión</option>
+                      <option value="Moto">🏍️ Moto</option>
+                      <option value="Otro">🚘 Otro</option>
+                    </select>
+                  </div>
+                  <div class="form-group" style="margin:0;">
+                    <label class="form-label">Color</label>
+                    <input type="text" id="veh-color" class="form-input" placeholder="Ej: Blanco Perla" />
+                  </div>
+                </div>
+              </div>
+              <div>
+                <div style="font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.8px; color:var(--slate-5); margin-bottom:10px; padding-bottom:6px; border-bottom:1px solid var(--slate-8);">👤 Propietario del Vehículo</div>
+                <div class="form-group" style="margin:0;">
+                  <label class="form-label">Cliente Propietario *</label>
+                  <input type="text" id="veh-cliente-search" class="form-input" placeholder="🔍 Buscar cliente por nombre o documento..." autocomplete="off" style="font-size:12px; margin-bottom:6px;" />
+                  <select id="veh-cliente-id" class="form-select" required>
+                    <option value="">— Seleccionar Cliente —</option>
+                    ${clientesList.map(c => `<option value="${c.id}">${c.nombre} (${c.num_doc})</option>`).join('')}
                   </select>
                 </div>
-                <div class="form-group">
-                  <label class="form-label">Color</label>
-                  <input type="text" id="veh-color" class="form-input" placeholder="Ej: Blanco Perla" />
+              </div>
+            </div>
+
+            <!-- ══════ TAB 2: FICHA TÉCNICA ══════ -->
+            <div id="tab-veh-tecnica" class="veh-tab-panel" style="display:none; flex-direction:column; gap:16px;">
+              <div>
+                <div style="font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.8px; color:var(--slate-5); margin-bottom:10px; padding-bottom:6px; border-bottom:1px solid var(--slate-8);">⚙️ Motor y Transmisión</div>
+                <div class="grid grid-cols-2 gap-3">
+                  <div class="form-group" style="margin:0;">
+                    <label class="form-label">Tipo / Cilindrada de Motor</label>
+                    <input type="text" id="veh-tipo-motor" class="form-input" placeholder="Ej: 2.0L Turbo Diesel" />
+                  </div>
+                  <div class="form-group" style="margin:0;">
+                    <label class="form-label">Transmisión</label>
+                    <select id="veh-transmision" class="form-select">
+                      <option value="">— Seleccionar —</option>
+                      <option value="Manual">Manual</option>
+                      <option value="Automático">Automático</option>
+                      <option value="CVT">CVT</option>
+                      <option value="Secuencial">Secuencial</option>
+                    </select>
+                  </div>
                 </div>
-                <div class="form-group">
-                  <label class="form-label">Transmisión</label>
-                  <select id="veh-transmision" class="form-select">
-                    <option value="">— Seleccionar —</option>
-                    <option value="Manual">Manual</option>
-                    <option value="Automático">Automático</option>
-                    <option value="CVT">CVT</option>
-                    <option value="Secuencial">Secuencial</option>
-                  </select>
+              </div>
+              <div>
+                <div style="font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.8px; color:var(--slate-5); margin-bottom:10px; padding-bottom:6px; border-bottom:1px solid var(--slate-8);">🔢 Números de Identificación</div>
+                <div class="grid grid-cols-2 gap-3">
+                  <div class="form-group" style="margin:0;">
+                    <label class="form-label">N° de Motor</label>
+                    <input type="text" id="veh-n-motor" class="form-input font-mono" placeholder="Ej: 4D56U-..." />
+                  </div>
+                  <div class="form-group" style="margin:0;">
+                    <label class="form-label">VIN / N° Serie (17 dígitos)
+                      <span style="font-weight:400; font-size:10px; color:var(--slate-5); margin-left:4px;">— Auto-decodificado</span>
+                    </label>
+                    <input type="text" id="veh-vin" class="form-input font-mono uppercase" placeholder="Ej: 1HGBH41JXMN109186" maxlength="17" />
+                    <div id="vin-decode-result" class="vin-decode-result"></div>
+                  </div>
+                </div>
+              </div>
+              <div>
+                <div style="font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.8px; color:var(--slate-5); margin-bottom:10px; padding-bottom:6px; border-bottom:1px solid var(--slate-8);">🧴 Consumibles Sugeridos por Fabricante</div>
+                <div class="grid grid-cols-2 gap-3">
+                  <div class="form-group" style="margin:0;">
+                    <label class="form-label">Aceite de Motor Sugerido</label>
+                    <input type="text" id="veh-sug-aceite" class="form-input" placeholder="Ej: 5W-30 Sintético" />
+                  </div>
+                  <div class="form-group" style="margin:0;">
+                    <label class="form-label">Refrigerante Sugerido</label>
+                    <input type="text" id="veh-sug-refrigerante" class="form-input" placeholder="Ej: Coolant Rojo 50/50" />
+                  </div>
+                  <div class="form-group" style="margin:0;">
+                    <label class="form-label">Bujías Sugeridas</label>
+                    <input type="text" id="veh-sug-bujias" class="form-input" placeholder="Ej: Iridio NGK BKR6EIX" />
+                  </div>
+                  <div class="form-group" style="margin:0;">
+                    <label class="form-label">Filtros Sugeridos</label>
+                    <input type="text" id="veh-sug-filtros" class="form-input" placeholder="Ej: Toyota 90915-YZZD4" />
+                  </div>
                 </div>
               </div>
             </div>
 
-            <!-- Sección 3: Motor y VIN -->
-            <div>
-              <div class="form-section-title">⚙️ Datos Técnicos</div>
-              <div class="grid grid-cols-3 gap-3">
-                <div class="form-group">
-                  <label class="form-label">Tipo de Motor</label>
-                  <input type="text" id="veh-tipo-motor" class="form-input" placeholder="Ej: 2.0L Turbo Diesel" />
+            <!-- ══════ TAB 3: KILOMETRAJES ══════ -->
+            <div id="tab-veh-km" class="veh-tab-panel" style="display:none; flex-direction:column; gap:16px;">
+              <div>
+                <div style="font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.8px; color:var(--slate-5); margin-bottom:10px; padding-bottom:6px; border-bottom:1px solid var(--slate-8);">📍 Odómetro Principal</div>
+                <div class="grid grid-cols-2 gap-3">
+                  <div class="form-group" style="margin:0;">
+                    <label class="form-label" style="font-weight:800;">KM Actual (Odómetro) *</label>
+                    <input type="number" id="veh-km-actual" class="form-input font-bold" required placeholder="Ej: 45000" min="0" style="font-size:16px; font-weight:900;" />
+                  </div>
+                  <div class="form-group" style="margin:0;">
+                    <label class="form-label">KM Último Servicio General</label>
+                    <input type="number" id="veh-km-ult-serv" class="form-input" placeholder="Ej: 40000" min="0" />
+                  </div>
                 </div>
-                <div class="form-group">
-                  <label class="form-label">N° de Motor</label>
-                  <input type="text" id="veh-n-motor" class="form-input font-mono" placeholder="Ej: 4D56U-..." />
+              </div>
+              <div>
+                <div style="font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.8px; color:var(--slate-5); margin-bottom:4px; padding-bottom:6px; border-bottom:1px solid var(--slate-8);">🔧 KM del Último Mantenimiento por Componente
+                  <span style="font-weight:400; font-size:10px; color:var(--slate-5); display:block; margin-top:2px; text-transform:none; letter-spacing:0;">Estos valores alimentan el semáforo de salud preventivo de la tarjeta.</span>
                 </div>
-                <div class="form-group">
-                  <label class="form-label">VIN (Nro. Serie) — 17 dígitos</label>
-                  <input type="text" id="veh-vin" class="form-input font-mono uppercase" placeholder="Ej: 1HGBH41JXMN109186" maxlength="17" />
-                  <div id="vin-decode-result" class="vin-decode-result"></div>
+                <div class="grid grid-cols-3 gap-3" style="margin-top:12px;">
+                  <div class="form-group" style="margin:0;">
+                    <label class="form-label">🛢️ Aceite (KM)</label>
+                    <input type="number" id="veh-km-aceite" class="form-input" placeholder="Ej: 42000" min="0" />
+                    <span style="font-size:10px; color:var(--slate-5); display:block; margin-top:3px;">Intervalo: cada 8,000 km</span>
+                  </div>
+                  <div class="form-group" style="margin:0;">
+                    <label class="form-label">🔩 Frenos (KM)</label>
+                    <input type="number" id="veh-km-frenos" class="form-input" placeholder="Ej: 35000" min="0" />
+                    <span style="font-size:10px; color:var(--slate-5); display:block; margin-top:3px;">Intervalo: cada 30,000 km</span>
+                  </div>
+                  <div class="form-group" style="margin:0;">
+                    <label class="form-label">⚡ Bujías (KM)</label>
+                    <input type="number" id="veh-km-bujias" class="form-input" placeholder="Ej: 30000" min="0" />
+                    <span style="font-size:10px; color:var(--slate-5); display:block; margin-top:3px;">Intervalo: cada 40,000 km</span>
+                  </div>
+                  <div class="form-group" style="margin:0;">
+                    <label class="form-label">💨 Filtros (KM)</label>
+                    <input type="number" id="veh-km-filtros" class="form-input" placeholder="Ej: 40000" min="0" />
+                    <span style="font-size:10px; color:var(--slate-5); display:block; margin-top:3px;">Intervalo: cada 15,000 km</span>
+                  </div>
+                  <div class="form-group" style="margin:0;">
+                    <label class="form-label">💧 Líq. Frenos (KM)</label>
+                    <input type="number" id="veh-km-liq-frenos" class="form-input" placeholder="Ej: 30000" min="0" />
+                    <span style="font-size:10px; color:var(--slate-5); display:block; margin-top:3px;">Intervalo: cada 40,000 km</span>
+                  </div>
+                  <div class="form-group" style="margin:0;">
+                    <label class="form-label">❄️ Refrigerante (KM)</label>
+                    <input type="number" id="veh-km-refrigerante" class="form-input" placeholder="Ej: 30000" min="0" />
+                    <span style="font-size:10px; color:var(--slate-5); display:block; margin-top:3px;">Intervalo: cada 40,000 km</span>
+                  </div>
+                  <div class="form-group" style="margin:0; grid-column:span 3;">
+                    <label class="form-label">⛓️ Distribución / Cadena (KM)</label>
+                    <input type="number" id="veh-km-distribucion" class="form-input" placeholder="Ej: 10000" min="0" style="max-width:260px;" />
+                    <span style="font-size:10px; color:var(--slate-5); display:block; margin-top:3px;">Intervalo: cada 80,000 km</span>
+                  </div>
                 </div>
               </div>
             </div>
 
-            <!-- Sección 4: Kilometraje e Indicadores -->
-            <div>
-              <div class="form-section-title">📍 Historial de Kilometrajes por Componente</div>
-              <div class="grid grid-cols-4 gap-3">
-                <div class="form-group col-span-2">
-                  <label class="form-label">KM Actual (Odómetro) *</label>
-                  <input type="number" id="veh-km-actual" class="form-input font-bold" required placeholder="Ej: 45000" min="0" />
-                </div>
-                <div class="form-group col-span-2">
-                  <label class="form-label">KM Último Servicio Gral.</label>
-                  <input type="number" id="veh-km-ult-serv" class="form-input" placeholder="Ej: 40000" min="0" />
-                </div>
-                
-                <div class="form-group">
-                  <label class="form-label">Últ. Aceite (KM)</label>
-                  <input type="number" id="veh-km-aceite" class="form-input" placeholder="Ej: 42000" min="0" />
-                </div>
-                <div class="form-group">
-                  <label class="form-label">Últ. Frenos (KM)</label>
-                  <input type="number" id="veh-km-frenos" class="form-input" placeholder="Ej: 35000" min="0" />
-                </div>
-                <div class="form-group">
-                  <label class="form-label">Últ. Bujías (KM)</label>
-                  <input type="number" id="veh-km-bujias" class="form-input" placeholder="Ej: 30000" min="0" />
-                </div>
-                <div class="form-group">
-                  <label class="form-label">Últ. Filtros (KM)</label>
-                  <input type="number" id="veh-km-filtros" class="form-input" placeholder="Ej: 40000" min="0" />
-                </div>
-                <div class="form-group">
-                  <label class="form-label">Últ. Líq. Frenos (KM)</label>
-                  <input type="number" id="veh-km-liq-frenos" class="form-input" placeholder="Ej: 30000" min="0" />
-                </div>
-                <div class="form-group">
-                  <label class="form-label">Últ. Refrigerante (KM)</label>
-                  <input type="number" id="veh-km-refrigerante" class="form-input" placeholder="Ej: 30000" min="0" />
-                </div>
-                <div class="form-group col-span-2">
-                  <label class="form-label">Últ. Distribución (KM)</label>
-                  <input type="number" id="veh-km-distribucion" class="form-input" placeholder="Ej: 10000" min="0" />
-                </div>
-              </div>
-            </div>
+          </div><!-- end modal-body -->
 
-            <!-- Sección 5: Consumibles Sugeridos -->
-            <div>
-              <div class="form-section-title">🧼 Ficha Técnica de Consumibles (Sugeridos)</div>
-              <div class="grid grid-cols-2 gap-3">
-                <div class="form-group">
-                  <label class="form-label">Aceite Sugerido</label>
-                  <input type="text" id="veh-sug-aceite" class="form-input" placeholder="Ej: 5W-30 Sintético" />
-                </div>
-                <div class="form-group">
-                  <label class="form-label">Refrigerante Sugerido</label>
-                  <input type="text" id="veh-sug-refrigerante" class="form-input" placeholder="Ej: Coolant Rojo 50/50" />
-                </div>
-                <div class="form-group">
-                  <label class="form-label">Bujías Sugeridas</label>
-                  <input type="text" id="veh-sug-bujias" class="form-input" placeholder="Ej: Iridio NGK" />
-                </div>
-                <div class="form-group">
-                  <label class="form-label">Filtros Sugeridos</label>
-                  <input type="text" id="veh-sug-filtros" class="form-input" placeholder="Ej: Filtro Aceite Toyota 90915-YZZD4" />
-                </div>
-              </div>
-            </div>
-
-            <!-- Sección 6: Cliente -->
-            <div>
-              <div class="form-section-title">👤 Vinculación a Cliente</div>
-              <div class="form-group">
-                <label class="form-label">Cliente Propietario *</label>
-                <input type="text" id="veh-cliente-search" class="form-input" placeholder="🔍 Buscar cliente por nombre o documento..." autocomplete="off" style="font-size:12px;" />
-                <select id="veh-cliente-id" class="form-select" required style="margin-top:6px;">
-                  <option value="">— Seleccionar Cliente —</option>
-                  ${clientesList.map(c => `<option value="${c.id}">${c.nombre} (${c.num_doc})</option>`).join('')}
-                </select>
-              </div>
-            </div>
-          </div>
-
-          <div class="modal-footer">
+          <div class="modal-footer" style="justify-content:space-between;">
             <button type="button" class="btn-ghost" id="btn-close-veh-modal-cancel">Cancelar</button>
             <button type="submit" class="btn-primary" id="btn-save-vehiculo">
               <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
@@ -750,6 +805,15 @@ function abrirModalVehiculo(id = null) {
   const modal = document.getElementById('modal-vehiculo');
   document.getElementById('form-vehiculo').reset();
   document.getElementById('vin-decode-result').className = 'vin-decode-result';
+
+  // Resetear tabs a la primera pestaña
+  document.querySelectorAll('.veh-tab-btn').forEach((b, i) => {
+    b.style.borderBottomColor = i === 0 ? 'var(--brand)' : 'transparent';
+    b.style.color = i === 0 ? 'var(--dark)' : 'var(--slate-4)';
+  });
+  document.querySelectorAll('.veh-tab-panel').forEach((p, i) => {
+    p.style.display = i === 0 ? 'flex' : 'none';
+  });
 
   // Limpiar buscador de cliente y restaurar todas las opciones
   const cliSearch = document.getElementById('veh-cliente-search');
