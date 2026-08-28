@@ -3,25 +3,8 @@ import {
   deleteProducto, ajustarStock, getMecanicos, crearSolicitudMecanico,
   getSolicitudesMecanico, confirmarSolicitudMecanico, eliminarSolicitudMecanico
 } from '../api.js';
+import { safeFormatDate } from '../utils.js';
 
-function safeFormatDate(dateVal, options = { day: '2-digit', month: 'short', year: 'numeric' }) {
-  if (!dateVal) return '—';
-  let parsedDate;
-  if (typeof dateVal === 'string') {
-    if (dateVal.includes('T')) {
-      parsedDate = new Date(dateVal);
-    } else {
-      parsedDate = new Date(dateVal + 'T12:00:00');
-    }
-  } else {
-    parsedDate = new Date(dateVal);
-  }
-  if (isNaN(parsedDate.getTime())) {
-    parsedDate = new Date(dateVal);
-    if (isNaN(parsedDate.getTime())) return '—';
-  }
-  return parsedDate.toLocaleDateString('es-PE', options);
-}
 
 let containerElement = null;
 let activeTab = 'admin'; // 'admin' | 'mecanico' | 'solicitudes'

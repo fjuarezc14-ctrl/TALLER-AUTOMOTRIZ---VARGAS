@@ -205,9 +205,30 @@ router.patch("/:id/notas", async (req, res) => {
 
 // ──────────────────────────────────────────────────────────────
 // DELETE /api/clientes/:id
+// Solo permite eliminar si el cliente NO tiene órdenes de servicio
 // ──────────────────────────────────────────────────────────────
 router.delete("/:id", async (req, res) => {
   try {
+    // Verificar si el cliente tiene órdenes de servicio asociadas
+    const check = await query(
+      "SELECT COUNT(*)::INT AS total FROM ordenes_servicio WHERE cliente_id = $1",
+      [req.params.id]
+    );
+    if (check.rows[0].total > 0) {
+      return res.status(409).json({
+        error: `No se puede eliminar este cliente porque tiene ${check.rows[0].total} orden(es) de servicio registrada(s). Primero elimine o archive las órdenes.`
+      });
+    }
+    // También verificar vehículos
+    const checkVeh = await query(
+      "SELECT COUNT(*)::INT AS total FROM vehiculos WHERE cliente_id = $1",
+      [req.params.id]
+    );
+    if (checkVeh.rows[0].total > 0) {
+      return res.status(409).json({
+        error: `No se puede eliminar este cliente porque tiene ${checkVeh.rows[0].total} vehículo(s) registrado(s). Primero elimine los vehículos.`
+      });
+    }
     await query("DELETE FROM clientes WHERE id=$1", [req.params.id]);
     res.json({ message: "Cliente eliminado" });
   } catch (err) { res.status(500).json({ error: err.message }); }

@@ -14,7 +14,6 @@ const routes = {
   '/facturacion':  () => import('./pages/facturacion.js'),
   '/archivos':     () => import('./pages/archivos.js'),
   '/usuarios':     () => import('./pages/usuarios.js'),
-  '/taller':       () => import('./pages/operaciones.js'),
   '/confirmar':    () => import('./pages/confirmar.js'),
 };
 
@@ -155,7 +154,6 @@ const breadcrumbs = {
   '/facturacion':  ['Finanzas', 'Facturación y Cobros'],
   '/archivos':     ['Documentos', 'Repositorio General'],
   '/usuarios':     ['Configuración', 'Administración de Usuarios'],
-  '/taller':       ['Taller y Operaciones', 'Portal de Diagnóstico y Operaciones Mecánicas'],
 };
 
 function updateBreadcrumb(path) {

@@ -3,46 +3,9 @@ import {
   cambiarEstado, addItem, deleteItem, getVehiculos, getMecanicos, getAlmacen,
   getClientes, guardarDiagnosticoOrden, patchNotaInternaOrden
 } from '../api.js';
+import { safeFormatDate, safeFormatDateTime } from '../utils.js';
 
-function safeFormatDate(dateVal, options = { day: '2-digit', month: 'short', year: 'numeric' }) {
-  if (!dateVal) return '—';
-  let parsedDate;
-  if (typeof dateVal === 'string') {
-    if (dateVal.includes('T')) {
-      parsedDate = new Date(dateVal);
-    } else {
-      parsedDate = new Date(dateVal + 'T12:00:00');
-    }
-  } else {
-    parsedDate = new Date(dateVal);
-  }
-  if (isNaN(parsedDate.getTime())) {
-    parsedDate = new Date(dateVal);
-    if (isNaN(parsedDate.getTime())) return '—';
-  }
-  return parsedDate.toLocaleDateString('es-PE', options);
-}
 
-function safeFormatDateTime(dateVal) {
-  if (!dateVal) return '—';
-  let parsedDate;
-  if (typeof dateVal === 'string') {
-    if (dateVal.includes('T')) {
-      parsedDate = new Date(dateVal);
-    } else {
-      parsedDate = new Date(dateVal + 'T12:00:00');
-    }
-  } else {
-    parsedDate = new Date(dateVal);
-  }
-  if (isNaN(parsedDate.getTime())) {
-    parsedDate = new Date(dateVal);
-    if (isNaN(parsedDate.getTime())) return '—';
-  }
-  const dateStr = parsedDate.toLocaleDateString('es-PE', { day: 'numeric', month: 'long', year: 'numeric' });
-  const timeStr = parsedDate.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', hour12: true });
-  return `${dateStr} ${timeStr}`;
-}
 
 let containerElement = null;
 let activeTab = 'all'; // 'all' | 'process' | 'warranty'
@@ -389,11 +352,15 @@ function renderPage() {
     <!-- Header & Tabs -->
     <div class="flex justify-between items-center mb-6" style="flex-wrap:wrap;gap:16px;">
       <div>
-        <div class="flex items-center gap-3">
+        <div class="flex items-center gap-3" style="flex-wrap:wrap;">
           <h1 style="font-size:22px;font-weight:900;color:var(--dark);text-transform:uppercase;letter-spacing:-.5px;">Órdenes de Servicio</h1>
           <button id="btn-nueva-orden-header" class="btn-primary flex items-center gap-2" style="padding:6px 14px; font-size:12px;">
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M12 4v16m8-8H4"/></svg>
             Nueva Orden
+          </button>
+          <button id="btn-recepcion-rapida-header" class="btn-primary flex items-center gap-2" style="background:#10b981; border-color:#059669; padding:6px 14px; font-size:12px;" title="Ingreso exprés de vehículo">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+            ⚡ Ingreso Rápido
           </button>
         </div>
         <p style="font-size:13px;color:var(--slate-5);margin-top:2px;">Recepción de unidades, control técnico de costos y flujo del taller.</p>
@@ -486,6 +453,51 @@ function renderPage() {
   document.getElementById('filter-orden-mecanico').addEventListener('change', () => { filterMecanicoVal = document.getElementById('filter-orden-mecanico').value; filtrarOrdenes(); });
   document.getElementById('sort-ordenes').addEventListener('change', () => { sortVal = document.getElementById('sort-ordenes').value; filtrarOrdenes(); });
   document.getElementById('btn-nueva-orden-header').addEventListener('click', abrirModalNuevaOrden);
+  const btnRapidaHeader = document.getElementById('btn-recepcion-rapida-header');
+  if (btnRapidaHeader) btnRapidaHeader.addEventListener('click', abrirModalRecepcionRapida);
+
+  // Eventos Modal Recepción Rápida
+  const btnCloseRapidaX = document.getElementById('btn-close-rapida-x');
+  const btnCloseRapidaCancel = document.getElementById('btn-close-rapida-cancel');
+  if (btnCloseRapidaX) btnCloseRapidaX.addEventListener('click', cerrarModalRecepcionRapida);
+  if (btnCloseRapidaCancel) btnCloseRapidaCancel.addEventListener('click', cerrarModalRecepcionRapida);
+
+  const rapidaCliSearch = document.getElementById('rapida-cli-search');
+  if (rapidaCliSearch) {
+    rapidaCliSearch.addEventListener('input', (e) => {
+      const q = e.target.value.toLowerCase().trim();
+      const cliSelect = document.getElementById('rapida-cli-select');
+      if (!cliSelect) return;
+      const filtered = clientesList.filter(c => 
+        c.nombre.toLowerCase().includes(q) || 
+        (c.num_doc && c.num_doc.includes(q))
+      );
+      cliSelect.innerHTML = '<option value="">-- Seleccionar cliente --</option>' +
+        filtered.map(c => `<option value="${c.id}">${c.nombre} (${c.num_doc || 'S/D'})</option>`).join('');
+      actualizarVehiculosRecepcionRapida();
+    });
+  }
+
+  const rapidaCliSelect = document.getElementById('rapida-cli-select');
+  if (rapidaCliSelect) {
+    rapidaCliSelect.addEventListener('change', actualizarVehiculosRecepcionRapida);
+  }
+
+  const rapidaVehSelect = document.getElementById('rapida-veh-select');
+  if (rapidaVehSelect) {
+    rapidaVehSelect.addEventListener('change', (e) => {
+      const opt = e.target.selectedOptions[0];
+      const kmInput = document.getElementById('rapida-km-input');
+      if (opt && opt.dataset.km && kmInput) {
+        kmInput.value = opt.dataset.km > 0 ? opt.dataset.km : '';
+      }
+    });
+  }
+
+  const formRapida = document.getElementById('form-recepcion-rapida');
+  if (formRapida) {
+    formRapida.addEventListener('submit', guardarRecepcionRapida);
+  }
 
   // --- EVENTOS DEL STEPPER DE RECEPCIÓN ---
   currentStep = 1;
@@ -2082,12 +2094,200 @@ function renderModales() {
         </form>
       </div>
     </div>
+
+    <!-- Modal Recepción Rápida (Express) -->
+    <div id="modal-recepcion-rapida" class="modal-overlay">
+      <div class="modal modal-md" style="max-width:560px; width:100%;">
+        <div class="modal-header">
+          <div class="flex items-center gap-2">
+            <span style="font-size:22px;">⚡</span>
+            <div>
+              <span class="modal-title" style="font-size:16px; font-weight:900;">Ingreso Rápido de Vehículo</span>
+              <p style="font-size:11px; color:var(--slate-5); margin:0;">Registro express en diagnóstico para completar inventario después.</p>
+            </div>
+          </div>
+          <button class="modal-close" id="btn-close-rapida-x">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+          </button>
+        </div>
+        <form id="form-recepcion-rapida">
+          <div class="modal-body" style="display:flex; flex-direction:column; gap:14px; padding:20px;">
+            
+            <!-- 1. Cliente -->
+            <div class="form-group" style="margin:0;">
+              <label class="form-label" style="font-weight:700; font-size:12px; display:flex; justify-content:space-between;">
+                <span>👤 Cliente Propietario *</span>
+                <span id="rapida-cli-doc-hint" style="font-weight:normal; color:var(--slate-5); font-size:11px;"></span>
+              </label>
+              <input type="text" id="rapida-cli-search" class="form-input" placeholder="🔍 Buscar cliente por nombre o documento..." style="margin-bottom:6px; font-size:12px;" autocomplete="off" />
+              <select id="rapida-cli-select" class="form-select" required style="font-size:12px;">
+                <option value="">-- Seleccionar cliente --</option>
+                ${clientesList.map(c => `<option value="${c.id}">${c.nombre} (${c.num_doc || 'S/D'})</option>`).join('')}
+              </select>
+            </div>
+
+            <!-- 2. Vehículo -->
+            <div class="form-group" style="margin:0;">
+              <label class="form-label" style="font-weight:700; font-size:12px;">🚗 Vehículo / Placa *</label>
+              <select id="rapida-veh-select" class="form-select" required style="font-size:12px;">
+                <option value="">-- Primero selecciona un cliente --</option>
+              </select>
+            </div>
+
+            <!-- 3. Kilometraje y Combustible -->
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+              <div class="form-group" style="margin:0;">
+                <label class="form-label" style="font-weight:700; font-size:12px;">⏱️ Kilometraje Actual *</label>
+                <input type="number" id="rapida-km-input" class="form-input" required min="1" placeholder="Ej: 45000" style="font-weight:700; font-size:13px;" />
+              </div>
+              <div class="form-group" style="margin:0;">
+                <label class="form-label" style="font-weight:700; font-size:12px;">⛽ Nivel Combustible</label>
+                <select id="rapida-combustible" class="form-select" style="font-size:12px;">
+                  <option value="Reserva">🔴 Reserva / Vacío</option>
+                  <option value="1/4">🟡 1/4</option>
+                  <option value="1/2" selected>🟢 1/2</option>
+                  <option value="3/4">🟢 3/4</option>
+                  <option value="Full">🟢 Full (Lleno)</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- 4. Falla / Motivo -->
+            <div class="form-group" style="margin:0;">
+              <label class="form-label" style="font-weight:700; font-size:12px;">📝 Falla Reportada / Motivo de Ingreso *</label>
+              <textarea id="rapida-falla-input" class="form-input" required rows="3" placeholder="Describe brevemente el problema reportado por el cliente (ej: Ruido en frenos al girar a la izquierda, mantenimiento de 10k km, etc.)..." style="resize:vertical; font-size:12px; line-height:1.4;"></textarea>
+            </div>
+
+            <!-- 5. Mecánico Asignado (Opcional) -->
+            <div class="form-group" style="margin:0;">
+              <label class="form-label" style="font-weight:700; font-size:12px;">👨‍🔧 Mecánico Responsable (Opcional)</label>
+              <select id="rapida-mecanico-select" class="form-select" style="font-size:12px;">
+                <option value="">-- Sin asignar por ahora --</option>
+                ${mecanicosList.map(m => `<option value="${m.id}">${m.nombre} (${m.especialidad || 'General'})</option>`).join('')}
+              </select>
+            </div>
+
+          </div>
+          <div class="modal-footer" style="display:flex; justify-content:space-between; align-items:center; padding:12px 20px; background:var(--slate-9); border-top:1px solid var(--slate-8);">
+            <button type="button" class="btn-ghost" id="btn-close-rapida-cancel">Cancelar</button>
+            <button type="submit" class="btn-primary" id="btn-submit-rapida" style="background:#10b981; border-color:#059669; font-weight:800; display:flex; align-items:center; gap:6px;">
+              ⚡ Registrar Ingreso Inmediato
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   `;
 }
 
-// ──────────────────────────────────────────────────────────
-// LÓGICA DE EVENTOS Y ACCIONES INTERNAS
-// ──────────────────────────────────────────────────────────
+// ─── Modal Recepción Rápida (Express) ─────────────────────────
+function abrirModalRecepcionRapida() {
+  const modal = document.getElementById('modal-recepcion-rapida');
+  const form = document.getElementById('form-recepcion-rapida');
+  if (!modal || !form) return;
+  form.reset();
+
+  const cliSearch = document.getElementById('rapida-cli-search');
+  const cliSelect = document.getElementById('rapida-cli-select');
+  const vehSelect = document.getElementById('rapida-veh-select');
+  const docHint = document.getElementById('rapida-cli-doc-hint');
+
+  if (cliSearch) cliSearch.value = '';
+  if (docHint) docHint.textContent = '';
+  if (cliSelect) {
+    cliSelect.innerHTML = '<option value="">-- Seleccionar cliente --</option>' +
+      clientesList.map(c => `<option value="${c.id}">${c.nombre} (${c.num_doc || 'S/D'})</option>`).join('');
+  }
+  if (vehSelect) {
+    vehSelect.innerHTML = '<option value="">-- Primero selecciona un cliente --</option>';
+  }
+
+  modal.classList.add('active');
+}
+
+function cerrarModalRecepcionRapida() {
+  const modal = document.getElementById('modal-recepcion-rapida');
+  if (modal) modal.classList.remove('active');
+}
+
+function actualizarVehiculosRecepcionRapida() {
+  const cliSelect = document.getElementById('rapida-cli-select');
+  const vehSelect = document.getElementById('rapida-veh-select');
+  const kmInput = document.getElementById('rapida-km-input');
+  const docHint = document.getElementById('rapida-cli-doc-hint');
+  if (!cliSelect || !vehSelect) return;
+
+  const cliId = cliSelect.value;
+  if (!cliId) {
+    vehSelect.innerHTML = '<option value="">-- Primero selecciona un cliente --</option>';
+    if (docHint) docHint.textContent = '';
+    return;
+  }
+
+  const cli = clientesList.find(c => String(c.id) === String(cliId));
+  if (docHint && cli) {
+    docHint.textContent = `Doc: ${cli.tipo_doc || 'DNI'} ${cli.num_doc || '—'} | Tel: ${cli.telefono || '—'}`;
+  }
+
+  const vehs = vehiculosList.filter(v => String(v.cliente_id) === String(cliId));
+  if (vehs.length === 0) {
+    vehSelect.innerHTML = '<option value="">— Este cliente no tiene vehículos registrados —</option>';
+  } else {
+    vehSelect.innerHTML = '<option value="">-- Seleccionar vehículo --</option>' +
+      vehs.map(v => `<option value="${v.id}" data-km="${v.km_actual || 0}">${v.placa} — ${v.marca_modelo}</option>`).join('');
+    // Si solo tiene un vehículo, preseleccionarlo automáticamente
+    if (vehs.length === 1) {
+      vehSelect.value = vehs[0].id;
+      if (kmInput) kmInput.value = vehs[0].km_actual || '';
+    }
+  }
+}
+
+async function guardarRecepcionRapida(e) {
+  e.preventDefault();
+  const cliId = document.getElementById('rapida-cli-select').value;
+  const vehId = document.getElementById('rapida-veh-select').value;
+  const km = document.getElementById('rapida-km-input').value;
+  const combustible = document.getElementById('rapida-combustible').value;
+  const falla = document.getElementById('rapida-falla-input').value.trim();
+  const mecanicoId = document.getElementById('rapida-mecanico-select').value || null;
+
+  if (!cliId) { alert('Por favor, selecciona un cliente.'); return; }
+  if (!vehId) { alert('Por favor, selecciona un vehículo.'); return; }
+  if (!km || parseInt(km) <= 0) { alert('Por favor, ingresa un kilometraje válido.'); return; }
+  if (!falla) { alert('Por favor, ingresa la falla reportada o motivo de ingreso.'); return; }
+
+  const submitBtn = document.getElementById('btn-submit-rapida');
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Guardando...';
+  }
+
+  try {
+    const ordenData = {
+      cliente_id: parseInt(cliId),
+      vehiculo_id: parseInt(vehId),
+      kilometraje: parseInt(km),
+      nivel_combustible: combustible,
+      falla_reportada: falla,
+      mecanico_id: mecanicoId ? parseInt(mecanicoId) : null,
+      estado: 'Diagnostico',
+      fecha_ingreso: new Date().toISOString()
+    };
+
+    const res = await createOrden(ordenData);
+    cerrarModalRecepcionRapida();
+    await cargarDatos();
+    alert(`✅ Orden #${res.id} registrada exitosamente en Diagnóstico.`);
+  } catch (err) {
+    alert(`❌ Error al registrar ingreso rápido: ${err.message}`);
+  } finally {
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = '⚡ Registrar Ingreso Inmediato';
+    }
+  }
+}
 
 function abrirModalNuevaOrden() {
   const modal = document.getElementById('modal-nueva-orden');
