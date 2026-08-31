@@ -921,32 +921,57 @@ function renderPage() {
     });
   }
 
+  // Buscador dinámico de cliente
   document.getElementById('cli-search-input').addEventListener('input', (e) => {
     const q = e.target.value.toLowerCase().trim();
     const cliSelect = document.getElementById('cli-select-id');
-    Array.from(cliSelect.options).forEach(opt => {
-      opt.style.display = (!q || opt.textContent.toLowerCase().includes(q) || !opt.value) ? '' : 'none';
-    });
-    // Auto-seleccionar si hay exactamente una coincidencia
-    const visibles = Array.from(cliSelect.options).filter(o => o.value && o.style.display !== 'none');
-    if (visibles.length === 1) {
-      cliSelect.value = visibles[0].value;
+    if (!cliSelect) return;
+    
+    const filtered = clientesList.filter(c => 
+      !q || 
+      (c.nombre && c.nombre.toLowerCase().includes(q)) || 
+      (c.num_doc && c.num_doc.includes(q))
+    );
+
+    cliSelect.innerHTML = '<option value="">-- Seleccionar cliente --</option>' +
+      filtered.map(c => `<option value="${c.id}">${c.nombre} (${c.num_doc || 'S/D'})</option>`).join('');
+
+    if (filtered.length === 1) {
+      cliSelect.value = filtered[0].id;
       filtrarVehiculosPorCliente();
+    } else if (filtered.length === 0) {
+      cliSelect.innerHTML = '<option value="">— No se encontraron clientes —</option>';
     }
   });
 
   // Buscador dinámico de vehículo/placa
   document.getElementById('veh-search-input').addEventListener('input', (e) => {
     const q = e.target.value.toLowerCase().trim();
+    const cliSelect = document.getElementById('cli-select-id');
     const vehSelect = document.getElementById('veh-select-id');
-    Array.from(vehSelect.options).forEach(opt => {
-      opt.style.display = (!q || opt.textContent.toLowerCase().includes(q) || !opt.value) ? '' : 'none';
-    });
-    // Auto-seleccionar si hay exactamente una coincidencia visible
-    const visibles = Array.from(vehSelect.options).filter(o => o.value && o.style.display !== 'none');
-    if (visibles.length === 1) {
-      vehSelect.value = visibles[0].value;
+    if (!vehSelect) return;
+
+    const selectedCliId = cliSelect ? cliSelect.value : '';
+    let pool = vehiculosList;
+    if (selectedCliId) {
+      pool = pool.filter(v => String(v.cliente_id) === String(selectedCliId));
+    }
+
+    const filtered = pool.filter(v => 
+      !q || 
+      (v.placa && v.placa.toLowerCase().includes(q)) || 
+      (v.marca_modelo && v.marca_modelo.toLowerCase().includes(q)) ||
+      (v.vin && v.vin.toLowerCase().includes(q))
+    );
+
+    vehSelect.innerHTML = '<option value="">-- Seleccionar vehículo --</option>' +
+      filtered.map(v => `<option value="${v.id}" data-cliente-id="${v.cliente_id}" data-km="${v.km_actual || 0}">${v.placa} — ${v.marca_modelo}</option>`).join('');
+
+    if (filtered.length === 1) {
+      vehSelect.value = filtered[0].id;
       autoAsignarClienteYKm();
+    } else if (filtered.length === 0) {
+      vehSelect.innerHTML = '<option value="">— No se encontraron vehículos —</option>';
     }
   });
 
@@ -954,17 +979,24 @@ function renderPage() {
   document.getElementById('item-repuesto-search-input').addEventListener('input', (e) => {
     const q = e.target.value.toLowerCase().trim();
     const repSelect = document.getElementById('item-repuesto-select');
-    Array.from(repSelect.options).forEach(opt => {
-      opt.style.display = (!q || opt.textContent.toLowerCase().includes(q) || !opt.value) ? '' : 'none';
-    });
-    // Auto-seleccionar y auto-asignar precio si hay exactamente una coincidencia
-    const visibles = Array.from(repSelect.options).filter(o => o.value && o.style.display !== 'none');
-    if (visibles.length === 1) {
-      repSelect.value = visibles[0].value;
-      const precio = visibles[0].dataset.precio;
+    if (!repSelect) return;
+
+    const filtered = almacenList.filter(a => 
+      !q || 
+      (a.nombre && a.nombre.toLowerCase().includes(q)) || 
+      (a.codigo && a.codigo.toLowerCase().includes(q))
+    );
+
+    repSelect.innerHTML = '<option value="">-- Seleccionar repuesto del inventario --</option>' +
+      filtered.map(a => `<option value="${a.nombre}" data-precio="${a.precio_venta}" data-stock="${a.stock_actual}">${a.nombre} (Stock: ${a.stock_actual} | S/ ${parseFloat(a.precio_venta).toFixed(2)})</option>`).join('');
+
+    if (filtered.length === 1) {
+      repSelect.value = filtered[0].nombre;
+      const precio = filtered[0].precio_venta;
       if (precio) document.getElementById('item-precio').value = parseFloat(precio).toFixed(2);
     }
   });
+
 
   document.getElementById('btn-close-det-x').addEventListener('click', cerrarModalDetalle);
   document.getElementById('btn-close-status-x').addEventListener('click', cerrarModalEstado);
@@ -2138,7 +2170,13 @@ function abrirModalNuevaOrden() {
   const modal = document.getElementById('modal-nueva-orden');
   const form = document.getElementById('form-nueva-orden');
   form.reset();
-  document.getElementById('cli-select-id').disabled = false;
+  
+  const cliSelect = document.getElementById('cli-select-id');
+  if (cliSelect) {
+    cliSelect.disabled = false;
+    cliSelect.innerHTML = '<option value="">-- Seleccionar cliente --</option>' +
+      clientesList.map(c => `<option value="${c.id}">${c.nombre} (${c.num_doc || 'S/D'})</option>`).join('');
+  }
   
   // Limpiar el autocompletado y Km anterior
   document.getElementById('km-anterior-hint').style.display = 'none';
@@ -2147,6 +2185,7 @@ function abrirModalNuevaOrden() {
   if (vehSearchInput) vehSearchInput.value = '';
   // Filtrar todos los vehículos para restablecer
   filtrarVehiculosPorCliente();
+
   
   // Limpiar botones de combustible a estado inicial (1/2 active)
   document.getElementById('ord-combustible').value = '1/2';
@@ -2558,22 +2597,15 @@ async function abrirEditarOrden(id) {
 function filtrarVehiculosPorCliente() {
   const cliSelect = document.getElementById('cli-select-id');
   const vehSelect = document.getElementById('veh-select-id');
+  if (!cliSelect || !vehSelect) return;
   const selectedCliId = cliSelect.value;
 
   // Resetear vehículo
-  vehSelect.innerHTML = '<option value="">-- Seleccionar vehículo --</option>';
   document.getElementById('km-anterior-hint').style.display = 'none';
 
   if (!selectedCliId) {
-    vehSelect.innerHTML = '<option value="">-- Primero selecciona un cliente --</option>';
-    vehiculosList.forEach(v => {
-      const opt = document.createElement('option');
-      opt.value = v.id;
-      opt.dataset.clienteId = v.cliente_id;
-      opt.dataset.km = v.km_actual || 0;
-      opt.textContent = `${v.placa} — ${v.marca_modelo}`;
-      vehSelect.appendChild(opt);
-    });
+    vehSelect.innerHTML = '<option value="">-- Seleccionar vehículo --</option>' +
+      vehiculosList.map(v => `<option value="${v.id}" data-cliente-id="${v.cliente_id}" data-km="${v.km_actual || 0}">${v.placa} — ${v.marca_modelo}</option>`).join('');
     return;
   }
 
@@ -2583,14 +2615,8 @@ function filtrarVehiculosPorCliente() {
     return;
   }
 
-  vehiculosDelCliente.forEach(v => {
-    const opt = document.createElement('option');
-    opt.value = v.id;
-    opt.dataset.clienteId = v.cliente_id;
-    opt.dataset.km = v.km_actual || 0;
-    opt.textContent = `${v.placa} — ${v.marca_modelo}`;
-    vehSelect.appendChild(opt);
-  });
+  vehSelect.innerHTML = '<option value="">-- Seleccionar vehículo --</option>' +
+    vehiculosDelCliente.map(v => `<option value="${v.id}" data-cliente-id="${v.cliente_id}" data-km="${v.km_actual || 0}">${v.placa} — ${v.marca_modelo}</option>`).join('');
 
   // Auto-seleccionar si solo hay un vehículo
   if (vehiculosDelCliente.length === 1) {
@@ -2602,6 +2628,7 @@ function filtrarVehiculosPorCliente() {
 function mostrarKmAnterior(km) {
   const hint = document.getElementById('km-anterior-hint');
   const valor = document.getElementById('km-anterior-valor');
+  if (!hint || !valor) return;
   if (km && parseInt(km) > 0) {
     valor.textContent = `${parseInt(km).toLocaleString()} Km`;
     hint.style.display = 'block';
@@ -2613,11 +2640,10 @@ function mostrarKmAnterior(km) {
 function autoAsignarClienteYKm() {
   const selectVeh = document.getElementById('veh-select-id');
   const cliSelect = document.getElementById('cli-select-id');
+  if (!selectVeh || !cliSelect) return;
   const selectedOpt = selectVeh.options[selectVeh.selectedIndex];
 
   if (!selectedOpt || !selectedOpt.value) {
-    cliSelect.value = '';
-    cliSelect.disabled = false;
     document.getElementById('km-anterior-hint').style.display = 'none';
     return;
   }
@@ -2626,14 +2652,31 @@ function autoAsignarClienteYKm() {
   const km = selectedOpt.dataset.km;
 
   if (clienteId) {
+    // Asegurar que el cliente esté en las opciones de cliSelect
+    const cliOpt = Array.from(cliSelect.options).find(o => String(o.value) === String(clienteId));
+    if (!cliOpt) {
+      const cliObj = clientesList.find(c => String(c.id) === String(clienteId));
+      if (cliObj) {
+        cliSelect.innerHTML += `<option value="${cliObj.id}">${cliObj.nombre} (${cliObj.num_doc || 'S/D'})</option>`;
+      }
+    }
     cliSelect.value = clienteId;
-    cliSelect.disabled = true;
-  } else {
-    cliSelect.disabled = false;
+
+    const cliSearchInput = document.getElementById('cli-search-input');
+    const clienteEncontrado = clientesList.find(c => String(c.id) === String(clienteId));
+    if (cliSearchInput && clienteEncontrado && !cliSearchInput.value) {
+      cliSearchInput.value = clienteEncontrado.nombre;
+    }
   }
 
   mostrarKmAnterior(km);
+
+  const kmInput = document.getElementById('ord-km');
+  if (kmInput && (!kmInput.value || kmInput.value === '0')) {
+    kmInput.value = km > 0 ? km : '';
+  }
 }
+
 
 async function guardarNuevaOrden(e) {
   // Funciona como click handler de botón (no como form submit)
