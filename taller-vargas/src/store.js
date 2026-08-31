@@ -23,7 +23,7 @@ export const store = {
       return cache.clientes.data;
     }
     const res = await getClientes();
-    const data = res.data || [];
+    const data = Array.isArray(res) ? res : (res?.data || []);
     cache.clientes = { data, timestamp: now };
     return data;
   },
@@ -37,7 +37,7 @@ export const store = {
       return cache.vehiculos.data;
     }
     const res = await getVehiculos();
-    const data = res.data || [];
+    const data = Array.isArray(res) ? res : (res?.data || []);
     cache.vehiculos = { data, timestamp: now };
     return data;
   },
@@ -51,10 +51,11 @@ export const store = {
       return cache.mecanicos.data;
     }
     const res = await getMecanicos();
-    const data = res.data || [];
+    const data = Array.isArray(res) ? res : (res?.data || []);
     cache.mecanicos = { data, timestamp: now };
     return data;
   },
+
 
   /**
    * Invalida una o todas las claves del caché.
