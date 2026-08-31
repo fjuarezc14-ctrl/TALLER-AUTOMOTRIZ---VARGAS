@@ -6,6 +6,8 @@ let containerElement = null;
 let vehiculosList    = [];
 let clientesList     = [];
 let viewMode         = 'cards';  // 'cards' | 'list'
+let vehPaginaActual  = 1;
+const VEH_PAGE_SIZE  = 12;
 
 // ── Constantes ────────────────────────────────────────────
 const TIPO_ICONS = {
@@ -86,16 +88,37 @@ function renderError(msg) {
 // ── Render principal ──────────────────────────────────────
 function renderVehiculos(vehiculos) {
   const root = document.getElementById('vehiculos-root');
+  const searchInput = document.getElementById('search-vehiculos');
+  const q = searchInput ? searchInput.value.toLowerCase().trim() : '';
+  
+  let filtrados = vehiculos;
+  if (q) {
+    filtrados = vehiculos.filter(v =>
+      (v.placa && v.placa.toLowerCase().includes(q)) ||
+      (v.marca_modelo && v.marca_modelo.toLowerCase().includes(q)) ||
+      (v.cliente_nombre && v.cliente_nombre.toLowerCase().includes(q)) ||
+      (v.vin && v.vin.toLowerCase().includes(q))
+    );
+  }
+
+  const totalRegistros = filtrados.length;
+  const totalPaginas = Math.max(1, Math.ceil(totalRegistros / VEH_PAGE_SIZE));
+  if (vehPaginaActual > totalPaginas) vehPaginaActual = totalPaginas;
+  if (vehPaginaActual < 1) vehPaginaActual = 1;
+
+  const inicioIdx = (vehPaginaActual - 1) * VEH_PAGE_SIZE;
+  const finIdx = Math.min(inicioIdx + VEH_PAGE_SIZE, totalRegistros);
+  const vehiculosPaginados = filtrados.slice(inicioIdx, finIdx);
 
   root.innerHTML = `
     <!-- Header & Controls -->
     <div class="flex justify-between items-center mb-6" style="flex-wrap:wrap;gap:16px;">
       <div>
         <h1 style="font-size:22px;font-weight:900;color:var(--dark);text-transform:uppercase;letter-spacing:-.5px;">Directorio de Vehículos</h1>
-        <p style="font-size:13px;color:var(--slate-5);margin-top:2px;">${vehiculos.length} unidades registradas · Base de datos histórica del taller.</p>
+        <p style="font-size:13px;color:var(--slate-5);margin-top:2px;">${totalRegistros} unidades registradas · Base de datos histórica del taller.</p>
       </div>
       <div class="flex items-center gap-3" style="flex-wrap:wrap;">
-        <input type="text" id="search-vehiculos" placeholder="Buscar placa, modelo, cliente..." class="form-input" style="width:250px;" />
+        <input type="text" id="search-vehiculos" placeholder="Buscar placa, modelo, cliente..." value="${q}" class="form-input" style="width:250px;" />
 
         <!-- Toggle Vista -->
         <div class="view-toggle">
@@ -118,8 +141,28 @@ function renderVehiculos(vehiculos) {
 
     <!-- Contenedor de vehículos (tarjetas o lista) -->
     <div id="vehiculos-contenedor">
-      ${viewMode === 'cards' ? renderGrid(vehiculos) : renderListaTable(vehiculos)}
+      ${viewMode === 'cards' ? renderGrid(vehiculosPaginados) : renderListaTable(vehiculosPaginados)}
     </div>
+
+    <!-- Barra de Paginación -->
+    ${totalRegistros > 0 ? `
+      <div class="card mt-4" style="margin-top:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 18px;background:var(--white);font-size:12px;color:var(--slate-5);flex-wrap:wrap;gap:8px;border-radius:var(--radius-lg);">
+          <div>
+            Mostrando <strong style="color:var(--dark);">${inicioIdx + 1} - ${finIdx}</strong> de <strong style="color:var(--dark);">${totalRegistros}</strong> vehículos
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <button type="button" id="btn-veh-prev" class="btn-ghost" ${vehPaginaActual <= 1 ? 'disabled style="opacity:0.4;cursor:not-allowed;font-size:11px;padding:4px 10px;"' : 'style="font-size:11px;padding:4px 10px;cursor:pointer;"'}>
+              ◀ Anterior
+            </button>
+            <span style="font-weight:700;color:var(--dark);padding:0 6px;">Pág. ${vehPaginaActual} de ${totalPaginas}</span>
+            <button type="button" id="btn-veh-next" class="btn-ghost" ${vehPaginaActual >= totalPaginas ? 'disabled style="opacity:0.4;cursor:not-allowed;font-size:11px;padding:4px 10px;"' : 'style="font-size:11px;padding:4px 10px;cursor:pointer;"'}>
+              Siguiente ▶
+            </button>
+          </div>
+        </div>
+      </div>
+    ` : ''}
 
     <!-- Modal Nuevo / Editar Vehículo -->
     ${renderModalVehiculo()}
@@ -131,8 +174,22 @@ function renderVehiculos(vehiculos) {
   // Registrar Eventos
   document.getElementById('search-vehiculos').addEventListener('input', debounce(filtrarVehiculos, 300));
   document.getElementById('btn-nuevo-vehiculo-header').addEventListener('click', () => abrirModalVehiculo());
-  document.getElementById('btn-view-cards').addEventListener('click', () => { viewMode='cards'; renderVehiculos(vehiculosList); });
-  document.getElementById('btn-view-list').addEventListener('click', () => { viewMode='list'; renderVehiculos(vehiculosList); });
+  document.getElementById('btn-view-cards').addEventListener('click', () => { viewMode='cards'; vehPaginaActual = 1; renderVehiculos(vehiculosList); });
+  document.getElementById('btn-view-list').addEventListener('click', () => { viewMode='list'; vehPaginaActual = 1; renderVehiculos(vehiculosList); });
+
+  // Eventos de Paginación
+  document.getElementById('btn-veh-prev')?.addEventListener('click', () => {
+    if (vehPaginaActual > 1) {
+      vehPaginaActual--;
+      renderVehiculos(vehiculosList);
+    }
+  });
+  document.getElementById('btn-veh-next')?.addEventListener('click', () => {
+    if (vehPaginaActual < totalPaginas) {
+      vehPaginaActual++;
+      renderVehiculos(vehiculosList);
+    }
+  });
 
   // Formulario
   document.getElementById('btn-close-veh-modal-x').addEventListener('click', cerrarModalVehiculo);
@@ -382,15 +439,8 @@ function renderTableRows(vehiculos) {
 
 // ── Filtrar ───────────────────────────────────────────────
 function filtrarVehiculos() {
-  const q = document.getElementById('search-vehiculos').value.toLowerCase().trim();
-  const filtrados = vehiculosList.filter(v =>
-    v.placa.toLowerCase().includes(q) ||
-    v.marca_modelo.toLowerCase().includes(q) ||
-    (v.cliente_nombre && v.cliente_nombre.toLowerCase().includes(q)) ||
-    (v.vin && v.vin.toLowerCase().includes(q))
-  );
-  const cont = document.getElementById('vehiculos-contenedor');
-  cont.innerHTML = viewMode === 'cards' ? renderGrid(filtrados) : renderListaTable(filtrados);
+  vehPaginaActual = 1;
+  renderVehiculos(vehiculosList);
 }
 
 // ── Modal Vehiculo ────────────────────────────────────────

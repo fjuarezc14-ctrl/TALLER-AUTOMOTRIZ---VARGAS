@@ -1,5 +1,6 @@
 import { navigate } from './router.js';
-import { getAlertasStock, getVehiculos, logout } from './api.js';
+import { getAlertasStock, getVehiculos, getClientes, getOrdenes, logout } from './api.js';
+import { debounce } from './utils.js';
 import { createIcons, icons } from 'lucide';
 
 // Helper global para verificar si el usuario logueado es Administrador
@@ -210,16 +211,32 @@ window.alert = function(message) {
   }, 3500);
 };
 
-// ── Buscador Global Predictivo (Fase 4) ────────────────────
-let globalVehiculosCache = [];
+// ── Buscador Global Predictivo Multientidad (Fase 4) ────────────────────
+let globalSearchCache = {
+  vehiculos: [],
+  clientes: [],
+  ordenes: [],
+  lastFetch: 0
+};
 let selectedSearchIndex = -1;
 
-async function fetchVehiclesForGlobalSearch() {
-  if (globalVehiculosCache.length > 0) return;
+async function fetchGlobalSearchData() {
+  const now = Date.now();
+  if (globalSearchCache.lastFetch && (now - globalSearchCache.lastFetch < 20000)) return;
   try {
-    globalVehiculosCache = await getVehiculos();
+    const [v, c, o] = await Promise.all([
+      getVehiculos().catch(() => []),
+      getClientes().catch(() => []),
+      getOrdenes().catch(() => [])
+    ]);
+    globalSearchCache = {
+      vehiculos: v || [],
+      clientes: c || [],
+      ordenes: o || [],
+      lastFetch: now
+    };
   } catch (e) {
-    console.error('Error al precargar vehículos para buscador global:', e);
+    console.error('Error al precargar datos para buscador global:', e);
   }
 }
 
@@ -229,38 +246,87 @@ function initGlobalSearch() {
   
   if (!searchInput || !resultsContainer) return;
   
-  searchInput.addEventListener('focus', fetchVehiclesForGlobalSearch);
+  searchInput.addEventListener('focus', fetchGlobalSearchData);
   
-  searchInput.addEventListener('input', (e) => {
-    const query = e.target.value.trim().toUpperCase();
+  const ejecutarBusqueda = () => {
+    const query = searchInput.value.trim().toUpperCase();
     if (!query) {
       resultsContainer.classList.add('hidden');
       resultsContainer.innerHTML = '';
       return;
     }
     
-    const matches = globalVehiculosCache.filter(v => 
-      (v.placa && v.placa.includes(query)) ||
+    // 1. Coincidencias en Vehículos
+    const vehMatches = (globalSearchCache.vehiculos || []).filter(v => 
+      (v.placa && v.placa.toUpperCase().includes(query)) ||
       (v.marca_modelo && v.marca_modelo.toUpperCase().includes(query)) ||
+      (v.vin && v.vin.toUpperCase().includes(query)) ||
       (v.cliente_nombre && v.cliente_nombre.toUpperCase().includes(query))
-    ).slice(0, 8);
+    ).slice(0, 4).map(v => ({
+      tipo: 'vehiculo',
+      badge: '🚗 VEHÍCULO',
+      badgeColor: 'var(--brand)',
+      titulo: `${v.placa} · ${v.marca_modelo || ''}`,
+      subtitulo: `👤 ${v.cliente_nombre || 'Sin cliente asignado'}${v.anio ? ' · ' + v.anio : ''}`,
+      actionUrl: `/vehiculos?abrir=${v.id}`,
+      id: v.id
+    }));
+
+    // 2. Coincidencias en Clientes
+    const cliMatches = (globalSearchCache.clientes || []).filter(c => 
+      (c.nombre && c.nombre.toUpperCase().includes(query)) ||
+      (c.num_doc && c.num_doc.toUpperCase().includes(query)) ||
+      (c.telefono && c.telefono.includes(query)) ||
+      (c.correo && c.correo.toUpperCase().includes(query))
+    ).slice(0, 4).map(c => ({
+      tipo: 'cliente',
+      badge: '👤 CLIENTE',
+      badgeColor: '#2563eb',
+      titulo: c.nombre,
+      subtitulo: `${c.tipo_doc || 'DOC'}: ${c.num_doc || '—'} · 📞 ${c.telefono || '—'}`,
+      actionUrl: `/clientes?abrir=${c.id}`,
+      id: c.id
+    }));
+
+    // 3. Coincidencias en Órdenes de Servicio
+    const ordMatches = (globalSearchCache.ordenes || []).filter(o => 
+      o.id.toString().includes(query.replace('OS-', '').replace('OS', '')) ||
+      (o.placa && o.placa.toUpperCase().includes(query)) ||
+      (o.cliente && o.cliente.toUpperCase().includes(query)) ||
+      (o.falla_reportada && o.falla_reportada.toUpperCase().includes(query))
+    ).slice(0, 4).map(o => ({
+      tipo: 'orden',
+      badge: `📋 ORDEN #${o.id}`,
+      badgeColor: '#10b981',
+      titulo: `OS-${o.id} · ${o.placa || 'Sin placa'}`,
+      subtitulo: `${o.cliente || '—'} · Estado: ${o.estado || '—'}${o.total_estimado ? ' · S/ ' + parseFloat(o.total_estimado).toFixed(2) : ''}`,
+      actionUrl: `/ordenes?abrir=${o.id}`,
+      id: o.id
+    }));
+
+    const allMatches = [...vehMatches, ...cliMatches, ...ordMatches].slice(0, 9);
     
-    if (matches.length === 0) {
-      resultsContainer.innerHTML = `<div style="padding:10px 14px;font-size:11px;color:var(--slate-5);text-align:center;">⚠️ Sin coincidencias</div>`;
+    if (allMatches.length === 0) {
+      resultsContainer.innerHTML = `<div style="padding:12px 14px;font-size:11px;color:var(--slate-5);text-align:center;">⚠️ Sin coincidencias para "<strong>${query}</strong>"</div>`;
       resultsContainer.classList.remove('hidden');
       selectedSearchIndex = -1;
       return;
     }
     
     selectedSearchIndex = -1;
-    resultsContainer.innerHTML = matches.map((v, index) => `
-      <div class="search-result-item" data-id="${v.id}" data-index="${index}" style="padding:10px 14px;border-bottom:1px solid var(--slate-8);cursor:pointer;display:flex;justify-content:space-between;align-items:center;transition:background 0.1s;background:var(--white);">
-        <div>
-          <span style="font-family:monospace;font-weight:900;color:var(--brand);background:var(--slate-9);padding:2px 6px;border-radius:4px;font-size:11px;border:1px solid var(--slate-8);">${v.placa}</span>
-          <span style="font-size:12px;font-weight:700;color:var(--dark);margin-left:8px;">${v.marca_modelo}</span>
+    resultsContainer.innerHTML = allMatches.map((m, index) => `
+      <div class="search-result-item" data-url="${m.actionUrl}" data-index="${index}" style="padding:9px 12px;border-bottom:1px solid var(--slate-8);cursor:pointer;display:flex;justify-content:space-between;align-items:center;transition:background 0.1s;background:var(--white);">
+        <div style="min-width:0;flex:1;padding-right:8px;">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:2px;">
+            <span style="font-size:9px;font-weight:800;padding:1px 6px;border-radius:4px;background:var(--slate-9);color:${m.badgeColor};border:1px solid var(--slate-8);letter-spacing:0.5px;">${m.badge}</span>
+            <span style="font-size:12px;font-weight:700;color:var(--dark);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${m.titulo}</span>
+          </div>
+          <div style="font-size:11px;color:var(--slate-5);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+            ${m.subtitulo}
+          </div>
         </div>
-        <div style="font-size:10px;color:var(--slate-5);text-align:right;">
-          👤 ${v.cliente_nombre || 'Sin propietario'}
+        <div style="font-size:11px;color:var(--slate-4);flex-shrink:0;">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M9 5l7 7-7 7"/></svg>
         </div>
       </div>
     `).join('');
@@ -268,8 +334,8 @@ function initGlobalSearch() {
     
     resultsContainer.querySelectorAll('.search-result-item').forEach(item => {
       item.addEventListener('click', () => {
-        const id = item.dataset.id;
-        navigate(`/vehiculos?abrir=${id}`);
+        const url = item.dataset.url;
+        navigate(url);
         searchInput.value = '';
         resultsContainer.classList.add('hidden');
       });
@@ -278,7 +344,9 @@ function initGlobalSearch() {
         highlightSearchItem(parseInt(item.dataset.index, 10));
       });
     });
-  });
+  };
+
+  searchInput.addEventListener('input', debounce(ejecutarBusqueda, 200));
   
   searchInput.addEventListener('keydown', (e) => {
     const items = resultsContainer.querySelectorAll('.search-result-item');
@@ -321,5 +389,6 @@ function initGlobalSearch() {
     });
   }
 }
+
 
 init().catch(console.error);

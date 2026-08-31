@@ -15,9 +15,11 @@ router.use(requiereToken);
 // ──────────────────────────────────────────────────────────────
 // GET /api/clientes  — Listado CRM con métricas agregadas
 // ──────────────────────────────────────────────────────────────
-router.get("/", async (_req, res) => {
+router.get("/", async (req, res) => {
   try {
-    const r = await query(`
+    const limit = parseInt(req.query.limit, 10);
+    const offset = parseInt(req.query.offset, 10);
+    let sql = `
       SELECT
         c.*,
         -- Vehículos del cliente con datos de km para alertas predictivas
@@ -75,7 +77,17 @@ router.get("/", async (_req, res) => {
         FROM ordenes_servicio os 
         WHERE os.cliente_id = c.id
       ) DESC NULLS LAST, c.nombre
-    `);
+    `;
+    const params = [];
+    if (!isNaN(limit) && limit > 0) {
+      sql += ` LIMIT $${params.length + 1}`;
+      params.push(limit);
+      if (!isNaN(offset) && offset >= 0) {
+        sql += ` OFFSET $${params.length + 1}`;
+        params.push(offset);
+      }
+    }
+    const r = await query(sql, params);
     res.json(r.rows);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });

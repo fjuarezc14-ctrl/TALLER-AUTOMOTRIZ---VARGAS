@@ -21,6 +21,8 @@ let currentStep = 1;
 let isCanvasSigned = false;
 let isSignatureModified = false;
 let editingOrderId = null;
+let ordPaginaActual = 1;
+const ORD_PAGE_SIZE = 12;
 
 // Colores para cada tipo de daño
 const dmgColors = {
@@ -288,6 +290,22 @@ async function cargarDatos() {
     clientesList = clis;
 
     renderPage();
+
+    // Auto-abrir orden o filtrar si viene en la URL (Buscador Predictivo Global)
+    const params = new URLSearchParams(window.location.search);
+    const abrirId = params.get('abrir');
+    if (abrirId) {
+      setTimeout(() => verDetalleOrden(abrirId), 100);
+    } else {
+      const qParam = params.get('q');
+      if (qParam) {
+        const sInput = document.getElementById('search-ordenes');
+        if (sInput) {
+          sInput.value = qParam;
+          filtrarOrdenes();
+        }
+      }
+    }
   } catch (err) {
     root.innerHTML = renderError(err.message);
   }
@@ -347,6 +365,16 @@ function renderPage() {
       (o.vehiculo && o.vehiculo.toLowerCase().includes(q))
     );
   }
+
+  // 6. Paginación
+  const totalRegistros = filtradas.length;
+  const totalPaginas = Math.max(1, Math.ceil(totalRegistros / ORD_PAGE_SIZE));
+  if (ordPaginaActual > totalPaginas) ordPaginaActual = totalPaginas;
+  if (ordPaginaActual < 1) ordPaginaActual = 1;
+
+  const inicioIdx = (ordPaginaActual - 1) * ORD_PAGE_SIZE;
+  const finIdx = Math.min(inicioIdx + ORD_PAGE_SIZE, totalRegistros);
+  const ordenesPaginadas = filtradas.slice(inicioIdx, finIdx);
 
   root.innerHTML = `
     <!-- Header & Tabs -->
@@ -415,10 +443,26 @@ function renderPage() {
             </tr>
           </thead>
           <tbody id="tabla-ordenes-body">
-            ${renderTableRows(filtradas)}
+            ${renderTableRows(ordenesPaginadas)}
           </tbody>
         </table>
       </div>
+      ${totalRegistros > 0 ? `
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 18px;border-top:1px solid var(--slate-8);background:var(--white);font-size:12px;color:var(--slate-5);flex-wrap:wrap;gap:8px;">
+          <div>
+            Mostrando <strong style="color:var(--dark);">${inicioIdx + 1} - ${finIdx}</strong> de <strong style="color:var(--dark);">${totalRegistros}</strong> órdenes
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <button type="button" id="btn-ord-prev" class="btn-ghost" ${ordPaginaActual <= 1 ? 'disabled style="opacity:0.4;cursor:not-allowed;font-size:11px;padding:4px 10px;"' : 'style="font-size:11px;padding:4px 10px;cursor:pointer;"'}>
+              ◀ Anterior
+            </button>
+            <span style="font-weight:700;color:var(--dark);padding:0 6px;">Pág. ${ordPaginaActual} de ${totalPaginas}</span>
+            <button type="button" id="btn-ord-next" class="btn-ghost" ${ordPaginaActual >= totalPaginas ? 'disabled style="opacity:0.4;cursor:not-allowed;font-size:11px;padding:4px 10px;"' : 'style="font-size:11px;padding:4px 10px;cursor:pointer;"'}>
+              Siguiente ▶
+            </button>
+          </div>
+        </div>
+      ` : ''}
     </div>
 
     <!-- Modales -->
@@ -445,13 +489,28 @@ function renderPage() {
   root.appendChild(style);
 
   // Registrar eventos principales
-  document.getElementById('tab-ord-all').addEventListener('click', () => { activeTab = 'all'; renderPage(); });
-  document.getElementById('tab-ord-proc').addEventListener('click', () => { activeTab = 'process'; renderPage(); });
-  document.getElementById('tab-ord-warranty').addEventListener('click', () => { activeTab = 'warranty'; renderPage(); });
+  document.getElementById('tab-ord-all').addEventListener('click', () => { activeTab = 'all'; ordPaginaActual = 1; renderPage(); });
+  document.getElementById('tab-ord-proc').addEventListener('click', () => { activeTab = 'process'; ordPaginaActual = 1; renderPage(); });
+  document.getElementById('tab-ord-warranty').addEventListener('click', () => { activeTab = 'warranty'; ordPaginaActual = 1; renderPage(); });
   document.getElementById('search-ordenes').addEventListener('input', debounce(filtrarOrdenes, 300));
-  document.getElementById('filter-orden-estado').addEventListener('change', () => { filterEstadoVal = document.getElementById('filter-orden-estado').value; filtrarOrdenes(); });
-  document.getElementById('filter-orden-mecanico').addEventListener('change', () => { filterMecanicoVal = document.getElementById('filter-orden-mecanico').value; filtrarOrdenes(); });
-  document.getElementById('sort-ordenes').addEventListener('change', () => { sortVal = document.getElementById('sort-ordenes').value; filtrarOrdenes(); });
+  document.getElementById('filter-orden-estado').addEventListener('change', () => { filterEstadoVal = document.getElementById('filter-orden-estado').value; ordPaginaActual = 1; renderPage(); });
+  document.getElementById('filter-orden-mecanico').addEventListener('change', () => { filterMecanicoVal = document.getElementById('filter-orden-mecanico').value; ordPaginaActual = 1; renderPage(); });
+  document.getElementById('sort-ordenes').addEventListener('change', () => { sortVal = document.getElementById('sort-ordenes').value; renderPage(); });
+  
+  // Botones de paginación
+  document.getElementById('btn-ord-prev')?.addEventListener('click', () => {
+    if (ordPaginaActual > 1) {
+      ordPaginaActual--;
+      renderPage();
+    }
+  });
+  document.getElementById('btn-ord-next')?.addEventListener('click', () => {
+    if (ordPaginaActual < totalPaginas) {
+      ordPaginaActual++;
+      renderPage();
+    }
+  });
+
   document.getElementById('btn-nueva-orden-header').addEventListener('click', abrirModalNuevaOrden);
   const btnRapidaHeader = document.getElementById('btn-recepcion-rapida-header');
   if (btnRapidaHeader) btnRapidaHeader.addEventListener('click', abrirModalRecepcionRapida);
@@ -1304,48 +1363,8 @@ function renderTableRows(ordenes) {
 }
 
 function filtrarOrdenes() {
-  const q = document.getElementById('search-ordenes').value.toLowerCase().trim();
-  filterEstadoVal = document.getElementById('filter-orden-estado').value;
-  filterMecanicoVal = document.getElementById('filter-orden-mecanico').value;
-  sortVal = document.getElementById('sort-ordenes').value;
-
-  // 1. Filtrar por pestaña
-  let filtradas = activeTab === 'process' 
-    ? ordenesList.filter(o => o.estado === 'En Proceso' || o.estado === 'Esperando Repuestos' || o.estado === 'Diagnostico')
-    : ordenesList;
-
-  // 2. Filtrar por buscador
-  if (q) {
-    filtradas = filtradas.filter(o => 
-      o.id.toString().includes(q) ||
-      (o.placa && o.placa.toLowerCase().includes(q)) ||
-      (o.cliente && o.cliente.toLowerCase().includes(q)) ||
-      (o.vehiculo && o.vehiculo.toLowerCase().includes(q))
-    );
-  }
-
-  // 3. Filtrar por estado select
-  if (filterEstadoVal) {
-    filtradas = filtradas.filter(o => o.estado === filterEstadoVal);
-  }
-
-  // 4. Filtrar por mecánico select
-  if (filterMecanicoVal) {
-    filtradas = filtradas.filter(o => o.mecanico === filterMecanicoVal);
-  }
-
-  // 5. Aplicar ordenamiento
-  if (sortVal === 'recientes') {
-    filtradas.sort((a, b) => b.id - a.id);
-  } else if (sortVal === 'antiguas') {
-    filtradas.sort((a, b) => a.id - b.id);
-  } else if (sortVal === 'total-desc') {
-    filtradas.sort((a, b) => parseFloat(b.total_estimado || 0) - parseFloat(a.total_estimado || 0));
-  } else if (sortVal === 'total-asc') {
-    filtradas.sort((a, b) => parseFloat(a.total_estimado || 0) - parseFloat(b.total_estimado || 0));
-  }
-
-  document.getElementById('tabla-ordenes-body').innerHTML = renderTableRows(filtradas);
+  ordPaginaActual = 1;
+  renderPage();
 }
 
 // ──────────────────────────────────────────────────────────

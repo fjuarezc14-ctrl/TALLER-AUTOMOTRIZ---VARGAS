@@ -172,6 +172,20 @@ function renderCRM() {
   `;
 
   bindEventsCRM();
+
+  // Auto-seleccionar cliente si viene ?abrir=ID en la URL (Buscador Predictivo Global)
+  const params = new URLSearchParams(window.location.search);
+  const abrirId = params.get('abrir');
+  if (abrirId) {
+    const idNum = parseInt(abrirId, 10);
+    const targetCli = clientesList.find(c => c.id === idNum);
+    if (targetCli) {
+      clienteSelId = idNum;
+      document.getElementById('crm-lista').innerHTML = renderListaClientes(clientesList);
+      bindListaItems();
+      renderFicha(targetCli);
+    }
+  }
 }
 
 // ─── KPI Card helper ──────────────────────────────────────────

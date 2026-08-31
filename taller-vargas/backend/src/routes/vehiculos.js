@@ -5,16 +5,28 @@ import { requiereToken } from "../middleware/auth.js";
 const router = Router();
 router.use(requiereToken);
 
-router.get("/", async (_req, res) => {
+router.get("/", async (req, res) => {
   try {
-    const r = await query(`
+    const limit = parseInt(req.query.limit, 10);
+    const offset = parseInt(req.query.offset, 10);
+    let sql = `
       SELECT v.*,
         c.nombre AS cliente_nombre,
         c.telefono AS cliente_telefono
       FROM vehiculos v
       LEFT JOIN clientes c ON v.cliente_id = c.id
       ORDER BY v.ultima_visita DESC NULLS LAST
-    `);
+    `;
+    const params = [];
+    if (!isNaN(limit) && limit > 0) {
+      sql += ` LIMIT $${params.length + 1}`;
+      params.push(limit);
+      if (!isNaN(offset) && offset >= 0) {
+        sql += ` OFFSET $${params.length + 1}`;
+        params.push(offset);
+      }
+    }
+    const r = await query(sql, params);
     res.json(r.rows);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });

@@ -45,9 +45,24 @@ router.post("/:id/confirmar", async (req, res) => {
 // ── A partir de aquí todas las rutas requieren token de autenticación ──
 router.use(requiereToken);
 
-router.get("/", async (_req, res) => {
-  try { res.json((await query("SELECT * FROM v_ordenes_completas ORDER BY id DESC")).rows); }
-  catch (err) { res.status(500).json({ error: err.message }); }
+router.get("/", async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit, 10);
+    const offset = parseInt(req.query.offset, 10);
+    let sql = "SELECT * FROM v_ordenes_completas ORDER BY id DESC";
+    const params = [];
+    if (!isNaN(limit) && limit > 0) {
+      sql += ` LIMIT $${params.length + 1}`;
+      params.push(limit);
+      if (!isNaN(offset) && offset >= 0) {
+        sql += ` OFFSET $${params.length + 1}`;
+        params.push(offset);
+      }
+    }
+    res.json((await query(sql, params)).rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 router.get("/proceso", async (_req, res) => {
