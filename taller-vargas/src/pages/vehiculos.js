@@ -1,4 +1,5 @@
 import { getVehiculos, getClientes, createVehiculo, updateVehiculo, getHistorial } from '../api.js';
+import { debounce } from '../utils.js';
 
 // ── Estado del módulo ─────────────────────────────────────
 let containerElement = null;
@@ -128,7 +129,7 @@ function renderVehiculos(vehiculos) {
   `;
 
   // Registrar Eventos
-  document.getElementById('search-vehiculos').addEventListener('input', filtrarVehiculos);
+  document.getElementById('search-vehiculos').addEventListener('input', debounce(filtrarVehiculos, 300));
   document.getElementById('btn-nuevo-vehiculo-header').addEventListener('click', () => abrirModalVehiculo());
   document.getElementById('btn-view-cards').addEventListener('click', () => { viewMode='cards'; renderVehiculos(vehiculosList); });
   document.getElementById('btn-view-list').addEventListener('click', () => { viewMode='list'; renderVehiculos(vehiculosList); });

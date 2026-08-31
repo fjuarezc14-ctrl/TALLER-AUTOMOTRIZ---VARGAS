@@ -2,6 +2,7 @@ import {
   getClientes, getClienteHistorial, getClientesCrmStats,
   createCliente, updateCliente, patchClienteNotas, deleteCliente
 } from '../api.js';
+import { debounce } from '../utils.js';
 
 // ─── Estado del módulo ────────────────────────────────────────
 let containerElement = null;
@@ -583,11 +584,12 @@ function renderModalCliente() {
 
 // ─── Event Bindings ───────────────────────────────────────────
 function bindEventsCRM() {
-  // Search
-  document.getElementById('crm-search')?.addEventListener('input', () => {
+  // Search con debounce para no filtrar en cada tecla
+  const onCrmSearch = debounce(() => {
     document.getElementById('crm-lista').innerHTML = renderListaClientes(clientesList);
     bindListaItems();
-  });
+  }, 300);
+  document.getElementById('crm-search')?.addEventListener('input', onCrmSearch);
 
   // Filtros de segmento
   document.querySelectorAll('.crm-filtro-btn').forEach(btn => {

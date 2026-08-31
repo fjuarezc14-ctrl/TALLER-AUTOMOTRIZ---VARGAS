@@ -1,7 +1,7 @@
 import {
   getCobros, getStatsCobros, registrarCobro, dividirCobro, getOrden, exportarCobrosCSV
 } from '../api.js';
-import { safeFormatDate } from '../utils.js';
+import { safeFormatDate, debounce } from '../utils.js';
 
 
 let containerElement = null;
@@ -549,7 +549,7 @@ function renderPage() {
   `;
 
   // ── Eventos
-  document.getElementById('search-cobros').addEventListener('input', filtrarCobros);
+  document.getElementById('search-cobros').addEventListener('input', debounce(filtrarCobros, 300));
 
   document.getElementById('btn-exportar-cobros').addEventListener('click', async () => {
     try {

@@ -3,7 +3,7 @@ import {
   cambiarEstado, addItem, deleteItem, getVehiculos, getMecanicos, getAlmacen,
   getClientes, guardarDiagnosticoOrden, patchNotaInternaOrden
 } from '../api.js';
-import { safeFormatDate, safeFormatDateTime } from '../utils.js';
+import { safeFormatDate, safeFormatDateTime, debounce } from '../utils.js';
 
 
 
@@ -448,7 +448,7 @@ function renderPage() {
   document.getElementById('tab-ord-all').addEventListener('click', () => { activeTab = 'all'; renderPage(); });
   document.getElementById('tab-ord-proc').addEventListener('click', () => { activeTab = 'process'; renderPage(); });
   document.getElementById('tab-ord-warranty').addEventListener('click', () => { activeTab = 'warranty'; renderPage(); });
-  document.getElementById('search-ordenes').addEventListener('input', filtrarOrdenes);
+  document.getElementById('search-ordenes').addEventListener('input', debounce(filtrarOrdenes, 300));
   document.getElementById('filter-orden-estado').addEventListener('change', () => { filterEstadoVal = document.getElementById('filter-orden-estado').value; filtrarOrdenes(); });
   document.getElementById('filter-orden-mecanico').addEventListener('change', () => { filterMecanicoVal = document.getElementById('filter-orden-mecanico').value; filtrarOrdenes(); });
   document.getElementById('sort-ordenes').addEventListener('change', () => { sortVal = document.getElementById('sort-ordenes').value; filtrarOrdenes(); });

@@ -3,7 +3,7 @@ import {
   deleteProducto, ajustarStock, getMecanicos, crearSolicitudMecanico,
   getSolicitudesMecanico, confirmarSolicitudMecanico, eliminarSolicitudMecanico
 } from '../api.js';
-import { safeFormatDate } from '../utils.js';
+import { safeFormatDate, debounce } from '../utils.js';
 
 
 let containerElement = null;
@@ -151,7 +151,7 @@ function renderPage() {
   if (activeTab === 'admin') {
     const btnNew = document.getElementById('btn-nuevo-producto-header');
     if (btnNew) btnNew.addEventListener('click', () => abrirModalProducto());
-    document.getElementById('search-almacen').addEventListener('input', filtrarAlmacen);
+    document.getElementById('search-almacen').addEventListener('input', debounce(filtrarAlmacen, 300));
     const btnClearFilter = document.getElementById('btn-clear-stock-filter');
     if (btnClearFilter) {
       btnClearFilter.addEventListener('click', () => {
@@ -174,7 +174,7 @@ function renderPage() {
       else if (delBtn) eliminarProd(delBtn.dataset.id);
     });
   } else if (activeTab === 'mecanico') {
-    document.getElementById('search-mecanico').addEventListener('input', filtrarMecanico);
+    document.getElementById('search-mecanico').addEventListener('input', debounce(filtrarMecanico, 300));
     document.getElementById('form-solicitud-mecanico').addEventListener('submit', guardarSolicitudMecanico);
 
     const prodSearch = document.getElementById('sol-producto-search');
