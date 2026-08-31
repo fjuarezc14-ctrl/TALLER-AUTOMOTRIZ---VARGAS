@@ -326,56 +326,6 @@ function renderError(msg) {
 function renderPage() {
   const root = document.getElementById('ordenes-root');
 
-  // 1. Filtrar según pestaña
-  let filtradas = activeTab === 'process'
-    ? ordenesList.filter(o => o.estado === 'En Proceso' || o.estado === 'Esperando Repuestos' || o.estado === 'Diagnostico')
-    : activeTab === 'warranty'
-      ? ordenesList.filter(o => o.estado === 'Entregado')
-      : ordenesList;
-
-  // 2. Filtrar por estado select
-  if (filterEstadoVal) {
-    filtradas = filtradas.filter(o => o.estado === filterEstadoVal);
-  }
-
-  // 3. Filtrar por mecánico select
-  if (filterMecanicoVal) {
-    filtradas = filtradas.filter(o => o.mecanico === filterMecanicoVal);
-  }
-
-  // 4. Aplicar ordenamiento
-  if (sortVal === 'recientes') {
-    filtradas.sort((a, b) => b.id - a.id);
-  } else if (sortVal === 'antiguas') {
-    filtradas.sort((a, b) => a.id - b.id);
-  } else if (sortVal === 'total-desc') {
-    filtradas.sort((a, b) => parseFloat(b.total_estimado || 0) - parseFloat(a.total_estimado || 0));
-  } else if (sortVal === 'total-asc') {
-    filtradas.sort((a, b) => parseFloat(a.total_estimado || 0) - parseFloat(b.total_estimado || 0));
-  }
-
-  // 5. Filtrar por buscador si ya tiene texto
-  const searchInput = document.getElementById('search-ordenes');
-  const q = searchInput ? searchInput.value.toLowerCase().trim() : '';
-  if (q) {
-    filtradas = filtradas.filter(o => 
-      o.id.toString().includes(q) ||
-      (o.placa && o.placa.toLowerCase().includes(q)) ||
-      (o.cliente && o.cliente.toLowerCase().includes(q)) ||
-      (o.vehiculo && o.vehiculo.toLowerCase().includes(q))
-    );
-  }
-
-  // 6. Paginación
-  const totalRegistros = filtradas.length;
-  const totalPaginas = Math.max(1, Math.ceil(totalRegistros / ORD_PAGE_SIZE));
-  if (ordPaginaActual > totalPaginas) ordPaginaActual = totalPaginas;
-  if (ordPaginaActual < 1) ordPaginaActual = 1;
-
-  const inicioIdx = (ordPaginaActual - 1) * ORD_PAGE_SIZE;
-  const finIdx = Math.min(inicioIdx + ORD_PAGE_SIZE, totalRegistros);
-  const ordenesPaginadas = filtradas.slice(inicioIdx, finIdx);
-
   root.innerHTML = `
     <!-- Header & Tabs -->
     <div class="flex justify-between items-center mb-6" style="flex-wrap:wrap;gap:16px;">
@@ -423,7 +373,7 @@ function renderPage() {
           <option value="total-asc" ${sortVal === 'total-asc' ? 'selected' : ''}>💰 Total: Menor a mayor</option>
         </select>
       </div>
-      <input type="text" id="search-ordenes" placeholder="Buscar por placa, orden o cliente..." value="${q}" class="form-input" style="width:260px;" />
+      <input type="text" id="search-ordenes" placeholder="Buscar por placa, orden o cliente..." class="form-input" style="width:260px;" autocomplete="off" />
     </div>
 
     <!-- Table Card -->
@@ -442,27 +392,10 @@ function renderPage() {
               <th class="text-right">Acciones</th>
             </tr>
           </thead>
-          <tbody id="tabla-ordenes-body">
-            ${renderTableRows(ordenesPaginadas)}
-          </tbody>
+          <tbody id="tabla-ordenes-body"></tbody>
         </table>
       </div>
-      ${totalRegistros > 0 ? `
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 18px;border-top:1px solid var(--slate-8);background:var(--white);font-size:12px;color:var(--slate-5);flex-wrap:wrap;gap:8px;">
-          <div>
-            Mostrando <strong style="color:var(--dark);">${inicioIdx + 1} - ${finIdx}</strong> de <strong style="color:var(--dark);">${totalRegistros}</strong> órdenes
-          </div>
-          <div style="display:flex;align-items:center;gap:6px;">
-            <button type="button" id="btn-ord-prev" class="btn-ghost" ${ordPaginaActual <= 1 ? 'disabled style="opacity:0.4;cursor:not-allowed;font-size:11px;padding:4px 10px;"' : 'style="font-size:11px;padding:4px 10px;cursor:pointer;"'}>
-              ◀ Anterior
-            </button>
-            <span style="font-weight:700;color:var(--dark);padding:0 6px;">Pág. ${ordPaginaActual} de ${totalPaginas}</span>
-            <button type="button" id="btn-ord-next" class="btn-ghost" ${ordPaginaActual >= totalPaginas ? 'disabled style="opacity:0.4;cursor:not-allowed;font-size:11px;padding:4px 10px;"' : 'style="font-size:11px;padding:4px 10px;cursor:pointer;"'}>
-              Siguiente ▶
-            </button>
-          </div>
-        </div>
-      ` : ''}
+      <div id="ordenes-paginacion-box"></div>
     </div>
 
     <!-- Modales -->
@@ -488,27 +421,42 @@ function renderPage() {
   `;
   root.appendChild(style);
 
-  // Registrar eventos principales
-  document.getElementById('tab-ord-all').addEventListener('click', () => { activeTab = 'all'; ordPaginaActual = 1; renderPage(); });
-  document.getElementById('tab-ord-proc').addEventListener('click', () => { activeTab = 'process'; ordPaginaActual = 1; renderPage(); });
-  document.getElementById('tab-ord-warranty').addEventListener('click', () => { activeTab = 'warranty'; ordPaginaActual = 1; renderPage(); });
-  document.getElementById('search-ordenes').addEventListener('input', debounce(filtrarOrdenes, 300));
-  document.getElementById('filter-orden-estado').addEventListener('change', () => { filterEstadoVal = document.getElementById('filter-orden-estado').value; ordPaginaActual = 1; renderPage(); });
-  document.getElementById('filter-orden-mecanico').addEventListener('change', () => { filterMecanicoVal = document.getElementById('filter-orden-mecanico').value; ordPaginaActual = 1; renderPage(); });
-  document.getElementById('sort-ordenes').addEventListener('change', () => { sortVal = document.getElementById('sort-ordenes').value; renderPage(); });
-  
-  // Botones de paginación
-  document.getElementById('btn-ord-prev')?.addEventListener('click', () => {
-    if (ordPaginaActual > 1) {
-      ordPaginaActual--;
-      renderPage();
-    }
+  // Registrar eventos principales una sola vez
+  document.getElementById('tab-ord-all').addEventListener('click', () => { 
+    activeTab = 'all'; 
+    ordPaginaActual = 1; 
+    document.querySelectorAll('.btn-tab').forEach(b => b.classList.remove('active-tab'));
+    document.getElementById('tab-ord-all').classList.add('active-tab');
+    actualizarTablaOrdenes(); 
   });
-  document.getElementById('btn-ord-next')?.addEventListener('click', () => {
-    if (ordPaginaActual < totalPaginas) {
-      ordPaginaActual++;
-      renderPage();
-    }
+  document.getElementById('tab-ord-proc').addEventListener('click', () => { 
+    activeTab = 'process'; 
+    ordPaginaActual = 1; 
+    document.querySelectorAll('.btn-tab').forEach(b => b.classList.remove('active-tab'));
+    document.getElementById('tab-ord-proc').classList.add('active-tab');
+    actualizarTablaOrdenes(); 
+  });
+  document.getElementById('tab-ord-warranty').addEventListener('click', () => { 
+    activeTab = 'warranty'; 
+    ordPaginaActual = 1; 
+    document.querySelectorAll('.btn-tab').forEach(b => b.classList.remove('active-tab'));
+    document.getElementById('tab-ord-warranty').classList.add('active-tab');
+    actualizarTablaOrdenes(); 
+  });
+  document.getElementById('search-ordenes').addEventListener('input', debounce(filtrarOrdenes, 250));
+  document.getElementById('filter-orden-estado').addEventListener('change', () => { 
+    filterEstadoVal = document.getElementById('filter-orden-estado').value; 
+    ordPaginaActual = 1; 
+    actualizarTablaOrdenes(); 
+  });
+  document.getElementById('filter-orden-mecanico').addEventListener('change', () => { 
+    filterMecanicoVal = document.getElementById('filter-orden-mecanico').value; 
+    ordPaginaActual = 1; 
+    actualizarTablaOrdenes(); 
+  });
+  document.getElementById('sort-ordenes').addEventListener('change', () => { 
+    sortVal = document.getElementById('sort-ordenes').value; 
+    actualizarTablaOrdenes(); 
   });
 
   document.getElementById('btn-nueva-orden-header').addEventListener('click', abrirModalNuevaOrden);
@@ -1277,6 +1225,102 @@ function renderPage() {
   if (window.autoOpenNuevaOrden) {
     window.autoOpenNuevaOrden = false;
     abrirModalNuevaOrden();
+  }
+
+  // Renderizar la tabla inicial
+  actualizarTablaOrdenes();
+}
+
+function actualizarTablaOrdenes() {
+  // 1. Filtrar según pestaña
+  let filtradas = activeTab === 'process'
+    ? ordenesList.filter(o => o.estado === 'En Proceso' || o.estado === 'Esperando Repuestos' || o.estado === 'Diagnostico')
+    : activeTab === 'warranty'
+      ? ordenesList.filter(o => o.estado === 'Entregado')
+      : ordenesList;
+
+  // 2. Filtrar por estado select
+  if (filterEstadoVal) {
+    filtradas = filtradas.filter(o => o.estado === filterEstadoVal);
+  }
+
+  // 3. Filtrar por mecánico select
+  if (filterMecanicoVal) {
+    filtradas = filtradas.filter(o => o.mecanico === filterMecanicoVal);
+  }
+
+  // 4. Aplicar ordenamiento
+  if (sortVal === 'recientes') {
+    filtradas.sort((a, b) => b.id - a.id);
+  } else if (sortVal === 'antiguas') {
+    filtradas.sort((a, b) => a.id - b.id);
+  } else if (sortVal === 'total-desc') {
+    filtradas.sort((a, b) => parseFloat(b.total_estimado || 0) - parseFloat(a.total_estimado || 0));
+  } else if (sortVal === 'total-asc') {
+    filtradas.sort((a, b) => parseFloat(a.total_estimado || 0) - parseFloat(b.total_estimado || 0));
+  }
+
+  // 5. Filtrar por buscador
+  const searchInput = document.getElementById('search-ordenes');
+  const q = searchInput ? searchInput.value.toLowerCase().trim() : '';
+  if (q) {
+    filtradas = filtradas.filter(o => 
+      o.id.toString().includes(q) ||
+      (o.placa && o.placa.toLowerCase().includes(q)) ||
+      (o.cliente && o.cliente.toLowerCase().includes(q)) ||
+      (o.vehiculo && o.vehiculo.toLowerCase().includes(q))
+    );
+  }
+
+  // 6. Paginación
+  const totalRegistros = filtradas.length;
+  const totalPaginas = Math.max(1, Math.ceil(totalRegistros / ORD_PAGE_SIZE));
+  if (ordPaginaActual > totalPaginas) ordPaginaActual = totalPaginas;
+  if (ordPaginaActual < 1) ordPaginaActual = 1;
+
+  const inicioIdx = (ordPaginaActual - 1) * ORD_PAGE_SIZE;
+  const finIdx = Math.min(inicioIdx + ORD_PAGE_SIZE, totalRegistros);
+  const ordenesPaginadas = filtradas.slice(inicioIdx, finIdx);
+
+  const tbody = document.getElementById('tabla-ordenes-body');
+  if (tbody) {
+    tbody.innerHTML = renderTableRows(ordenesPaginadas);
+  }
+
+  const pagBox = document.getElementById('ordenes-paginacion-box');
+  if (pagBox) {
+    if (totalRegistros > 0) {
+      pagBox.innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 18px;border-top:1px solid var(--slate-8);background:var(--white);font-size:12px;color:var(--slate-5);flex-wrap:wrap;gap:8px;">
+          <div>
+            Mostrando <strong style="color:var(--dark);">${inicioIdx + 1} - ${finIdx}</strong> de <strong style="color:var(--dark);">${totalRegistros}</strong> órdenes
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <button type="button" id="btn-ord-prev" class="btn-ghost" ${ordPaginaActual <= 1 ? 'disabled style="opacity:0.4;cursor:not-allowed;font-size:11px;padding:4px 10px;"' : 'style="font-size:11px;padding:4px 10px;cursor:pointer;"'}>
+              ◀ Anterior
+            </button>
+            <span style="font-weight:700;color:var(--dark);padding:0 6px;">Pág. ${ordPaginaActual} de ${totalPaginas}</span>
+            <button type="button" id="btn-ord-next" class="btn-ghost" ${ordPaginaActual >= totalPaginas ? 'disabled style="opacity:0.4;cursor:not-allowed;font-size:11px;padding:4px 10px;"' : 'style="font-size:11px;padding:4px 10px;cursor:pointer;"'}>
+              Siguiente ▶
+            </button>
+          </div>
+        </div>
+      `;
+      document.getElementById('btn-ord-prev')?.addEventListener('click', () => {
+        if (ordPaginaActual > 1) {
+          ordPaginaActual--;
+          actualizarTablaOrdenes();
+        }
+      });
+      document.getElementById('btn-ord-next')?.addEventListener('click', () => {
+        if (ordPaginaActual < totalPaginas) {
+          ordPaginaActual++;
+          actualizarTablaOrdenes();
+        }
+      });
+    } else {
+      pagBox.innerHTML = '';
+    }
   }
 }
 
