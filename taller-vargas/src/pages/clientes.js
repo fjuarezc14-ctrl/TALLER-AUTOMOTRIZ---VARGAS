@@ -3,6 +3,7 @@ import {
   createCliente, updateCliente, patchClienteNotas, deleteCliente
 } from '../api.js';
 import { debounce } from '../utils.js';
+import { store } from '../store.js';
 
 // ─── Estado del módulo ────────────────────────────────────────
 let containerElement = null;
@@ -704,6 +705,7 @@ async function guardarCliente(e) {
     } else {
       saved = await createCliente(data);
     }
+    store.invalidate('clientes');
     cerrarModal();
     // Refrescar lista
     clientesList = await getClientes();

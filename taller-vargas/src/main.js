@@ -1,7 +1,8 @@
 import { navigate } from './router.js';
-import { getAlertasStock, getVehiculos, getClientes, getOrdenes, logout } from './api.js';
+import { getAlertasStock, getOrdenes, logout } from './api.js';
 import { debounce } from './utils.js';
 import { createIcons, icons } from 'lucide';
+import { store } from './store.js';
 
 // Helper global para verificar si el usuario logueado es Administrador
 window.isAdminAuthorized = () => {
@@ -221,24 +222,22 @@ let globalSearchCache = {
 let selectedSearchIndex = -1;
 
 async function fetchGlobalSearchData() {
-  const now = Date.now();
-  if (globalSearchCache.lastFetch && (now - globalSearchCache.lastFetch < 20000)) return;
   try {
     const [v, c, o] = await Promise.all([
-      getVehiculos().catch(() => []),
-      getClientes().catch(() => []),
+      store.getVehiculos().catch(() => []),
+      store.getClientes().catch(() => []),
       getOrdenes().catch(() => [])
     ]);
     globalSearchCache = {
       vehiculos: v || [],
       clientes: c || [],
-      ordenes: o || [],
-      lastFetch: now
+      ordenes: o || []
     };
   } catch (e) {
     console.error('Error al precargar datos para buscador global:', e);
   }
 }
+
 
 function initGlobalSearch() {
   const searchInput = document.getElementById('global-search-input');

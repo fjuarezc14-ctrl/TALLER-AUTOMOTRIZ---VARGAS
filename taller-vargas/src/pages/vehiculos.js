@@ -1,5 +1,6 @@
 import { getVehiculos, getClientes, createVehiculo, updateVehiculo, getHistorial } from '../api.js';
 import { debounce } from '../utils.js';
+import { store } from '../store.js';
 
 // ── Estado del módulo ─────────────────────────────────────
 let containerElement = null;
@@ -1010,6 +1011,7 @@ async function guardarVehiculo(e) {
     } else {
       await createVehiculo(data);
     }
+    store.invalidate('vehiculos');
     cerrarModalVehiculo();
     await cargarDatos();
   } catch (err) {
