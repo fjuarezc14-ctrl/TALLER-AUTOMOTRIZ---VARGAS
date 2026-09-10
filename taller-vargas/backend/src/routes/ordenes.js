@@ -273,9 +273,15 @@ router.patch("/:id/estado", async (req, res) => {
       }
     }
 
-    if (estado==="Finalizado" && pasar_facturacion && total>0) {
-      await client.query("INSERT INTO cobros (orden_id,cliente_id,monto_total,estado,fecha_emision) VALUES ($1,$2,$3,$4,CURRENT_DATE) ON CONFLICT DO NOTHING",
-        [req.params.id,ordObj.cliente_id,total,"Pendiente"]);
+    if (estado === "Finalizado" && pasar_facturacion !== false) {
+      const montoCobro = total >= 0 ? total : 0.00;
+      await client.query(`
+        INSERT INTO cobros (orden_id, cliente_id, monto_total, estado, fecha_emision)
+        VALUES ($1, $2, $3, 'Pendiente', CURRENT_DATE)
+        ON CONFLICT (orden_id) DO UPDATE SET
+          monto_total = CASE WHEN cobros.estado = 'Pendiente' THEN EXCLUDED.monto_total ELSE cobros.monto_total END,
+          cliente_id = EXCLUDED.cliente_id
+      `, [req.params.id, ordObj.cliente_id, montoCobro]);
     }
     await client.query("COMMIT");
     res.json({ ...ordObj, total_calculado: total });
@@ -300,6 +306,7 @@ router.post("/:id/items", async (req, res) => {
       totalVal = 0.00;
     }
     await client.query("UPDATE ordenes_servicio SET total_estimado=$1 WHERE id=$2", [totalVal, req.params.id]);
+    await client.query("UPDATE cobros SET monto_total=$1 WHERE orden_id=$2 AND estado='Pendiente'", [totalVal, req.params.id]);
     await client.query("COMMIT");
     res.status(201).json(item.rows[0]);
   } catch (err) { await client.query("ROLLBACK"); res.status(500).json({ error: err.message }); }
@@ -323,7 +330,9 @@ router.delete("/:id/items/:itemId", async (req, res) => {
       totalVal = 0.00;
     }
     await client.query("UPDATE ordenes_servicio SET total_estimado=$1 WHERE id=$2", [totalVal, req.params.id]);
+    await client.query("UPDATE cobros SET monto_total=$1 WHERE orden_id=$2 AND estado='Pendiente'", [totalVal, req.params.id]);
     await client.query("COMMIT");
+
     res.json({ message: "Item eliminado" });
   } catch (err) { await client.query("ROLLBACK"); res.status(500).json({ error: err.message }); }
   finally { client.release(); }

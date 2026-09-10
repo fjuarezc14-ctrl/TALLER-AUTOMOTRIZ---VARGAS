@@ -34,6 +34,16 @@ async function getNextComprobanteNumero(client, tipo) {
 // GET /api/cobros
 router.get('/', requiereToken, soloAdmin, async (_req, res) => {
   try {
+    // Sincronización automática de respaldo: asegurar que toda orden en 'Finalizado' tenga su cobro
+    await query(`
+      INSERT INTO cobros (orden_id, cliente_id, monto_total, estado, fecha_emision)
+      SELECT os.id, os.cliente_id, COALESCE(os.total_estimado, 0.00), 'Pendiente', CURRENT_DATE
+      FROM ordenes_servicio os
+      WHERE os.estado = 'Finalizado'
+        AND os.id NOT IN (SELECT orden_id FROM cobros WHERE orden_id IS NOT NULL)
+      ON CONFLICT (orden_id) DO NOTHING
+    `);
+
     const result = await query(`
       SELECT co.*, c.nombre AS cliente_nombre, c.tipo_doc, c.num_doc, c.telefono AS cliente_telefono,
              os.id AS orden_numero, v.placa
@@ -46,6 +56,7 @@ router.get('/', requiereToken, soloAdmin, async (_req, res) => {
     res.json(result.rows);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
+
 
 // GET /api/cobros/exportar
 router.get('/exportar', requiereToken, soloAdmin, async (_req, res) => {
@@ -106,6 +117,15 @@ router.get('/exportar', requiereToken, soloAdmin, async (_req, res) => {
 // GET /api/cobros/stats
 router.get('/stats', requiereToken, soloAdmin, async (_req, res) => {
   try {
+    await query(`
+      INSERT INTO cobros (orden_id, cliente_id, monto_total, estado, fecha_emision)
+      SELECT os.id, os.cliente_id, COALESCE(os.total_estimado, 0.00), 'Pendiente', CURRENT_DATE
+      FROM ordenes_servicio os
+      WHERE os.estado = 'Finalizado'
+        AND os.id NOT IN (SELECT orden_id FROM cobros WHERE orden_id IS NOT NULL)
+      ON CONFLICT (orden_id) DO NOTHING
+    `);
+
     const result = await query(`
       SELECT
         COALESCE(SUM(monto_total) FILTER (WHERE estado = 'Pendiente'), 0) AS por_cobrar,
@@ -116,6 +136,7 @@ router.get('/stats', requiereToken, soloAdmin, async (_req, res) => {
     res.json(result.rows[0]);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
+
 
 // PATCH /api/cobros/:id/cobrar  (registrar pago - cobro simple)
 router.patch('/:id/cobrar', requiereToken, soloAdmin, async (req, res) => {

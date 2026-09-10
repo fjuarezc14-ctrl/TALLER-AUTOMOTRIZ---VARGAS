@@ -792,7 +792,22 @@ function enviarComprobantePorWhatsApp() {
 
   // Inicializar tab del portal
   renderPortalTab('yape');
+
+  // Procesar auto-cobro si viene desde Órdenes o Kanban con ?cobrar=ID
+  const urlParams = new URLSearchParams(window.location.search);
+  const paramCobrar = urlParams.get('cobrar');
+  if (paramCobrar) {
+    const cTarget = cobrosList.find(c => String(c.orden_id) === String(paramCobrar) || String(c.id) === String(paramCobrar));
+    if (cTarget) {
+      if (cTarget.estado === 'Pendiente') {
+        setTimeout(() => abrirCobroRapido(cTarget.id), 150);
+      } else {
+        alert(`ℹ️ La orden #${paramCobrar} ya fue cobrada y liquidada (${cTarget.estado}).`);
+      }
+    }
+  }
 }
+
 
 // ── TABLA ────────────────────────────────────────────────
 
