@@ -6,6 +6,7 @@
 const routes = {
   '/':             () => import('./pages/dashboard.js'),
   '/login':        () => import('./pages/login.js'),
+  '/taller':       () => import('./pages/taller.js'),
   '/ordenes':      () => import('./pages/ordenes.js'),
   '/vehiculos':    () => import('./pages/vehiculos.js'),
   '/clientes':     () => import('./pages/clientes.js'),
@@ -37,17 +38,29 @@ export async function navigate(path = '/') {
     return navigate('/login');
   }
 
-  // Si ya está logueado y va al login, redirigir al dashboard
+  // Si ya está logueado y va al login, redirigir según su rol
   if (matchedPath === '/login' && isAuthenticated()) {
-    return navigate('/');
+    const userStr = localStorage.getItem('vargas_user');
+    const user = userStr ? JSON.parse(userStr) : null;
+    return navigate(user?.rol === 'operario' ? '/taller' : '/');
   }
 
+  // Redirección de inicio para operarios (del Dashboard hacia su portal de taller)
+  if (matchedPath === '/' && isAuthenticated()) {
+    const userStr = localStorage.getItem('vargas_user');
+    const user = userStr ? JSON.parse(userStr) : null;
+    if (user?.rol === 'operario') {
+      return navigate('/taller');
+    }
+  }
+
+  // Protección de módulos administrativos
   if (matchedPath === '/facturacion' || matchedPath === '/usuarios') {
     const userStr = localStorage.getItem('vargas_user');
     const user = userStr ? JSON.parse(userStr) : null;
     if (!user || user.rol !== 'administrador') {
       alert('Acceso restringido. Solo administradores pueden acceder a esta sección.');
-      return;
+      return navigate(user?.rol === 'operario' ? '/taller' : '/');
     }
   }
 
@@ -146,10 +159,11 @@ export async function navigate(path = '/') {
 
 const breadcrumbs = {
   '/':             ['Panel Principal', 'Resumen General'],
+  '/taller':       ['Taller Mecánico', 'Portal de Trabajo y Diagnóstico'],
   '/ordenes':      ['Órdenes de Servicio', 'Gestión Operativa'],
   '/vehiculos':    ['Vehículos', 'Directorio y Proceso'],
   '/clientes':     ['CRM Clientes', 'Seguimiento 360° y Fidelización'],
-  '/operaciones':  ['Taller y Operaciones', 'Control en Vivo, Equipo Técnico y Portal Mecánico'],
+  '/operaciones':  ['Taller y Operaciones', 'Control en Vivo, Equipo Técnico y Tablero'],
   '/almacen':      ['Almacén / Repuestos', 'Control de Inventario'],
   '/facturacion':  ['Finanzas', 'Facturación y Cobros'],
   '/archivos':     ['Documentos', 'Repositorio General'],

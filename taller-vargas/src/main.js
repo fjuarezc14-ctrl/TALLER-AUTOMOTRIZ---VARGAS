@@ -54,18 +54,35 @@ function updateUserSidebar() {
     const userroleEl = document.getElementById('sidebar-userrole');
     if (avatarEl)   avatarEl.textContent   = (user.username || 'U').slice(0, 2).toUpperCase();
     if (usernameEl) usernameEl.textContent = user.username || 'Usuario';
-    if (userroleEl) userroleEl.textContent = user.rol === 'administrador' ? 'Administrador' : 'Operario';
+    const isOperario = user.rol === 'operario';
+    if (userroleEl) userroleEl.textContent = isOperario ? 'Operario / Taller' : 'Administrador';
+
+    // Ocultar botón de Dashboard para operarios (inician y trabajan en su portal de taller)
+    const dashBtn = document.querySelector('button[data-route="/"]');
+    if (dashBtn) {
+      dashBtn.style.display = isOperario ? 'none' : '';
+    }
 
     // Ocultar botón de facturación para operarios
     const facBtn = document.querySelector('button[data-route="/facturacion"]');
     if (facBtn) {
-      facBtn.style.display = user.rol === 'administrador' ? '' : 'none';
+      facBtn.style.display = isOperario ? 'none' : '';
     }
 
     // Ocultar botón de usuarios para operarios
     const usrBtn = document.getElementById('sidebar-btn-usuarios');
     if (usrBtn) {
-      usrBtn.style.display = user.rol === 'administrador' ? '' : 'none';
+      usrBtn.style.display = isOperario ? 'none' : '';
+    }
+
+    // Para operarios, asegurar que el grupo de Taller siempre esté desplegado
+    if (isOperario) {
+      const groupTaller = document.getElementById('group-taller');
+      if (groupTaller && !groupTaller.classList.contains('open')) {
+        groupTaller.classList.add('open');
+        const hdr = groupTaller.previousElementSibling;
+        if (hdr) hdr.classList.add('open');
+      }
     }
   } catch (_) {}
 }

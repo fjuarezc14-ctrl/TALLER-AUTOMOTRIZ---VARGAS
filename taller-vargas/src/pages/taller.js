@@ -96,6 +96,27 @@ async function cargarDatos() {
     ]);
     
     mecanicosList = mecanicos.filter(m => m.activo);
+
+    // Auto-detección inteligente: si no hay mecánico seleccionado pero el usuario logueado coincide con un mecánico
+    if (!selectedMecanico) {
+      const userStr = localStorage.getItem('vargas_user');
+      if (userStr) {
+        try {
+          const user = JSON.parse(userStr);
+          const uName = (user.username || '').toLowerCase().trim();
+          const match = mecanicosList.find(m => {
+            const mName = m.nombre.toLowerCase().trim();
+            return mName === uName || mName.includes(uName) || uName.includes(mName);
+          });
+          if (match) {
+            selectedMecanico = { id: match.id, nombre: match.nombre };
+            localStorage.setItem('taller_mecanico_id', match.id);
+            localStorage.setItem('taller_mecanico_nombre', match.nombre);
+          }
+        } catch (_) {}
+      }
+    }
+
     // Filtrar órdenes activas (no finalizadas)
     const ESTADOS_ACTIVOS = ['Diagnostico', 'En Proceso', 'Esperando Repuestos'];
     ordenesList = ordenes.filter(o => ESTADOS_ACTIVOS.includes(o.estado));
@@ -171,11 +192,21 @@ function renderSelectorMecanico() {
         <div class="taller-mecanicos-grid">
           ${cardsHtml}
         </div>
+
+        <div style="margin-top:24px; display:flex; justify-content:center;">
+          <button id="btn-login-to-kanban" style="background:transparent; border:1px solid #475569; color:#94a3b8; font-size:12px; font-weight:700; padding:8px 18px; border-radius:6px; cursor:pointer; display:flex; align-items:center; gap:6px;">
+            📋 Ver Tablero General (Kanban)
+          </button>
+        </div>
       </div>
     </div>
   `;
 
   // Event Listeners
+  document.getElementById('btn-login-to-kanban')?.addEventListener('click', () => {
+    window.navigate('/operaciones');
+  });
+
   containerEl.querySelectorAll('.taller-mecanico-card').forEach(btn => {
     btn.addEventListener('click', () => {
       const id = btn.dataset.id;
@@ -261,6 +292,9 @@ function renderListaTrabajos() {
           <h2>Panel de Operación Mecánica</h2>
         </div>
         <div class="taller-topbar-right">
+          <button class="taller-btn-logout" id="btn-topbar-kanban" style="background:#0284c7; border-color:#0369a1; color:#fff; font-weight:700;">
+            📋 Ver Kanban
+          </button>
           <div class="taller-user-info">
             <span>Mecánico:</span>
             <strong>${selectedMecanico.nombre}</strong>
@@ -288,6 +322,10 @@ function renderListaTrabajos() {
   `;
 
   // Listeners
+  document.getElementById('btn-topbar-kanban')?.addEventListener('click', () => {
+    window.navigate('/operaciones');
+  });
+
   document.getElementById('btn-logout-taller')?.addEventListener('click', () => {
     localStorage.removeItem('taller_mecanico_id');
     localStorage.removeItem('taller_mecanico_nombre');

@@ -69,8 +69,8 @@ export async function init(container) {
             <div class="form-group" style="display:flex;flex-direction:column;gap:6px;">
               <label class="form-label font-bold text-xs" style="color:var(--slate-4);">Rol / Permisos</label>
               <select id="usr-rol" class="form-select" required style="border:1px solid var(--slate-8);border-radius:var(--radius-sm);padding:8px 12px;font-size:12px;background:var(--white);outline:none;">
-                <option value="operario">Operario (Taller/Recepción)</option>
-                <option value="administrador">Administrador (Acceso Total)</option>
+                <option value="operario">Operario / Mecánico (Inicio directo en Portal Taller / Sin Facturación)</option>
+                <option value="administrador">Administrador (Acceso Total y Facturación)</option>
               </select>
             </div>
 
@@ -133,8 +133,8 @@ function renderUsers() {
     }) : '---';
 
     const rolBadge = user.rol === 'administrador' 
-      ? `<span style="background:var(--brand-light);color:var(--brand-dark);padding:2px 8px;border-radius:var(--radius-sm);font-weight:700;">Administrador</span>` 
-      : `<span style="background:var(--slate-8);color:var(--slate-4);padding:2px 8px;border-radius:var(--radius-sm);font-weight:600;">Operario</span>`;
+      ? `<span style="background:#ecfdf5;color:#065f46;border:1px solid #a7f3d0;padding:2px 8px;border-radius:4px;font-weight:700;font-size:11px;">👑 Administrador</span>` 
+      : `<span style="background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;padding:2px 8px;border-radius:4px;font-weight:700;font-size:11px;">🛠️ Operario / Mecánico</span>`;
 
     return `
       <tr style="border-bottom:1px solid var(--slate-8);background:var(--white);">

@@ -149,9 +149,13 @@ function attachEvents() {
       // Guardar token y datos del usuario
       localStorage.setItem('vargas_token', data.token);
       localStorage.setItem('vargas_user', JSON.stringify(data.user));
-      // Redirigir al dashboard principal
+      // Redirigir según el rol del usuario
       window.location.hash = '';
-      window.navigate('/');
+      if (data.user && data.user.rol === 'operario') {
+        window.navigate('/taller');
+      } else {
+        window.navigate('/');
+      }
     } catch (err) {
       showError(err.message || 'Credenciales incorrectas. Intenta de nuevo.');
     } finally {
