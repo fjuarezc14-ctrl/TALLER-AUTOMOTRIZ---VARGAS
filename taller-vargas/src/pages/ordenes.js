@@ -1,8 +1,9 @@
 import { 
   getOrdenes, getOrdenesEnProceso, getOrden, createOrden, updateOrden,
   cambiarEstado, addItem, deleteItem, getVehiculos, getMecanicos, getAlmacen,
-  getClientes, guardarDiagnosticoOrden, patchNotaInternaOrden
+  getClientes, createCliente, createVehiculo, guardarDiagnosticoOrden, patchNotaInternaOrden
 } from '../api.js';
+
 import { safeFormatDate, safeFormatDateTime, debounce } from '../utils.js';
 import { 
   dmgColors, 
@@ -286,6 +287,37 @@ function renderPage() {
   if (formRapida) {
     formRapida.addEventListener('submit', guardarRecepcionRapida);
   }
+
+  // --- EVENTOS DE REGISTRO INLINE (CLIENTE Y VEHÍCULO) ---
+  const btnInlineAddCli = document.getElementById('btn-inline-add-cliente');
+  if (btnInlineAddCli) btnInlineAddCli.addEventListener('click', () => abrirModalInlineCliente('stepper'));
+
+  const btnRapidaAddCli = document.getElementById('btn-rapida-add-cliente');
+  if (btnRapidaAddCli) btnRapidaAddCli.addEventListener('click', () => abrirModalInlineCliente('rapida'));
+
+  const btnCloseInlineCliX = document.getElementById('btn-close-inline-cli-x');
+  if (btnCloseInlineCliX) btnCloseInlineCliX.addEventListener('click', cerrarModalInlineCliente);
+
+  const btnCloseInlineCliCancel = document.getElementById('btn-close-inline-cli-cancel');
+  if (btnCloseInlineCliCancel) btnCloseInlineCliCancel.addEventListener('click', cerrarModalInlineCliente);
+
+  const formInlineCli = document.getElementById('form-inline-cliente');
+  if (formInlineCli) formInlineCli.addEventListener('submit', guardarInlineCliente);
+
+  const btnInlineAddVeh = document.getElementById('btn-inline-add-vehiculo');
+  if (btnInlineAddVeh) btnInlineAddVeh.addEventListener('click', () => abrirModalInlineVehiculo('stepper'));
+
+  const btnRapidaAddVeh = document.getElementById('btn-rapida-add-vehiculo');
+  if (btnRapidaAddVeh) btnRapidaAddVeh.addEventListener('click', () => abrirModalInlineVehiculo('rapida'));
+
+  const btnCloseInlineVehX = document.getElementById('btn-close-inline-veh-x');
+  if (btnCloseInlineVehX) btnCloseInlineVehX.addEventListener('click', cerrarModalInlineVehiculo);
+
+  const btnCloseInlineVehCancel = document.getElementById('btn-close-inline-veh-cancel');
+  if (btnCloseInlineVehCancel) btnCloseInlineVehCancel.addEventListener('click', cerrarModalInlineVehiculo);
+
+  const formInlineVeh = document.getElementById('form-inline-vehiculo');
+  if (formInlineVeh) formInlineVeh.addEventListener('submit', guardarInlineVehiculo);
 
   // --- EVENTOS DEL STEPPER DE RECEPCIÓN ---
   currentStep = 1;
@@ -1282,7 +1314,12 @@ function renderModales() {
                 </div>
                 <div class="grid grid-cols-2 gap-3">
                   <div class="form-group" style="margin:0;">
-                    <label class="form-label">Cliente</label>
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                      <label class="form-label" style="margin:0;">Cliente *</label>
+                      <button type="button" id="btn-inline-add-cliente" style="background:#f0fdf4; border:1px solid #bbf7d0; color:#166534; font-size:10.5px; font-weight:800; padding:2px 8px; border-radius:5px; cursor:pointer; display:flex; align-items:center; gap:3px;">
+                        ➕ Registrar Cliente
+                      </button>
+                    </div>
                     <input type="text" id="cli-search-input" class="form-input" placeholder="🔍 Escribir nombre del cliente..." autocomplete="off" style="font-size:12px;" />
                     <select id="cli-select-id" class="form-select" required style="margin-top:6px;">
                       <option value="">-- Seleccionar cliente --</option>
@@ -1290,7 +1327,12 @@ function renderModales() {
                     </select>
                   </div>
                   <div class="form-group" style="margin:0;">
-                    <label class="form-label">Vehículo / Placa</label>
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                      <label class="form-label" style="margin:0;">Vehículo / Placa *</label>
+                      <button type="button" id="btn-inline-add-vehiculo" style="background:#eff6ff; border:1px solid #bfdbfe; color:#1e40af; font-size:10.5px; font-weight:800; padding:2px 8px; border-radius:5px; cursor:pointer; display:flex; align-items:center; gap:3px;">
+                        ➕ Registrar Vehículo
+                      </button>
+                    </div>
                     <input type="text" id="veh-search-input" class="form-input" placeholder="🔍 Buscar por placa o modelo..." autocomplete="off" style="font-size:12px;" />
                     <select id="veh-select-id" class="form-select" required style="margin-top:6px;">
                       <option value="">-- Primero selecciona un cliente --</option>
@@ -1302,6 +1344,7 @@ function renderModales() {
                   </div>
                 </div>
               </div>
+
 
               <!-- Conductor diferente al propietario -->
               <div style="background:var(--slate-9);border:1px solid var(--slate-8);border-radius:var(--radius-md);padding:12px;display:flex;flex-direction:column;gap:10px;margin-top:10px;">
@@ -2008,10 +2051,15 @@ function renderModales() {
             
             <!-- 1. Cliente -->
             <div class="form-group" style="margin:0;">
-              <label class="form-label" style="font-weight:700; font-size:12px; display:flex; justify-content:space-between;">
-                <span>👤 Cliente Propietario *</span>
-                <span id="rapida-cli-doc-hint" style="font-weight:normal; color:var(--slate-5); font-size:11px;"></span>
-              </label>
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                <label class="form-label" style="margin:0; font-weight:700; font-size:12px;">👤 Cliente Propietario *</label>
+                <div style="display:flex; align-items:center; gap:8px;">
+                  <span id="rapida-cli-doc-hint" style="font-weight:normal; color:var(--slate-5); font-size:11px;"></span>
+                  <button type="button" id="btn-rapida-add-cliente" style="background:#f0fdf4; border:1px solid #bbf7d0; color:#166534; font-size:10.5px; font-weight:800; padding:2px 8px; border-radius:5px; cursor:pointer; display:flex; align-items:center; gap:3px;">
+                    ➕ Nuevo Cliente
+                  </button>
+                </div>
+              </div>
               <input type="text" id="rapida-cli-search" class="form-input" placeholder="🔍 Buscar cliente por nombre o documento..." style="margin-bottom:6px; font-size:12px;" autocomplete="off" />
               <select id="rapida-cli-select" class="form-select" required style="font-size:12px;">
                 <option value="">-- Seleccionar cliente --</option>
@@ -2021,11 +2069,17 @@ function renderModales() {
 
             <!-- 2. Vehículo -->
             <div class="form-group" style="margin:0;">
-              <label class="form-label" style="font-weight:700; font-size:12px;">🚗 Vehículo / Placa *</label>
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                <label class="form-label" style="margin:0; font-weight:700; font-size:12px;">🚗 Vehículo / Placa *</label>
+                <button type="button" id="btn-rapida-add-vehiculo" style="background:#eff6ff; border:1px solid #bfdbfe; color:#1e40af; font-size:10.5px; font-weight:800; padding:2px 8px; border-radius:5px; cursor:pointer; display:flex; align-items:center; gap:3px;">
+                  ➕ Nuevo Vehículo
+                </button>
+              </div>
               <select id="rapida-veh-select" class="form-select" required style="font-size:12px;">
                 <option value="">-- Primero selecciona un cliente --</option>
               </select>
             </div>
+
 
             <!-- 3. Kilometraje y Combustible -->
             <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
@@ -2070,8 +2124,123 @@ function renderModales() {
         </form>
       </div>
     </div>
+
+    <!-- Mini-Modal Inline: Nuevo Cliente -->
+    <div id="modal-inline-cliente" class="modal-overlay" style="z-index:1100; background:rgba(0,0,0,0.65);">
+      <div class="modal" style="max-width:440px; width:100%; border:1px solid var(--slate-7); box-shadow:var(--shadow-xl);">
+        <div class="modal-header" style="background:#f0fdf4; border-bottom:1px solid #bbf7d0;">
+          <div class="flex items-center gap-2">
+            <span style="font-size:18px;">👤</span>
+            <div>
+              <span class="modal-title" style="font-size:14px; font-weight:800; color:#166534;">Registrar Nuevo Cliente</span>
+              <p style="font-size:10px; color:#15803d; margin:0;">Se seleccionará automáticamente al guardar sin perder tu orden.</p>
+            </div>
+          </div>
+          <button type="button" class="modal-close" id="btn-close-inline-cli-x">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+          </button>
+        </div>
+        <form id="form-inline-cliente" novalidate>
+          <div class="modal-body" style="display:flex; flex-direction:column; gap:12px; padding:16px;">
+            <div class="form-group" style="margin:0;">
+              <label class="form-label" style="font-size:11px; font-weight:700;">Nombre Completo o Razón Social *</label>
+              <input type="text" id="inline-cli-nombre" class="form-input" required placeholder="Ej: Juan Pérez / Inversiones SAC" style="font-size:12px;" />
+            </div>
+            <div style="display:grid; grid-template-columns:110px 1fr; gap:10px;">
+              <div class="form-group" style="margin:0;">
+                <label class="form-label" style="font-size:11px; font-weight:700;">Tipo Doc *</label>
+                <select id="inline-cli-tipo-doc" class="form-select" style="font-size:12px;">
+                  <option value="DNI">DNI</option>
+                  <option value="RUC">RUC</option>
+                  <option value="CE">CE</option>
+                  <option value="Pasaporte">Pasaporte</option>
+                </select>
+              </div>
+              <div class="form-group" style="margin:0;">
+                <label class="form-label" style="font-size:11px; font-weight:700;">N° Documento *</label>
+                <input type="text" id="inline-cli-num-doc" class="form-input" required placeholder="Ej: 70123456" maxlength="20" style="font-size:12px; font-family:monospace;" />
+              </div>
+            </div>
+            <div class="form-group" style="margin:0;">
+              <label class="form-label" style="font-size:11px; font-weight:700;">Teléfono / WhatsApp *</label>
+              <input type="tel" id="inline-cli-telefono" class="form-input" required placeholder="Ej: 987654321" maxlength="15" style="font-size:12px;" />
+            </div>
+            <div class="form-group" style="margin:0;">
+              <label class="form-label" style="font-size:11px; font-weight:700;">Dirección (Opcional)</label>
+              <input type="text" id="inline-cli-direccion" class="form-input" placeholder="Ej: Av. Hoyos Rubio 123, Cajamarca" style="font-size:12px;" />
+            </div>
+          </div>
+          <div class="modal-footer" style="display:flex; justify-content:space-between; padding:10px 16px; background:var(--slate-9); border-top:1px solid var(--slate-8);">
+            <button type="button" class="btn-ghost" id="btn-close-inline-cli-cancel" style="font-size:12px; padding:6px 12px;">Cancelar</button>
+            <button type="submit" class="btn-primary" id="btn-submit-inline-cli" style="background:#059669; border-color:#047857; font-weight:800; font-size:12px; padding:6px 14px;">
+              💾 Guardar y Seleccionar
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Mini-Modal Inline: Nuevo Vehículo -->
+    <div id="modal-inline-vehiculo" class="modal-overlay" style="z-index:1100; background:rgba(0,0,0,0.65);">
+      <div class="modal" style="max-width:460px; width:100%; border:1px solid var(--slate-7); box-shadow:var(--shadow-xl);">
+        <div class="modal-header" style="background:#eff6ff; border-bottom:1px solid #bfdbfe;">
+          <div class="flex items-center gap-2">
+            <span style="font-size:18px;">🚗</span>
+            <div>
+              <span class="modal-title" style="font-size:14px; font-weight:800; color:#1e40af;">Registrar Nuevo Vehículo</span>
+              <p style="font-size:10px; color:#2563eb; margin:0;">Se asociará al cliente y se seleccionará en la orden.</p>
+            </div>
+          </div>
+          <button type="button" class="modal-close" id="btn-close-inline-veh-x">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+          </button>
+        </div>
+        <form id="form-inline-vehiculo" novalidate>
+          <div class="modal-body" style="display:flex; flex-direction:column; gap:12px; padding:16px;">
+            <div style="display:grid; grid-template-columns:130px 1fr; gap:10px;">
+              <div class="form-group" style="margin:0;">
+                <label class="form-label" style="font-size:11px; font-weight:700;">Placa *</label>
+                <input type="text" id="inline-veh-placa" class="form-input" required placeholder="Ej: P2Q-742" maxlength="10" style="text-transform:uppercase; font-family:monospace; font-weight:800; font-size:13px;" />
+              </div>
+              <div class="form-group" style="margin:0;">
+                <label class="form-label" style="font-size:11px; font-weight:700;">Marca y Modelo *</label>
+                <input type="text" id="inline-veh-marca-modelo" class="form-input" required placeholder="Ej: Toyota Hilux 2.8" style="font-size:12px;" />
+              </div>
+            </div>
+            <div class="form-group" style="margin:0;">
+              <label class="form-label" style="font-size:11px; font-weight:700;">Cliente Propietario *</label>
+              <select id="inline-veh-cliente-id" class="form-select" required style="font-size:12px;">
+                <option value="">-- Seleccionar cliente --</option>
+                ${clientesList.map(c => `<option value="${c.id}">${c.nombre} (${c.num_doc || 'S/D'})</option>`).join('')}
+              </select>
+            </div>
+            <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px;">
+              <div class="form-group" style="margin:0;">
+                <label class="form-label" style="font-size:11px; font-weight:700;">Año</label>
+                <input type="number" id="inline-veh-anio" class="form-input" min="1980" max="2030" placeholder="Ej: 2022" style="font-size:12px;" />
+              </div>
+              <div class="form-group" style="margin:0;">
+                <label class="form-label" style="font-size:11px; font-weight:700;">Color</label>
+                <input type="text" id="inline-veh-color" class="form-input" placeholder="Ej: Blanco" style="font-size:12px;" />
+              </div>
+              <div class="form-group" style="margin:0;">
+                <label class="form-label" style="font-size:11px; font-weight:700;">Km Actual</label>
+                <input type="number" id="inline-veh-km" class="form-input" min="0" placeholder="Ej: 45000" style="font-size:12px;" />
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer" style="display:flex; justify-content:space-between; padding:10px 16px; background:var(--slate-9); border-top:1px solid var(--slate-8);">
+            <button type="button" class="btn-ghost" id="btn-close-inline-veh-cancel" style="font-size:12px; padding:6px 12px;">Cancelar</button>
+            <button type="submit" class="btn-primary" id="btn-submit-inline-veh" style="background:#0284c7; border-color:#0369a1; font-weight:800; font-size:12px; padding:6px 14px;">
+              💾 Guardar y Seleccionar
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   `;
 }
+
 
 // ─── Modal Recepción Rápida (Express) ─────────────────────────
 function abrirModalRecepcionRapida() {
@@ -2179,6 +2348,206 @@ async function guardarRecepcionRapida(e) {
     if (submitBtn) {
       submitBtn.disabled = false;
       submitBtn.innerHTML = '⚡ Registrar Ingreso Inmediato';
+    }
+  }
+}
+
+let inlineClienteOrigin = 'stepper';
+let inlineVehiculoOrigin = 'stepper';
+
+function abrirModalInlineCliente(origin = 'stepper') {
+  inlineClienteOrigin = origin;
+  const modal = document.getElementById('modal-inline-cliente');
+  const form = document.getElementById('form-inline-cliente');
+  if (form) form.reset();
+  if (modal) {
+    modal.classList.add('active');
+    setTimeout(() => {
+      const inputNombre = document.getElementById('inline-cli-nombre');
+      if (inputNombre) inputNombre.focus();
+    }, 50);
+  }
+}
+
+function cerrarModalInlineCliente() {
+  const modal = document.getElementById('modal-inline-cliente');
+  if (modal) modal.classList.remove('active');
+}
+
+async function guardarInlineCliente(e) {
+  e.preventDefault();
+  const nombre = document.getElementById('inline-cli-nombre')?.value.trim();
+  const tipo_doc = document.getElementById('inline-cli-tipo-doc')?.value || 'DNI';
+  const num_doc = document.getElementById('inline-cli-num-doc')?.value.trim();
+  const telefono = document.getElementById('inline-cli-telefono')?.value.trim();
+  const direccion = document.getElementById('inline-cli-direccion')?.value.trim() || null;
+
+  if (!nombre) { alert('Por favor, ingresa el nombre o razón social del cliente.'); return; }
+  if (!num_doc) { alert('Por favor, ingresa el número de documento.'); return; }
+  if (!telefono) { alert('Por favor, ingresa el teléfono o WhatsApp.'); return; }
+
+  const submitBtn = document.getElementById('btn-submit-inline-cli');
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Guardando...';
+  }
+
+  try {
+    const nuevoCliente = await createCliente({
+      nombre,
+      tipo_doc,
+      num_doc,
+      telefono,
+      direccion
+    });
+
+    store.invalidate('clientes');
+    clientesList = await store.getClientes();
+
+    // Actualizar select del Stepper de Nueva Orden
+    const cliSelect = document.getElementById('cli-select-id');
+    if (cliSelect) {
+      cliSelect.innerHTML = '<option value="">-- Seleccionar cliente --</option>' +
+        clientesList.map(c => `<option value="${c.id}">${c.nombre} (${c.num_doc || 'S/D'})</option>`).join('');
+    }
+
+    // Actualizar select de Recepción Rápida
+    const rapidaCliSelect = document.getElementById('rapida-cli-select');
+    if (rapidaCliSelect) {
+      rapidaCliSelect.innerHTML = '<option value="">-- Seleccionar cliente --</option>' +
+        clientesList.map(c => `<option value="${c.id}">${c.nombre} (${c.num_doc || 'S/D'})</option>`).join('');
+    }
+
+    // Actualizar select de propietario en modal de vehículo inline
+    const inlineVehCliSelect = document.getElementById('inline-veh-cliente-id');
+    if (inlineVehCliSelect) {
+      inlineVehCliSelect.innerHTML = '<option value="">-- Seleccionar cliente --</option>' +
+        clientesList.map(c => `<option value="${c.id}">${c.nombre} (${c.num_doc || 'S/D'})</option>`).join('');
+      inlineVehCliSelect.value = nuevoCliente.id;
+    }
+
+    // Auto-seleccionar según origen
+    if (inlineClienteOrigin === 'rapida') {
+      if (rapidaCliSelect) rapidaCliSelect.value = nuevoCliente.id;
+      actualizarVehiculosRecepcionRapida();
+    } else {
+      if (cliSelect) cliSelect.value = nuevoCliente.id;
+      filtrarVehiculosPorCliente();
+      if (window.guardarBorradorEnLocalStorage) window.guardarBorradorEnLocalStorage();
+    }
+
+    cerrarModalInlineCliente();
+    alert(`✅ Cliente "${nuevoCliente.nombre}" registrado y seleccionado.`);
+  } catch (err) {
+    alert(`❌ Error al registrar cliente: ${err.message}`);
+  } finally {
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = '💾 Guardar y Seleccionar';
+    }
+  }
+}
+
+function abrirModalInlineVehiculo(origin = 'stepper') {
+  inlineVehiculoOrigin = origin;
+  const modal = document.getElementById('modal-inline-vehiculo');
+  const form = document.getElementById('form-inline-vehiculo');
+  if (form) form.reset();
+
+  // Preseleccionar el cliente actualmente elegido si existe
+  const inlineVehCliSelect = document.getElementById('inline-veh-cliente-id');
+  if (inlineVehCliSelect) {
+    inlineVehCliSelect.innerHTML = '<option value="">-- Seleccionar cliente --</option>' +
+      clientesList.map(c => `<option value="${c.id}">${c.nombre} (${c.num_doc || 'S/D'})</option>`).join('');
+    
+    let currentSelectedCliId = '';
+    if (origin === 'rapida') {
+      currentSelectedCliId = document.getElementById('rapida-cli-select')?.value || '';
+    } else {
+      currentSelectedCliId = document.getElementById('cli-select-id')?.value || '';
+    }
+    if (currentSelectedCliId) {
+      inlineVehCliSelect.value = currentSelectedCliId;
+    }
+  }
+
+  if (modal) {
+    modal.classList.add('active');
+    setTimeout(() => {
+      const inputPlaca = document.getElementById('inline-veh-placa');
+      if (inputPlaca) inputPlaca.focus();
+    }, 50);
+  }
+}
+
+function cerrarModalInlineVehiculo() {
+  const modal = document.getElementById('modal-inline-vehiculo');
+  if (modal) modal.classList.remove('active');
+}
+
+async function guardarInlineVehiculo(e) {
+  e.preventDefault();
+  const placa = document.getElementById('inline-veh-placa')?.value.trim().toUpperCase();
+  const marca_modelo = document.getElementById('inline-veh-marca-modelo')?.value.trim();
+  const cliente_id = document.getElementById('inline-veh-cliente-id')?.value;
+  const anio = document.getElementById('inline-veh-anio')?.value ? parseInt(document.getElementById('inline-veh-anio').value) : null;
+  const color = document.getElementById('inline-veh-color')?.value.trim() || null;
+  const km_actual = document.getElementById('inline-veh-km')?.value ? parseInt(document.getElementById('inline-veh-km').value) : 0;
+
+  if (!placa) { alert('Por favor, ingresa el número de placa.'); return; }
+  if (!marca_modelo) { alert('Por favor, ingresa la marca y modelo.'); return; }
+  if (!cliente_id) { alert('Por favor, selecciona el cliente propietario.'); return; }
+
+  const submitBtn = document.getElementById('btn-submit-inline-veh');
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Guardando...';
+  }
+
+  try {
+    const nuevoVehiculo = await createVehiculo({
+      placa,
+      marca_modelo,
+      cliente_id: parseInt(cliente_id),
+      anio,
+      color,
+      km_actual
+    });
+
+    store.invalidate('vehiculos');
+    vehiculosList = await store.getVehiculos();
+
+    // Auto-seleccionar según origen
+    if (inlineVehiculoOrigin === 'rapida') {
+      const rapidaCliSelect = document.getElementById('rapida-cli-select');
+      if (rapidaCliSelect) rapidaCliSelect.value = nuevoVehiculo.cliente_id;
+      actualizarVehiculosRecepcionRapida();
+      const rapidaVehSelect = document.getElementById('rapida-veh-select');
+      if (rapidaVehSelect) rapidaVehSelect.value = nuevoVehiculo.id;
+      const rapidaKm = document.getElementById('rapida-km-input');
+      if (rapidaKm && nuevoVehiculo.km_actual > 0) rapidaKm.value = nuevoVehiculo.km_actual;
+    } else {
+      const cliSelect = document.getElementById('cli-select-id');
+      if (cliSelect) cliSelect.value = nuevoVehiculo.cliente_id;
+      filtrarVehiculosPorCliente();
+      const vehSelect = document.getElementById('veh-select-id');
+      if (vehSelect) vehSelect.value = nuevoVehiculo.id;
+      if (nuevoVehiculo.km_actual > 0) {
+        const ordKm = document.getElementById('ord-km');
+        if (ordKm) ordKm.value = nuevoVehiculo.km_actual;
+        mostrarKmAnterior(nuevoVehiculo.km_actual);
+      }
+      if (window.guardarBorradorEnLocalStorage) window.guardarBorradorEnLocalStorage();
+    }
+
+    cerrarModalInlineVehiculo();
+    alert(`✅ Vehículo con placa "${nuevoVehiculo.placa}" registrado y seleccionado.`);
+  } catch (err) {
+    alert(`❌ Error al registrar vehículo: ${err.message}`);
+  } finally {
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = '💾 Guardar y Seleccionar';
     }
   }
 }
