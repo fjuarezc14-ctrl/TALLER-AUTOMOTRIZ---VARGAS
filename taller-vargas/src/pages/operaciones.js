@@ -3,6 +3,8 @@ import {
   getMecanicosStats, createMecanico, updateMecanico, patchOrdenMecanico
 } from '../api.js';
 import * as TallerModule from './taller.js';
+import { store } from '../store.js';
+
 
 // ─────────────────────────────────────────────────────────────
 // ESTADO LOCAL DEL MÓDULO
@@ -401,27 +403,92 @@ function renderKanban(container) {
     }
   });
 
-  // Flechas de cambio de estado
+  // Manejador de acciones contextuales guiadas en tarjetas Kanban
   board.addEventListener('click', async e => {
-    const btn = e.target.closest('.btn-kanban-move');
-    if (!btn) return;
-    const ordenId  = btn.dataset.ordenId;
-    const nuevoEst = btn.dataset.estado;
-    btn.classList.add('loading');
-    btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" class="animate-spin"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>`;
+    const actionBtn = e.target.closest('.btn-kanban-action');
+    if (!actionBtn) return;
+
+    const ordenId = actionBtn.dataset.ordenId;
+    const action = actionBtn.dataset.action;
+    const ord = ordenesList.find(o => o.id == ordenId);
+    if (!ord) return;
+
+    let nuevoEst = null;
+    let extra = {};
+
+    switch (action) {
+      case 'iniciar':
+        nuevoEst = 'En Proceso';
+        break;
+
+      case 'repuestos': {
+        const motivo = prompt(
+          '📦 ¿Qué repuestos se necesitan y quién se encarga de conseguirlos?\n\n' +
+          'Ejemplo: "2 pastillas Bosch, se mandó a comprar de otra ciudad, llega el viernes"',
+          ord.repuestos_esperando || ''
+        );
+        if (motivo === null) return;
+        if (!motivo.trim()) {
+          alert('Por favor ingrese el detalle de los repuestos necesarios.');
+          return;
+        }
+        nuevoEst = 'Esperando Repuestos';
+        extra.repuestos_esperando = motivo.trim();
+        break;
+      }
+
+      case 'terminar':
+        if (!confirm('¿Confirmar que el trabajo en el vehículo ha terminado?\n\nLa orden pasará a "Listo para Entrega" y se generará la cuenta por cobrar en Facturación.')) return;
+        nuevoEst = 'Finalizado';
+        extra.pasar_facturacion = true;
+        break;
+
+      case 'rep_listos':
+        if (!confirm('¿Los repuestos ya llegaron al taller?\n\nLa orden volverá a "En Proceso" para continuar con la reparación.')) return;
+        nuevoEst = 'En Proceso';
+        extra.repuestos_esperando = '';
+        break;
+
+      case 'volver_diag':
+        nuevoEst = 'Diagnostico';
+        break;
+
+      case 'volver_proc':
+        nuevoEst = 'En Proceso';
+        break;
+
+      case 'cobrar':
+        if (window.navigate) {
+          window.navigate(`/facturacion?cobrar=${ordenId}`);
+        } else {
+          window.location.href = `/facturacion?cobrar=${ordenId}`;
+        }
+        return;
+
+      case 'reabrir':
+        if (!confirm('¿Desea reabrir esta orden de servicio?\n\nVolverá al estado "En Proceso".')) return;
+        nuevoEst = 'En Proceso';
+        break;
+    }
+
+    if (!nuevoEst) return;
+
+    actionBtn.classList.add('loading');
+    actionBtn.disabled = true;
+
     try {
       await cambiarEstado(ordenId, {
         estado: nuevoEst,
-        repuestos_esperando: '',
-        pasar_facturacion: nuevoEst === 'Finalizado'
+        repuestos_esperando: extra.repuestos_esperando !== undefined ? extra.repuestos_esperando : '',
+        pasar_facturacion: extra.pasar_facturacion !== undefined ? extra.pasar_facturacion : (nuevoEst === 'Finalizado')
       });
-      const ord = ordenesList.find(o => o.id == ordenId);
-      if (ord) ord.estado = nuevoEst;
-      renderTabContent(); // Re-render kanban
+      ord.estado = nuevoEst;
+      if (extra.repuestos_esperando !== undefined) ord.repuestos_esperando = extra.repuestos_esperando;
+      store.invalidate('all');
+      renderTabContent();
     } catch (err) {
-      btn.classList.remove('loading');
-      btn.innerHTML = '⚠️';
-      setTimeout(() => renderTabContent(), 1500);
+      alert(`⚠️ Error al cambiar estado: ${err.message}`);
+      renderTabContent();
     }
   });
 }
@@ -435,12 +502,69 @@ function renderKanbanCard(o, est) {
   const esCuelloBotella = diasTranscurridos > 3 &&
     (o.estado === 'Diagnostico' || o.estado === 'Esperando Repuestos');
 
-  const prevEst = FLUJO_PREV[o.estado];
-  const nextEst = FLUJO_NEXT[o.estado];
-
   const optsSelect = mecanicosList.map(m =>
     `<option value="${m.id}" ${o.mecanico && o.mecanico === m.nombre ? 'selected' : ''}>${m.nombre}</option>`
   ).join('');
+
+  const isAdmin = window.isAdminAuthorized && window.isAdminAuthorized();
+
+  let actionsHtml = '';
+  if (o.estado === 'Diagnostico') {
+    actionsHtml = `
+      <div class="card-actions" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;">
+        <button class="btn-kanban-action" data-orden-id="${o.id}" data-action="iniciar" style="flex:1;background:#0284c7;color:#fff;border:none;padding:6px 10px;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:4px;">
+          🔧 Reparar
+        </button>
+        <button class="btn-kanban-action" data-orden-id="${o.id}" data-action="repuestos" style="background:#f5f3ff;border:1px solid #c084fc;color:#7c3aed;padding:6px 8px;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer;" title="Solicitar repuestos">
+          📦 Piezas
+        </button>
+      </div>
+    `;
+  } else if (o.estado === 'En Proceso') {
+    actionsHtml = `
+      <div class="card-actions" style="display:flex;gap:5px;flex-wrap:wrap;margin-top:8px;">
+        <button class="btn-kanban-action" data-orden-id="${o.id}" data-action="terminar" style="flex:2;background:#059669;color:#fff;border:none;padding:6px 10px;border-radius:5px;font-size:11px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:4px;">
+          🏁 Terminado
+        </button>
+        <button class="btn-kanban-action" data-orden-id="${o.id}" data-action="repuestos" style="background:#f5f3ff;border:1px solid #c084fc;color:#7c3aed;padding:6px 8px;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer;" title="Solicitar repuestos">
+          📦
+        </button>
+        <button class="btn-kanban-action" data-orden-id="${o.id}" data-action="volver_diag" style="background:var(--slate-8);border:none;color:var(--slate-4);padding:6px 8px;border-radius:5px;font-size:11px;cursor:pointer;" title="Volver a Diagnóstico">
+          ↩️
+        </button>
+      </div>
+    `;
+  } else if (o.estado === 'Esperando Repuestos') {
+    actionsHtml = `
+      <div class="card-actions" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;">
+        <button class="btn-kanban-action" data-orden-id="${o.id}" data-action="rep_listos" style="flex:1;background:#059669;color:#fff;border:none;padding:6px 10px;border-radius:5px;font-size:11px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:4px;">
+          ✅ Repuestos Recibidos
+        </button>
+        <button class="btn-kanban-action" data-orden-id="${o.id}" data-action="volver_proc" style="background:var(--slate-8);border:none;color:var(--slate-4);padding:6px 8px;border-radius:5px;font-size:11px;cursor:pointer;" title="Volver a En Proceso">
+          ↩️
+        </button>
+      </div>
+    `;
+  } else if (o.estado === 'Finalizado') {
+    if (isAdmin) {
+      actionsHtml = `
+        <div class="card-actions" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;">
+          <button class="btn-kanban-action" data-orden-id="${o.id}" data-action="cobrar" style="flex:1;background:#10b981;color:#fff;border:none;padding:6px 10px;border-radius:5px;font-size:11px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:4px;">
+            💳 Cobrar en Caja
+          </button>
+          <button class="btn-kanban-action" data-orden-id="${o.id}" data-action="reabrir" style="background:var(--slate-8);border:none;color:var(--slate-4);padding:6px 8px;border-radius:5px;font-size:11px;cursor:pointer;" title="Reabrir a En Proceso">
+            ↩️
+          </button>
+        </div>
+      `;
+    } else {
+      actionsHtml = `
+        <div style="margin-top:8px;padding:6px;background:#fef3c7;border:1px solid #fde68a;border-radius:5px;font-size:11px;font-weight:700;color:#92400e;text-align:center;">
+          ⏳ Pendiente de cobro en caja
+        </div>
+      `;
+    }
+  }
 
   return `
     <div class="kanban-card ${esCuelloBotella ? 'kanban-card-alerta' : ''}" id="kcard-${o.id}">
@@ -451,6 +575,13 @@ function renderKanbanCard(o, est) {
       <div class="card-diagnostico">${o.falla_reportada || 'Sin diagnóstico'}</div>
       <span class="card-dias-badge ${diasClase}">⏱ ${diasLabel} en taller</span>
 
+      ${o.repuestos_esperando ? `
+        <div class="card-repuestos-badge" style="margin-top:6px;padding:5px 8px;background:#faf5ff;border:1px solid #e9d5ff;border-radius:6px;font-size:11px;color:#6b21a8;line-height:1.35;word-break:break-word;">
+          <strong style="font-size:10px;text-transform:uppercase;">📦 Repuestos pendientes:</strong><br>
+          <span style="font-style:italic;">${o.repuestos_esperando}</span>
+        </div>
+      ` : ''}
+
       <div class="card-mec-row">
         <span class="card-mec-label">🔧</span>
         <select class="card-mec-select" data-orden-id="${o.id}" title="Reasignar mecánico">
@@ -459,17 +590,11 @@ function renderKanbanCard(o, est) {
         </select>
       </div>
 
-      <div class="card-actions">
-        <button class="btn-kanban-move" data-orden-id="${o.id}" data-estado="${prevEst || ''}" ${!prevEst ? 'disabled' : ''} title="Retroceder estado">
-          ← Atrás
-        </button>
-        <button class="btn-kanban-move" data-orden-id="${o.id}" data-estado="${nextEst || ''}" ${!nextEst ? 'disabled' : ''} title="Avanzar estado">
-          Avanzar →
-        </button>
-      </div>
+      ${actionsHtml}
     </div>
   `;
 }
+
 
 function flashCard(ordenId, tipo) {
   const card = document.getElementById(`kcard-${ordenId}`);

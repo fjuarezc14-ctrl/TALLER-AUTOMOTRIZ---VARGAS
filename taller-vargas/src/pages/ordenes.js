@@ -1714,6 +1714,23 @@ function renderModales() {
             <p id="det-total" style="font-size:24px;font-weight:900;font-family:monospace;color:var(--brand);"></p>
           </div>
 
+          <!-- Control de Estado Contextual Guiado -->
+          <div id="det-control-estado-wrapper" style="border-top:1px solid var(--slate-8);padding-top:14px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+              <span style="font-size:11px;font-weight:800;color:var(--slate-5);text-transform:uppercase;letter-spacing:.5px;">
+                ⚡ Flujo de Trabajo (Acciones del Servicio)
+              </span>
+              <span id="det-link-manual-estado" style="display:none;">
+                <a href="javascript:void(0)" id="btn-manual-estado" style="font-size:11px;color:var(--slate-5);text-decoration:underline;">
+                  ⚙️ Cambio manual
+                </a>
+              </span>
+            </div>
+            <div id="det-acciones-estado" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
+              <!-- Botones contextuales inyectados dinámicamente -->
+            </div>
+          </div>
+
           <!-- Botones de Impresión Premium (Requerimiento AÑADIR.txt) -->
           <div class="flex flex-col gap-2 pt-2" style="border-top:1px solid var(--slate-8);">
             <div class="flex gap-3">
@@ -2952,15 +2969,239 @@ async function verDetalleOrden(id) {
     document.getElementById('btn-print-hoja').onclick = () => imprimirDocumento('hoja', o);
     document.getElementById('btn-edit-ord').onclick = () => abrirEditarOrden(o.id);
 
+    // Renderizar barra de acciones contextuales guiadas por estado y rol
+    renderAccionesContextualesOrden(o);
+
     document.getElementById('modal-detalle').classList.add('active');
   } catch (err) {
     alert(err.message);
   }
 }
 
+function renderAccionesContextualesOrden(o) {
+  const container = document.getElementById('det-acciones-estado');
+  const manualLink = document.getElementById('det-link-manual-estado');
+  if (!container) return;
+
+  const isAdmin = window.isAdminAuthorized && window.isAdminAuthorized();
+  if (manualLink) {
+    manualLink.style.display = isAdmin ? 'inline' : 'none';
+    const btnManual = document.getElementById('btn-manual-estado');
+    if (btnManual) {
+      btnManual.onclick = () => {
+        cerrarModalDetalle();
+        abrirModalEstado(o.id);
+      };
+    }
+  }
+
+  let html = '';
+
+  switch (o.estado) {
+    case 'Diagnostico':
+      html = `
+        <button class="btn-primary" id="btn-ctx-iniciar" style="background:#0284c7;color:#fff;font-weight:700;padding:8px 16px;border-radius:6px;font-size:13px;display:flex;align-items:center;gap:6px;">
+          🔧 Iniciar Reparación
+        </button>
+        <button class="btn-ghost" id="btn-ctx-repuestos" style="background:#f5f3ff;border:1px solid #c084fc;color:#7c3aed;font-weight:700;padding:8px 16px;border-radius:6px;font-size:13px;display:flex;align-items:center;gap:6px;">
+          📦 Necesito Repuestos
+        </button>
+        ${isAdmin ? `
+          <button class="btn-ghost" id="btn-ctx-cancelar" style="color:#64748b;font-size:12px;margin-left:auto;">
+            ⛔ No realizó servicio
+          </button>
+        ` : ''}
+      `;
+      break;
+
+    case 'En Proceso':
+      html = `
+        <button class="btn-success" id="btn-ctx-terminar" style="background:#059669;color:#fff;font-weight:800;padding:9px 18px;border-radius:6px;font-size:13px;display:flex;align-items:center;gap:6px;box-shadow:var(--shadow-sm);">
+          🏁 Trabajo Terminado (Listo para Entrega)
+        </button>
+        <button class="btn-ghost" id="btn-ctx-repuestos" style="background:#f5f3ff;border:1px solid #c084fc;color:#7c3aed;font-weight:700;padding:8px 16px;border-radius:6px;font-size:13px;display:flex;align-items:center;gap:6px;">
+          📦 Necesito Repuestos
+        </button>
+        <button class="btn-ghost" id="btn-ctx-volver-diag" style="color:#64748b;font-size:12px;">
+          ↩️ Diagnóstico
+        </button>
+        ${isAdmin ? `
+          <button class="btn-ghost" id="btn-ctx-cancelar" style="color:#64748b;font-size:12px;margin-left:auto;">
+            ⛔ Cancelar servicio
+          </button>
+        ` : ''}
+      `;
+      break;
+
+    case 'Esperando Repuestos':
+      html = `
+        <button class="btn-success" id="btn-ctx-rep-listos" style="background:#059669;color:#fff;font-weight:800;padding:9px 18px;border-radius:6px;font-size:13px;display:flex;align-items:center;gap:6px;">
+          ✅ Repuestos Recibidos (Continuar Trabajo)
+        </button>
+        <button class="btn-ghost" id="btn-ctx-volver-proc" style="color:#64748b;font-size:12px;">
+          ↩️ Volver a En Proceso
+        </button>
+      `;
+      break;
+
+    case 'Finalizado':
+      if (isAdmin) {
+        html = `
+          <button class="btn-primary" id="btn-ctx-cobrar" style="background:#10b981;color:#fff;font-weight:800;padding:9px 18px;border-radius:6px;font-size:13px;display:flex;align-items:center;gap:6px;box-shadow:0 2px 8px rgba(16,185,129,0.3);">
+            💳 Ir a Cobrar en Facturación
+          </button>
+          <button class="btn-ghost" id="btn-ctx-reabrir" style="color:#64748b;font-size:12px;">
+            ↩️ Reabrir servicio (Volver a En Proceso)
+          </button>
+        `;
+      } else {
+        html = `
+          <div style="padding:10px 14px;background:#fef3c7;border:1px solid #fde68a;border-radius:6px;color:#92400e;font-size:13px;font-weight:700;display:flex;align-items:center;gap:8px;width:100%;">
+            <span>⏳</span>
+            <span>Trabajo terminado. Indique al cliente que pase a Caja / Facturación para cancelar y retirar su unidad.</span>
+          </div>
+        `;
+      }
+      break;
+
+    case 'Entregado':
+      html = `
+        <div style="padding:10px 14px;background:#ecfdf5;border:1px solid #a7f3d0;border-radius:6px;color:#065f46;font-size:13px;font-weight:700;display:flex;align-items:center;gap:8px;width:100%;">
+          <span>✅</span>
+          <span>Vehículo entregado al cliente conforme y cuenta liquidada.</span>
+        </div>
+      `;
+      break;
+
+    case 'No realizo servicio':
+      html = `
+        <div style="padding:10px 14px;background:#f1f5f9;border:1px solid #cbd5e1;border-radius:6px;color:#475569;font-size:13px;font-weight:700;display:flex;align-items:center;gap:8px;width:100%;">
+          <span>⛔</span>
+          <span>El servicio fue cancelado o no se realizó.</span>
+        </div>
+        ${isAdmin ? `
+          <button class="btn-ghost" id="btn-ctx-reactivar" style="color:#0284c7;font-size:12px;font-weight:700;">
+            ↩️ Reactivar orden a Diagnóstico
+          </button>
+        ` : ''}
+      `;
+      break;
+
+    default:
+      html = `<span>Estado: ${o.estado}</span>`;
+      break;
+  }
+
+  container.innerHTML = html;
+
+  // Asignar listeners a los botones generados
+  const btnIniciar = document.getElementById('btn-ctx-iniciar');
+  if (btnIniciar) {
+    btnIniciar.onclick = () => ejecutarTransicionContextual(o.id, 'En Proceso');
+  }
+
+  const btnRepuestos = document.getElementById('btn-ctx-repuestos');
+  if (btnRepuestos) {
+    btnRepuestos.onclick = () => {
+      const motivo = prompt(
+        '📦 ¿Qué repuestos se necesitan y quién se encarga de conseguirlos?\n\n' +
+        'Ejemplo: "2 pastillas de freno Bosch, se mandó a comprar de otra ciudad, llega el viernes"',
+        o.repuestos_esperando || ''
+      );
+      if (motivo === null) return;
+      if (!motivo.trim()) {
+        alert('Por favor ingrese el detalle de los repuestos necesarios.');
+        return;
+      }
+      ejecutarTransicionContextual(o.id, 'Esperando Repuestos', { repuestos_esperando: motivo.trim() });
+    };
+  }
+
+  const btnTerminar = document.getElementById('btn-ctx-terminar');
+  if (btnTerminar) {
+    btnTerminar.onclick = () => {
+      if (!confirm('¿Confirmar que el trabajo en el vehículo ha terminado?\n\nLa orden pasará a "Listo para Entrega" y se generará la cuenta por cobrar en Facturación.')) return;
+      ejecutarTransicionContextual(o.id, 'Finalizado', { pasar_facturacion: true });
+    };
+  }
+
+  const btnRepListos = document.getElementById('btn-ctx-rep-listos');
+  if (btnRepListos) {
+    btnRepListos.onclick = () => {
+      if (!confirm('¿Los repuestos ya llegaron al taller?\n\nLa orden volverá a "En Proceso" para continuar con la reparación.')) return;
+      ejecutarTransicionContextual(o.id, 'En Proceso', { repuestos_esperando: '' });
+    };
+  }
+
+  const btnVolverDiag = document.getElementById('btn-ctx-volver-diag');
+  if (btnVolverDiag) {
+    btnVolverDiag.onclick = () => ejecutarTransicionContextual(o.id, 'Diagnostico');
+  }
+
+  const btnVolverProc = document.getElementById('btn-ctx-volver-proc');
+  if (btnVolverProc) {
+    btnVolverProc.onclick = () => ejecutarTransicionContextual(o.id, 'En Proceso');
+  }
+
+  const btnCobrar = document.getElementById('btn-ctx-cobrar');
+  if (btnCobrar) {
+    btnCobrar.onclick = () => {
+      cerrarModalDetalle();
+      if (window.navigate) {
+        window.navigate(`/facturacion?cobrar=${o.id}`);
+      } else {
+        window.location.href = `/facturacion?cobrar=${o.id}`;
+      }
+    };
+  }
+
+  const btnReabrir = document.getElementById('btn-ctx-reabrir');
+  if (btnReabrir) {
+    btnReabrir.onclick = () => {
+      if (!confirm('¿Desea reabrir esta orden de servicio?\n\nVolverá al estado "En Proceso".')) return;
+      ejecutarTransicionContextual(o.id, 'En Proceso');
+    };
+  }
+
+  const btnCancelar = document.getElementById('btn-ctx-cancelar');
+  if (btnCancelar) {
+    btnCancelar.onclick = () => {
+      if (!confirm('¿Está seguro de marcar este servicio como NO REALIZADO?')) return;
+      ejecutarTransicionContextual(o.id, 'No realizo servicio');
+    };
+  }
+
+  const btnReactivar = document.getElementById('btn-ctx-reactivar');
+  if (btnReactivar) {
+    btnReactivar.onclick = () => {
+      if (!confirm('¿Desea reactivar esta orden de servicio a Diagnóstico?')) return;
+      ejecutarTransicionContextual(o.id, 'Diagnostico');
+    };
+  }
+}
+
+async function ejecutarTransicionContextual(ordenId, nuevoEstado, extra = {}) {
+  try {
+    const payload = {
+      estado: nuevoEstado,
+      repuestos_esperando: extra.repuestos_esperando !== undefined ? extra.repuestos_esperando : '',
+      pasar_facturacion: extra.pasar_facturacion !== undefined ? extra.pasar_facturacion : (nuevoEstado === 'Finalizado')
+    };
+
+    await cambiarEstado(ordenId, payload);
+    store.invalidate('all');
+    await cargarDatos();
+    // Refrescar modal de detalle con los datos actualizados
+    await verDetalleOrden(ordenId);
+  } catch (err) {
+    alert(`⚠️ Error al actualizar estado: ${err.message}`);
+  }
+}
+
 function cerrarModalDetalle() {
   document.getElementById('modal-detalle').classList.remove('active');
 }
+
 
 function abrirModalEstado(id) {
   const o = ordenesList.find(item => item.id == id);
