@@ -155,6 +155,25 @@ function renderVehiculos(vehiculos) {
   document.getElementById('btn-close-veh-modal-cancel').addEventListener('click', cerrarModalVehiculo);
   document.getElementById('form-vehiculo').addEventListener('submit', guardarVehiculo);
 
+  // Modal Historial (Cierre por X, botón inferior, overlay y tecla ESC)
+  document.getElementById('btn-close-historial-x').addEventListener('click', cerrarModalHistorial);
+  const btnCloseHistBottom = document.getElementById('btn-close-historial-bottom');
+  if (btnCloseHistBottom) btnCloseHistBottom.addEventListener('click', cerrarModalHistorial);
+  document.getElementById('modal-historial').addEventListener('click', (e) => {
+    if (e.target.id === 'modal-historial') cerrarModalHistorial();
+  });
+  if (!window._historialEscListenerAdded) {
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        const modalHist = document.getElementById('modal-historial');
+        if (modalHist && modalHist.classList.contains('active')) {
+          cerrarModalHistorial();
+        }
+      }
+    });
+    window._historialEscListenerAdded = true;
+  }
+
   // Buscador dinámico de cliente en el modal de vehículo
   document.getElementById('veh-cliente-search').addEventListener('input', (e) => {
     const q = e.target.value.toLowerCase().trim();
@@ -1079,6 +1098,9 @@ function renderModalHistorial() {
               </div>
             </div>
           </div>
+        </div>
+        <div class="modal-footer" style="display:flex;justify-content:flex-end;padding:12px 24px;border-top:1px solid var(--slate-8);">
+          <button type="button" class="btn-ghost" id="btn-close-historial-bottom">Cerrar</button>
         </div>
       </div>
     </div>
