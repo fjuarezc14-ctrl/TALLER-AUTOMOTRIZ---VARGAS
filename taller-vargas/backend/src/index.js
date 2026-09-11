@@ -89,6 +89,11 @@ async function runAuthMigration() {
         rol VARCHAR(50) NOT NULL CHECK (rol IN ('administrador', 'operario')),
         created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
       );
+      ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS intentos_fallidos INTEGER DEFAULT 0;
+      ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS bloqueado_hasta TIMESTAMP WITH TIME ZONE DEFAULT NULL;
+      ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS cuenta_bloqueada BOOLEAN DEFAULT FALSE;
+      ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS bloqueada_motivo TEXT DEFAULT NULL;
+      ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS ultimo_intento_fallido TIMESTAMP WITH TIME ZONE DEFAULT NULL;
     `);
 
     // Crear usuarios por defecto si la tabla está vacía
@@ -155,25 +160,6 @@ app.use("/api/cobros",     cobrosRouter);
 app.use("/api/archivos",   archivosRouter);
 app.use("/api/usuarios",   usuariosRouter);
 
-// ── Login inline (redundante, garantiza compatibilidad Docker) ──
-const JWT_SECRET = process.env.JWT_SECRET || 'taller_vargas_secret_key_2026';
-app.post('/api/auth/login', async (req, res) => {
-  const { username, password } = req.body || {};
-  if (!username || !password) return res.status(400).json({ error: 'Usuario y contraseña requeridos.' });
-  try {
-    const r = await query('SELECT id, username, password_hash, rol FROM usuarios WHERE username=$1', [username.toLowerCase().trim()]);
-    const u = r.rows[0];
-    if (!u || !(await bcrypt.compare(password, u.password_hash))) return res.status(401).json({ error: 'Credenciales incorrectas.' });
-    const token = jwt.sign({ id: u.id, username: u.username, rol: u.rol }, JWT_SECRET, { expiresIn: '12h' });
-    return res.json({ token, user: { id: u.id, username: u.username, rol: u.rol } });
-  } catch (e) { return res.status(500).json({ error: e.message }); }
-});
-app.get('/api/auth/me', (req, res) => {
-  const h = req.headers['authorization'];
-  if (!h?.startsWith('Bearer ')) return res.status(401).json({ error: 'Token requerido.' });
-  try { return res.json({ user: jwt.verify(h.split(' ')[1], JWT_SECRET) }); }
-  catch { return res.status(401).json({ error: 'Token inválido.' }); }
-});
 
 app.use((_req, res) => res.status(404).json({ error: "Ruta no encontrada" }));
 app.use((err, _req, res, _next) => res.status(500).json({ error: err.message }));

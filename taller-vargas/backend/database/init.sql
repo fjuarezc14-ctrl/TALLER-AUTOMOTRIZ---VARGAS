@@ -217,3 +217,17 @@ SELECT ic.*, (ic.cantidad * ic.precio_unitario) AS subtotal FROM items_costo ic;
 CREATE OR REPLACE VIEW v_alertas_stock AS
 SELECT id, codigo, descripcion, categoria, stock, stock_min, (stock_min - stock) AS deficit
 FROM almacen WHERE stock <= stock_min ORDER BY deficit DESC;
+
+-- Tabla de Usuarios y Seguridad
+CREATE TABLE IF NOT EXISTS usuarios (
+  id SERIAL PRIMARY KEY,
+  username VARCHAR(50) NOT NULL UNIQUE,
+  password_hash VARCHAR(255) NOT NULL,
+  rol VARCHAR(50) NOT NULL CHECK (rol IN ('administrador', 'operario')),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  intentos_fallidos INTEGER DEFAULT 0,
+  bloqueado_hasta TIMESTAMP WITH TIME ZONE DEFAULT NULL,
+  cuenta_bloqueada BOOLEAN DEFAULT FALSE,
+  bloqueada_motivo TEXT DEFAULT NULL,
+  ultimo_intento_fallido TIMESTAMP WITH TIME ZONE DEFAULT NULL
+);

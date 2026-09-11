@@ -241,6 +241,12 @@ function renderUsers() {
       ? `<span style="background:#ecfdf5; color:#065f46; border:1px solid #a7f3d0; padding:3px 8px; border-radius:4px; font-weight:700; font-size:11px; display:inline-flex; align-items:center; gap:4px;">👑 Administrador</span>` 
       : `<span style="background:#eff6ff; color:#1e40af; border:1px solid #bfdbfe; padding:3px 8px; border-radius:4px; font-weight:700; font-size:11px; display:inline-flex; align-items:center; gap:4px;">🛠️ Mecánico / Operario</span>`;
 
+    const bloqueoBadge = user.cuenta_bloqueada
+      ? `<div style="margin-top:4px;"><span style="background:#fef2f2; color:#b91c1c; border:1px solid #fecaca; padding:2px 8px; border-radius:4px; font-weight:800; font-size:10px; display:inline-flex; align-items:center; gap:4px;" title="Bloqueado por 5 intentos fallidos consecutivos">🔒 Cuenta Bloqueada (5 fallos)</span></div>`
+      : (user.intentos_fallidos > 0 
+          ? `<div style="margin-top:4px;"><span style="background:#fffbeb; color:#b45309; border:1px solid #fef3c7; padding:2px 6px; border-radius:4px; font-weight:700; font-size:10px; display:inline-flex; align-items:center; gap:3px;">⚠️ ${user.intentos_fallidos}/5 fallos</span></div>`
+          : '');
+
     // Carga de trabajo
     const activas = parseInt(user.ordenes_activas) || 0;
     const completadas = parseInt(user.ordenes_completadas) || 0;
@@ -280,11 +286,11 @@ function renderUsers() {
     const nombreCompleto = user.nombre_completo || user.username;
 
     return `
-      <tr style="border-bottom:1px solid var(--slate-8); background:var(--white); transition:background 0.15s;">
+      <tr style="border-bottom:1px solid var(--slate-8); background:${user.cuenta_bloqueada ? 'rgba(254, 242, 242, 0.4)' : 'var(--white)'}; transition:background 0.15s;">
         <td class="p-4">
           <div style="display:flex; align-items:center; gap:10px;">
-            <div style="width:34px; height:34px; border-radius:8px; background:${isOperario ? '#f0fdf4' : '#eff6ff'}; color:${isOperario ? '#166534' : '#1e40af'}; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:12px;">
-              ${(nombreCompleto.slice(0, 2)).toUpperCase()}
+            <div style="width:34px; height:34px; border-radius:8px; background:${user.cuenta_bloqueada ? '#fee2e2' : (isOperario ? '#f0fdf4' : '#eff6ff')}; color:${user.cuenta_bloqueada ? '#dc2626' : (isOperario ? '#166534' : '#1e40af')}; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:12px;">
+              ${user.cuenta_bloqueada ? '🔒' : (nombreCompleto.slice(0, 2)).toUpperCase()}
             </div>
             <div>
               <div style="font-weight:800; color:var(--dark); font-size:13px;">${escapeHtml(nombreCompleto)}</div>
@@ -292,11 +298,16 @@ function renderUsers() {
             </div>
           </div>
         </td>
-        <td class="p-4">${rolBadge}</td>
+        <td class="p-4">${rolBadge} ${bloqueoBadge}</td>
         <td class="p-4">${cargaHtml}</td>
         <td class="p-4 text-slate-400 font-medium">${fecha}</td>
         <td class="p-4 text-right">
-          <div style="display:inline-flex; gap:6px;">
+          <div style="display:inline-flex; gap:6px; flex-wrap:wrap; justify-content:flex-end;">
+            ${user.cuenta_bloqueada ? `
+              <button onclick="window.unlockUser(${user.id}, '${escapeHtml(user.username)}')" class="btn-ghost" title="Desbloquear cuenta de acceso" style="padding:6px 10px; border:1px solid #fed7aa; border-radius:var(--radius-sm); background:#fff7ed; cursor:pointer; color:#c2410c; font-size:11px; font-weight:800; display:inline-flex; align-items:center; gap:4px;">
+                🔓 Desbloquear
+              </button>
+            ` : ''}
             <button onclick="window.editUser(${user.id})" class="btn-ghost" title="Editar datos" style="padding:6px 10px; border:1px solid var(--slate-7); border-radius:var(--radius-sm); background:var(--white); cursor:pointer; color:var(--slate-4); font-size:11px; font-weight:700; display:inline-flex; align-items:center; gap:4px;">
               <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
               Editar
@@ -331,8 +342,11 @@ function setupEvents() {
       document.getElementById('usr-nombre-completo').value = user.nombre_completo || user.username;
       document.getElementById('usr-username').value = user.username;
       document.getElementById('usr-rol').value = user.rol;
-      pwdInput.required = false;
-      pwdInput.placeholder = '••••••••';
+      if (user && user.cuenta_bloqueada) {
+        pwdHelp.innerHTML = 'Dejar en blanco para mantener la actual.<br><span style="color:#dc2626; font-weight:800;">🔒 Esta cuenta está bloqueada. Al ingresar y guardar una nueva contraseña se desbloqueará automáticamente.</span>';
+      } else {
+        pwdHelp.innerHTML = 'Dejar en blanco para mantener la contraseña actual.';
+      }
       pwdHelp.style.display = 'block';
     } else {
       document.getElementById('usr-nombre-completo').value = '';
@@ -402,6 +416,19 @@ function setupEvents() {
   // Funciones expuestas para botones de la tabla
   window.editUser = (id) => {
     openModal('Editar Trabajador', id);
+  };
+
+  window.unlockUser = async (id, name) => {
+    if (!confirm(`¿Deseas desbloquear la cuenta de acceso de "${name}"? El usuario podrá volver a ingresar al sistema inmediatamente.`)) {
+      return;
+    }
+    try {
+      await api.desbloquearUsuario(id);
+      alert(`✅ Cuenta de "${name}" desbloqueada exitosamente.`);
+      await loadUsers();
+    } catch (err) {
+      alert(`❌ Error al desbloquear: ${err.message}`);
+    }
   };
 
   window.deleteUser = async (id, name) => {

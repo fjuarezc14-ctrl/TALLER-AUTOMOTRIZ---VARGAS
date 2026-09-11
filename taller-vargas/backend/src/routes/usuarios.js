@@ -17,7 +17,15 @@ router.use(requiereToken, soloAdmin);
 router.get('/', async (req, res) => {
   try {
     const [uRes, mRes, statsRes] = await Promise.all([
-      query('SELECT id, username, rol, created_at FROM usuarios ORDER BY id ASC'),
+      query(`
+        SELECT id, username, rol, created_at, 
+               COALESCE(intentos_fallidos, 0) AS intentos_fallidos, 
+               COALESCE(cuenta_bloqueada, false) AS cuenta_bloqueada, 
+               bloqueada_motivo, 
+               bloqueado_hasta 
+        FROM usuarios 
+        ORDER BY id ASC
+      `),
       query('SELECT id, nombre, activo, created_at FROM mecanicos ORDER BY nombre ASC'),
       query(`
         SELECT 
@@ -136,12 +144,19 @@ router.put('/:id', async (req, res) => {
       const hash = await bcrypt.hash(password, salt);
 
       result = await query(
-        'UPDATE usuarios SET username = $1, password_hash = $2, rol = $3 WHERE id = $4 RETURNING id, username, rol, created_at',
+        `UPDATE usuarios 
+         SET username = $1, password_hash = $2, rol = $3, 
+             cuenta_bloqueada = FALSE, intentos_fallidos = 0, bloqueado_hasta = NULL, bloqueada_motivo = NULL 
+         WHERE id = $4 
+         RETURNING id, username, rol, created_at, cuenta_bloqueada, intentos_fallidos`,
         [username.toLowerCase().trim(), hash, rol, id]
       );
     } else {
       result = await query(
-        'UPDATE usuarios SET username = $1, rol = $2 WHERE id = $3 RETURNING id, username, rol, created_at',
+        `UPDATE usuarios 
+         SET username = $1, rol = $2 
+         WHERE id = $3 
+         RETURNING id, username, rol, created_at, cuenta_bloqueada, intentos_fallidos`,
         [username.toLowerCase().trim(), rol, id]
       );
     }
@@ -164,6 +179,31 @@ router.put('/:id', async (req, res) => {
     if (err.code === '23505') {
       return res.status(409).json({ error: 'El nombre de usuario ya está registrado.' });
     }
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// PATCH /api/usuarios/:id/desbloquear - Desbloquear cuenta manualmente
+router.patch('/:id/desbloquear', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const result = await query(
+      `UPDATE usuarios 
+       SET cuenta_bloqueada = FALSE, 
+           intentos_fallidos = 0, 
+           bloqueado_hasta = NULL, 
+           bloqueada_motivo = NULL 
+       WHERE id = $1 
+       RETURNING id, username, rol, cuenta_bloqueada, intentos_fallidos`,
+      [id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Usuario no encontrado.' });
+    }
+
+    res.json({ message: 'Cuenta desbloqueada correctamente.', usuario: result.rows[0] });
+  } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });

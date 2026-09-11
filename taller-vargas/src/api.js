@@ -19,9 +19,10 @@ function getBaseUrl() {
 export const BASE_URL = getBaseUrl();
 
 class ApiError extends Error {
-  constructor(message, status) {
+  constructor(message, status, data = {}) {
     super(message);
     this.status = status;
+    this.data = data;
   }
 }
 
@@ -58,7 +59,7 @@ async function request(path, options = {}) {
     throw new ApiError('Sesión expirada. Por favor vuelve a iniciar sesión.', 401);
   }
 
-  if (!res.ok) throw new ApiError(data.error || 'Error de servidor', res.status);
+  if (!res.ok) throw new ApiError(data.error || 'Error de servidor', res.status, data);
   return data;
 }
 
@@ -161,3 +162,4 @@ export const getUsuarios    = ()         => request('/usuarios');
 export const createUsuario  = (data)     => request('/usuarios', { method: 'POST', body: data });
 export const updateUsuario  = (id, data) => request(`/usuarios/${id}`, { method: 'PUT', body: data });
 export const deleteUsuario  = (id)       => request(`/usuarios/${id}`, { method: 'DELETE' });
+export const desbloquearUsuario = (id)   => request(`/usuarios/${id}/desbloquear`, { method: 'PATCH' });

@@ -122,6 +122,9 @@ function attachEvents() {
   const eyeOpen      = document.getElementById('eye-open');
   const eyeClosed    = document.getElementById('eye-closed');
 
+  let countdownInterval = null;
+  let isAccountLocked = false;
+
   // Mostrar/ocultar contraseña
   toggleBtn.addEventListener('click', () => {
     const isPassword = passwordEl.type === 'password';
@@ -133,6 +136,8 @@ function attachEvents() {
   // Submit del formulario
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
+    if (isAccountLocked) return;
+
     const username = usernameEl.value.trim();
     const password = passwordEl.value;
 
@@ -159,6 +164,59 @@ function attachEvents() {
         window.navigate('/');
       }
     } catch (err) {
+      const errData = err.data || {};
+
+      // Caso 1: Cuenta bloqueada permanentemente (5 intentos)
+      if (err.status === 423 || errData.cuenta_bloqueada) {
+        isAccountLocked = true;
+        if (countdownInterval) clearInterval(countdownInterval);
+        showError(
+          `<strong>🔒 Cuenta Bloqueada:</strong> Tu cuenta ha sido bloqueada por seguridad tras 5 intentos fallidos.<br><span style="font-size:11px; margin-top:4px; display:inline-block;">Por favor, contacta con un administrador del taller para restablecer tu contraseña.</span>`,
+          'locked'
+        );
+        usernameEl.disabled = true;
+        passwordEl.disabled = true;
+        const btn = document.getElementById('login-btn');
+        if (btn) btn.disabled = true;
+        if (btnText) btnText.textContent = '🔒 Acceso Bloqueado';
+        return;
+      }
+
+      // Caso 2: Cooldown obligatorio (3er o 4to intento)
+      if (err.status === 429 && errData.espera_segundos) {
+        let segs = parseInt(errData.espera_segundos) || 30;
+        const restantes = errData.intentos_restantes || (5 - (errData.intentos_fallidos || 3));
+        const btn = document.getElementById('login-btn');
+        if (btn) btn.disabled = true;
+
+        if (countdownInterval) clearInterval(countdownInterval);
+
+        const renderTimer = () => {
+          if (segs > 0) {
+            showError(
+              `<strong>⏳ Espera obligatoria (${segs}s):</strong> Debes esperar antes de volver a intentar.<br><span style="font-size:11px; opacity:0.95; display:inline-block; margin-top:3px;">⚠️ Advertencia: Al 5to intento fallido tu cuenta será bloqueada (quedan <strong>${restantes} intento${restantes === 1 ? '' : 's'}</strong>).</span>`,
+              'warning'
+            );
+            if (btnText) btnText.textContent = `Espera ${segs}s...`;
+            segs--;
+          } else {
+            clearInterval(countdownInterval);
+            countdownInterval = null;
+            if (btn) btn.disabled = false;
+            if (btnText) btnText.textContent = 'Iniciar Sesión';
+            showError(
+              `Tiempo de espera concluido. Ya puedes intentar de nuevo.<br><span style="font-size:11px;">⚠️ Advertencia: Al 5to intento fallido la cuenta se bloqueará.</span>`,
+              'warning'
+            );
+          }
+        };
+
+        renderTimer();
+        countdownInterval = setInterval(renderTimer, 1000);
+        return;
+      }
+
+      // Caso 3: Error estándar (intentos 1 o 2)
       showError(err.message || 'Credenciales incorrectas. Intenta de nuevo.');
     } finally {
       setLoading(false);
@@ -170,17 +228,32 @@ function attachEvents() {
 
   function setLoading(val) {
     const btn = document.getElementById('login-btn');
-    if (btn) btn.disabled = val;
-    if (btnText) btnText.textContent = val ? 'Verificando...' : 'Iniciar Sesión';
+    if (btn && !countdownInterval && !isAccountLocked) btn.disabled = val;
+    if (btnText && !countdownInterval && !isAccountLocked) btnText.textContent = val ? 'Verificando...' : 'Iniciar Sesión';
     if (spinner) spinner.classList.toggle('hidden', !val);
   }
 
-  function showError(msg) {
-    if (errorMsg) errorMsg.textContent = msg;
-    if (errorBox) errorBox.classList.remove('hidden');
+  function showError(msg, type = 'error') {
+    if (!errorMsg || !errorBox) return;
+    errorMsg.innerHTML = msg;
+    errorBox.classList.remove('hidden');
+
+    if (type === 'warning') {
+      errorBox.style.background = 'rgba(245, 158, 11, 0.18)';
+      errorBox.style.borderColor = 'rgba(245, 158, 11, 0.4)';
+      errorBox.style.color = '#fef08a';
+    } else if (type === 'locked') {
+      errorBox.style.background = 'rgba(239, 68, 68, 0.25)';
+      errorBox.style.borderColor = 'rgba(239, 68, 68, 0.55)';
+      errorBox.style.color = '#fee2e2';
+    } else {
+      errorBox.style.background = 'rgba(239, 68, 68, 0.15)';
+      errorBox.style.borderColor = 'rgba(239, 68, 68, 0.3)';
+      errorBox.style.color = '#fca5a5';
+    }
   }
 
   function hideError() {
-    if (errorBox) errorBox.classList.add('hidden');
+    if (errorBox && !countdownInterval && !isAccountLocked) errorBox.classList.add('hidden');
   }
 }
