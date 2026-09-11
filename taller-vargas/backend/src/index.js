@@ -106,7 +106,17 @@ async function runAuthMigration() {
       );
       console.log('[Auth] Usuarios por defecto creados: admin (administrador), operario (operario)');
     }
-    console.log('[DB] Tabla de usuarios verificada/migrada correctamente.');
+    // Auto-sincronizar operarios en la tabla de mecanicos
+    await query(`
+      INSERT INTO mecanicos (nombre, activo)
+      SELECT username, TRUE FROM usuarios 
+      WHERE rol = 'operario' 
+        AND NOT EXISTS (
+          SELECT 1 FROM mecanicos WHERE LOWER(TRIM(mecanicos.nombre)) = LOWER(TRIM(usuarios.username))
+        );
+    `);
+
+    console.log('[DB] Tabla de usuarios y mecanicos sincronizados correctamente.');
   } catch (err) {
     console.error('[DB ERROR] Error al migrar tabla de usuarios:', err.message);
   }

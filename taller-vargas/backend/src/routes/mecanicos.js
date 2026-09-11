@@ -8,6 +8,16 @@ router.use(requiereToken);
 // GET /mecanicos  — todos los mecánicos activos con métricas de carga en vivo (para selects)
 router.get("/", async (_req, res) => {
   try {
+    // Auto-sincronizar operarios de usuarios no registrados en mecanicos
+    await query(`
+      INSERT INTO mecanicos (nombre, activo)
+      SELECT username, TRUE FROM usuarios 
+      WHERE rol = 'operario' 
+        AND NOT EXISTS (
+          SELECT 1 FROM mecanicos WHERE LOWER(TRIM(mecanicos.nombre)) = LOWER(TRIM(usuarios.username))
+        )
+    `);
+
     const r = await query(`
       SELECT 
         m.*,

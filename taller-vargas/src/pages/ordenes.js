@@ -76,7 +76,7 @@ async function cargarDatos() {
     const [ord, veh, mec, alm, clis] = await Promise.all([
       getOrdenes(),
       store.getVehiculos(),
-      store.getMecanicos(),
+      store.getMecanicos(true),
       getAlmacen(),
       store.getClientes()
     ]);
@@ -2280,6 +2280,24 @@ function abrirModalRecepcionRapida() {
     vehSelect.innerHTML = '<option value="">-- Primero selecciona un cliente --</option>';
   }
 
+  // Cargar y refrescar mecánicos dinámicamente
+  const rapidaMecSelect = document.getElementById('rapida-mecanico-select');
+  if (rapidaMecSelect) {
+    rapidaMecSelect.innerHTML = '<option value="">-- Sin asignar por ahora --</option>' +
+      mecanicosList.map(m => `<option value="${m.id}">${formatMecanicoOption(m)}</option>`).join('');
+  }
+
+  store.getMecanicos(true).then(mecs => {
+    mecanicosList = mecs;
+    const sel = document.getElementById('rapida-mecanico-select');
+    if (sel) {
+      const cur = sel.value;
+      sel.innerHTML = '<option value="">-- Sin asignar por ahora --</option>' +
+        mecanicosList.map(m => `<option value="${m.id}">${formatMecanicoOption(m)}</option>`).join('');
+      if (cur) sel.value = cur;
+    }
+  }).catch(() => {});
+
   modal.classList.add('active');
 }
 
@@ -2579,6 +2597,36 @@ function abrirModalNuevaOrden() {
     cliSelect.innerHTML = '<option value="">-- Seleccionar cliente --</option>' +
       clientesList.map(c => `<option value="${c.id}">${c.nombre} (${c.num_doc || 'S/D'})</option>`).join('');
   }
+
+  // Cargar y refrescar mecánicos dinámicamente en Stepper
+  const ordMecSelect = document.getElementById('ord-mecanico');
+  if (ordMecSelect) {
+    ordMecSelect.innerHTML = '<option value="">-- Sin asignar --</option>' +
+      mecanicosList.map(m => `<option value="${m.id}">${formatMecanicoOption(m)}</option>`).join('');
+  }
+  const ordGarMecSelect = document.getElementById('ord-mecanico-negligente-id');
+  if (ordGarMecSelect) {
+    ordGarMecSelect.innerHTML = '<option value="">-- Seleccionar mecánico responsable --</option>' +
+      mecanicosList.map(m => `<option value="${m.id}">${m.nombre}</option>`).join('');
+  }
+
+  store.getMecanicos(true).then(mecs => {
+    mecanicosList = mecs;
+    const mSel = document.getElementById('ord-mecanico');
+    if (mSel) {
+      const cur = mSel.value;
+      mSel.innerHTML = '<option value="">-- Sin asignar --</option>' +
+        mecanicosList.map(m => `<option value="${m.id}">${formatMecanicoOption(m)}</option>`).join('');
+      if (cur) mSel.value = cur;
+    }
+    const gmSel = document.getElementById('ord-mecanico-negligente-id');
+    if (gmSel) {
+      const cur = gmSel.value;
+      gmSel.innerHTML = '<option value="">-- Seleccionar mecánico responsable --</option>' +
+        mecanicosList.map(m => `<option value="${m.id}">${m.nombre}</option>`).join('');
+      if (cur) gmSel.value = cur;
+    }
+  }).catch(() => {});
   
   // Limpiar el autocompletado y Km anterior
   document.getElementById('km-anterior-hint').style.display = 'none';

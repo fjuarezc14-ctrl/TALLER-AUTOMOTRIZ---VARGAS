@@ -765,6 +765,7 @@ function renderMecanicoCard(m) {
 async function toggleMecanico(id, estaActivo) {
   try {
     await updateMecanico(id, { activo: !estaActivo });
+    store.invalidate('mecanicos');
     // Actualizar localmente
     const mec = mecStats.find(m => m.id === id);
     if (mec) mec.activo = !estaActivo;
@@ -814,6 +815,7 @@ function abrirModalNuevoMecanico() {
     btn.disabled = true;
     try {
       const nuevo = await createMecanico({ nombre });
+      store.invalidate('mecanicos');
       mecanicosList.push(nuevo);
       mecStats.push({ ...nuevo, ordenes_activas: 0, ordenes_completadas: 0, ordenes_total: 0, dias_promedio_finalizacion: null });
       cerrarModal();
@@ -858,6 +860,7 @@ function abrirModalEditarMecanico(id, nombreActual) {
     btn.disabled = true;
     try {
       await updateMecanico(id, { nombre });
+      store.invalidate('mecanicos');
       // Actualizar localmente
       const m1 = mecStats.find(m => m.id === id);
       if (m1) m1.nombre = nombre;
