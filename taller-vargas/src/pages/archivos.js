@@ -1,4 +1,4 @@
-import { getArchivos, createArchivo, deleteArchivo, getClientes, getVehiculos } from '../api.js';
+import { getArchivos, createArchivo, deleteArchivo, getClientes, getVehiculos, BASE_URL } from '../api.js';
 
 let containerElement = null;
 let archivosList     = [];
@@ -605,8 +605,7 @@ function loadScript(url) {
 }
 
 function descargarArchivo(filename) {
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-  const url = `${API_URL}/uploads/${filename}`;
+  const url = `${BASE_URL}/uploads/${filename}`;
   const a = document.createElement('a');
   a.href = url;
   a.download = filename;
@@ -685,8 +684,7 @@ async function abrirPreview(fileId) {
   const archivo = archivosList.find(a => String(a.id) === String(fileId));
   if (!archivo) return;
 
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-  const fileUrl = `${API_URL}/uploads/${archivo.filename}`;
+  const fileUrl = `${BASE_URL}/uploads/${archivo.filename}`;
   const cfg = getFileIconConfig(archivo.tipo);
 
   // Actualizar encabezados

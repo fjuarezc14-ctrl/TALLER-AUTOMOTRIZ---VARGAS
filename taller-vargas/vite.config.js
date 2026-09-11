@@ -5,7 +5,7 @@ export default defineConfig({
     port: 5174,
     host: '0.0.0.0',
 
-    allowedHosts: ['tallervargas.valetec.pe'],
+    allowedHosts: true,
 
     watch: {
       // Necesario en Docker sobre Windows: inotify no funciona en volúmenes montados
@@ -15,6 +15,10 @@ export default defineConfig({
     proxy: {
       // Dentro del contenedor Docker, el backend se accede por nombre de servicio
       '/api': {
+        target: 'http://backend:3001',
+        changeOrigin: true,
+      },
+      '/uploads': {
         target: 'http://backend:3001',
         changeOrigin: true,
       }

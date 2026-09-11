@@ -126,7 +126,11 @@ runAuthMigration();
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-app.use(cors({ origin: process.env.CORS_ORIGIN || "*" }));
+const rawCorsOrigin = process.env.CORS_ORIGIN;
+const allowedOrigins = (!rawCorsOrigin || rawCorsOrigin === '*') 
+  ? '*' 
+  : rawCorsOrigin.split(',').map(o => o.trim());
+app.use(cors({ origin: allowedOrigins }));
 app.use(express.json({ limit: "25mb" }));
 
 // Servir archivos estáticos subidos

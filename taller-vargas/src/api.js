@@ -3,7 +3,21 @@
 // Centraliza todas las llamadas al backend REST
 // ============================================================
 
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+function getBaseUrl() {
+  const envUrl = import.meta.env.VITE_API_URL;
+  // Si está explícitamente configurada una URL externa completa que no sea localhost, usarla
+  if (envUrl && !envUrl.includes('localhost')) {
+    return envUrl.replace(/\/+$/, '');
+  }
+  // En producción (Nginx) o si el navegador accede desde una IP/dominio remoto (no localhost)
+  if (import.meta.env.PROD || (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1')) {
+    return ''; // Usa rutas relativas (/api), aprovechando Nginx o el proxy inverso
+  }
+  // En desarrollo local en la misma máquina
+  return envUrl || 'http://localhost:3001';
+}
+
+export const BASE_URL = getBaseUrl();
 
 class ApiError extends Error {
   constructor(message, status) {
