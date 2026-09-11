@@ -92,7 +92,7 @@ export async function navigate(path = '/') {
   // Actualizar sidebar activo
   document.querySelectorAll('.sidebar-item').forEach(el => {
     const route = el.dataset.route;
-    const isActive = (route === matchedPath) || (route === '/operaciones' && matchedPath === '/taller');
+    const isActive = (route === matchedPath);
     el.classList.toggle('sidebar-active', isActive);
   });
 

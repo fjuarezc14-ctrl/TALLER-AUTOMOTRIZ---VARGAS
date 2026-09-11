@@ -5,10 +5,19 @@ import { requiereToken } from "../middleware/auth.js";
 const router = Router();
 router.use(requiereToken);
 
-// GET /mecanicos  — todos los mecánicos activos (para selects)
+// GET /mecanicos  — todos los mecánicos activos con métricas de carga en vivo (para selects)
 router.get("/", async (_req, res) => {
   try {
-    const r = await query("SELECT * FROM mecanicos WHERE activo=TRUE ORDER BY nombre");
+    const r = await query(`
+      SELECT 
+        m.*,
+        COUNT(CASE WHEN os.estado NOT IN ('Finalizado','Entregado','No realizo servicio') THEN 1 END)::int AS ordenes_activas
+      FROM mecanicos m
+      LEFT JOIN ordenes_servicio os ON os.mecanico_id = m.id
+      WHERE m.activo = TRUE
+      GROUP BY m.id, m.nombre, m.activo, m.created_at
+      ORDER BY ordenes_activas ASC, m.nombre ASC
+    `);
     res.json(r.rows);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });

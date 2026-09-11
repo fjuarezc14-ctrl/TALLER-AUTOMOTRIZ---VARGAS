@@ -1,11 +1,21 @@
 import { 
   getMecanicos, 
   getOrdenes, 
+  getOrden,
   cambiarEstado, 
   getAlmacenMecanico, 
   crearSolicitudMecanico, 
   guardarDiagnosticoOrden 
 } from '../api.js';
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
 
 // ─────────────────────────────────────────────────────────────
 // ESTADO LOCAL DEL MÓDULO
@@ -248,33 +258,43 @@ function renderListaTrabajos() {
       <div class="taller-trabajos-grid">
         ${filtradas.map(o => {
           const esMia = o.mecanico === selectedMecanico.nombre;
+          const estaEnEspera = o.estado === 'Esperando Repuestos' || Boolean(o.repuestos_esperando);
           let badgeEstado = '';
-          if (o.estado === 'Diagnostico') badgeEstado = `<span class="taller-badge badge-diag">🔍 DIAGNÓSTICO</span>`;
-          else if (o.estado === 'En Proceso') badgeEstado = `<span class="taller-badge badge-proceso">⚙️ EN PROCESO</span>`;
-          else if (o.estado === 'Esperando Repuestos') badgeEstado = `<span class="taller-badge badge-espera">📦 EN ESPERA</span>`;
+          if (estaEnEspera) {
+            badgeEstado = `<span class="taller-badge badge-espera" title="${escapeHtml(o.repuestos_esperando || '')}">📦 ESPERANDO REPUESTOS</span>`;
+          } else if (o.estado === 'Diagnostico') {
+            badgeEstado = `<span class="taller-badge badge-diag">🔍 DIAGNÓSTICO</span>`;
+          } else if (o.estado === 'En Proceso') {
+            badgeEstado = `<span class="taller-badge badge-proceso">⚙️ EN PROCESO</span>`;
+          }
           
           return `
-            <div class="taller-trabajo-card ${esMia ? 'taller-card-assigned' : ''}" data-id="${o.id}">
-              <div class="taller-card-header">
-                <span class="taller-card-placa">${o.placa || 'SIN PLACA'}</span>
+            <div class="taller-trabajo-card ${esMia ? 'taller-card-assigned' : ''}" data-id="${o.id}" style="${estaEnEspera ? 'border: 2px solid #f59e0b; box-shadow: 0 4px 14px rgba(245,158,11,0.15);' : ''}">
+              <div class="taller-card-header" style="${estaEnEspera ? 'background:#fffbeb;' : ''}">
+                <span class="taller-card-placa">${escapeHtml(o.placa || 'SIN PLACA')}</span>
                 ${badgeEstado}
               </div>
               
               <div class="taller-card-body">
-                <h3>${o.vehiculo || 'Vehículo Genérico'}</h3>
+                <h3>${escapeHtml(o.vehiculo || 'Vehículo')}</h3>
                 <div class="taller-card-field">
-                  <strong>Cliente:</strong> <span>${o.cliente || 'No registrado'}</span>
+                  <strong>Cliente:</strong> <span>${escapeHtml(o.cliente || 'No registrado')}</span>
                 </div>
                 <div class="taller-card-field">
-                  <strong>Falla:</strong> <span class="taller-falla-text">${o.falla_reportada || 'Inspección de rutina'}</span>
+                  <strong>Falla:</strong> <span class="taller-falla-text" title="${escapeHtml(o.falla_reportada || '')}">${escapeHtml(o.falla_reportada || 'Inspección de rutina')}</span>
                 </div>
-                <div class="taller-card-field">
-                  <strong>Mecánico:</strong> <span class="taller-mec-assigned">${o.mecanico || '⚠️ Sin Asignar'}</span>
+                ${o.repuestos_esperando ? `
+                  <div style="font-size:11px; background:#fffbeb; color:#92400e; border:1px solid #fde68a; padding:5px 8px; border-radius:6px; font-weight:700; margin-top:2px;">
+                    🛒 ${escapeHtml(o.repuestos_esperando)}
+                  </div>
+                ` : ''}
+                <div class="taller-card-field" style="margin-top:auto;">
+                  <strong>Mecánico:</strong> <span class="taller-mec-assigned">${escapeHtml(o.mecanico || '⚠️ Sin Asignar')}</span>
                 </div>
               </div>
 
-              <button class="taller-btn-tactile-open" data-id="${o.id}">
-                🔧 DIAGNOSTICAR Y REGISTRAR
+              <button class="taller-btn-tactile-open" data-id="${o.id}" style="${estaEnEspera ? 'background:#fef3c7; color:#92400e; font-weight:800;' : ''}">
+                ${estaEnEspera ? '⏳ VER ESTADO / REANUDAR' : (o.estado === 'Diagnostico' ? '🔧 ATENDER / COMENZAR' : '⚙️ CONTINUAR TRABAJO')}
               </button>
             </div>
           `;
@@ -359,7 +379,7 @@ function renderListaTrabajos() {
 }
 
 // ─────────────────────────────────────────────────────────────
-// VISTA: DETALLE DE ORDEN & SILUETA INTERACTIVA
+// VISTA: DETALLE DE ORDEN & FLUJO ÁGIL DE TABLET
 // ─────────────────────────────────────────────────────────────
 function renderDetalleOrden() {
   const o = selectedOrden;
@@ -377,7 +397,7 @@ function renderDetalleOrden() {
   // Renderizar la silueta del auto (SVG)
   const svgSilhouette = renderSilhouetteSVG(diag);
 
-  // Armar lista del checklist rápido en texto para el panel lateral
+  // Armar lista del checklist rápido en texto para el panel
   const checklistTextHtml = COMPONENTES.map(c => {
     const item = diag[c.key] || { estado: 'na', notas: '' };
     const est = ESTADOS_COMPONENTE[item.estado] || ESTADOS_COMPONENTE.na;
@@ -396,85 +416,205 @@ function renderDetalleOrden() {
     `;
   }).join('');
 
+  const estaEnEspera = o.estado === 'Esperando Repuestos' || Boolean(o.repuestos_esperando);
+  let statusColor = '#3b82f6';
+  let statusLabel = 'EN PROCESO';
+
+  if (estaEnEspera) {
+    statusColor = '#f59e0b';
+    statusLabel = 'ESPERANDO REPUESTOS';
+  } else if (o.estado === 'Diagnostico') {
+    statusColor = '#eab308';
+    statusLabel = 'EN DIAGNÓSTICO';
+  } else if (o.estado === 'En Proceso') {
+    statusColor = '#3b82f6';
+    statusLabel = 'EN PROCESO';
+  }
+
+  let contextualFlowHtml = '';
+  if (o.estado === 'Diagnostico') {
+    contextualFlowHtml = `
+      <div style="background:#f0fdf4; border:2px solid #22c55e; border-radius:12px; padding:16px 20px; margin-bottom:18px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:14px;">
+        <div style="flex:1; min-width:240px;">
+          <h3 style="margin:0 0 4px 0; color:#15803d; font-size:16px; font-weight:800; display:flex; align-items:center; gap:6px;">
+            <span>🚗 Vehículo en Diagnóstico Inicial</span>
+          </h3>
+          <p style="margin:0; color:#166534; font-size:13px; line-height:1.4;">
+            Revisa la falla reportada, solicita repuestos si son necesarios y pulsa <strong>Comenzar Trabajo</strong> para iniciar las tareas en tu bahía.
+          </p>
+        </div>
+        <button id="btn-taller-comenzar" style="background:#16a34a; color:#fff; border:none; padding:13px 24px; border-radius:8px; font-size:14px; font-weight:800; cursor:pointer; display:flex; align-items:center; gap:8px; box-shadow:0 4px 14px rgba(22,163,74,0.3); transition:all 0.15s;">
+          ⚙️ Comenzar Trabajo (Pasar a En Proceso)
+        </button>
+      </div>
+    `;
+  } else if (estaEnEspera) {
+    contextualFlowHtml = `
+      <div style="background:#fffbeb; border:2px solid #f59e0b; border-radius:12px; padding:16px 20px; margin-bottom:18px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:14px;">
+        <div style="flex:1; min-width:240px;">
+          <h3 style="margin:0 0 4px 0; color:#b45309; font-size:16px; font-weight:800; display:flex; align-items:center; gap:6px;">
+            <span>⏳ Trabajo en Pausa por Repuestos</span>
+          </h3>
+          <p style="margin:0; color:#92400e; font-size:13px; line-height:1.4;">
+            <strong>Repuesto requerido:</strong> ${escapeHtml(o.repuestos_esperando || 'Esperando confirmación o llegada de repuestos.')}
+          </p>
+        </div>
+        <button id="btn-taller-reanudar" style="background:#0284c7; color:#fff; border:none; padding:13px 24px; border-radius:8px; font-size:14px; font-weight:800; cursor:pointer; display:flex; align-items:center; gap:8px; box-shadow:0 4px 14px rgba(2,132,199,0.3); transition:all 0.15s;">
+          ▶️ Repuestos Recibidos (Reanudar Trabajo)
+        </button>
+      </div>
+    `;
+  } else {
+    // En Proceso
+    contextualFlowHtml = `
+      <div style="background:#eff6ff; border:2px solid #3b82f6; border-radius:12px; padding:16px 20px; margin-bottom:18px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:14px;">
+        <div style="flex:1; min-width:240px;">
+          <h3 style="margin:0 0 4px 0; color:#1d4ed8; font-size:16px; font-weight:800; display:flex; align-items:center; gap:6px;">
+            <span>🛠️ Vehículo Activo en Bahía</span>
+          </h3>
+          <p style="margin:0; color:#1e40af; font-size:13px; line-height:1.4;">
+            Reparación en ejecución. Una vez finalizados todos los trabajos mecánicos, pulsa <strong>Finalizar Servicio</strong> para liberarte de la orden y enviarla a Caja.
+          </p>
+        </div>
+        <button id="btn-taller-finalizar" style="background:#10b981; color:#fff; border:none; padding:13px 26px; border-radius:8px; font-size:14px; font-weight:800; cursor:pointer; display:flex; align-items:center; gap:8px; box-shadow:0 4px 14px rgba(16,185,129,0.3); transition:all 0.15s;">
+          ✅ Finalizar Servicio (Listo para Cobro y Entrega)
+        </button>
+      </div>
+    `;
+  }
+
   containerEl.innerHTML = `
-    <div class="taller-portal-layout">
+    <div class="taller-portal-layout" style="max-width:1100px; margin:0 auto; padding-bottom:60px;">
       <!-- Topbar detalle -->
-      <div class="taller-topbar-detail">
-        <button class="taller-btn-back" id="btn-back-to-list">⬅️ Volver al Panel</button>
+      <div class="taller-topbar-detail" style="margin-bottom:16px;">
+        <button class="taller-btn-back" id="btn-back-to-list">⬅️ Volver a mis trabajos</button>
         <div class="taller-detail-title">
-          <h2>Ficha de Inspección: <span class="txt-highlight">${o.placa || 'SIN PLACA'}</span></h2>
-          <p>${o.vehiculo || 'Marca y Modelo no detallados'}</p>
+          <h2>Orden #${o.id} — <span class="txt-highlight">${escapeHtml(o.placa || 'SIN PLACA')}</span></h2>
+          <p>${escapeHtml(o.vehiculo || 'Vehículo')} • ${escapeHtml(o.cliente || 'Cliente')}</p>
         </div>
         <div class="taller-order-status-badge">
-          <span>Estado OS:</span>
-          <strong>${o.estado.toUpperCase()}</strong>
+          <span>Estado Bahía:</span>
+          <strong style="color:${statusColor}">${statusLabel}</strong>
         </div>
       </div>
 
-      <!-- Panel principal dividido -->
-      <div class="taller-detail-grid">
-        
-        <!-- Columna Izquierda: Silueta e instrucciones -->
-        <div class="taller-col-silueta">
-          <div class="taller-panel-header">
-            <h3>PLANILLA INTERACTIVA DIGITAL</h3>
-            <p>Toca cualquiera de las zonas del vehículo para reportar su estado físico:</p>
-          </div>
-          
-          <div class="taller-svg-wrapper">
-            ${svgSilhouette}
-          </div>
-          
-          <div class="taller-silueta-legend">
-            <span>🟢 Excelente</span>
-            <span>🟡 Regular</span>
-            <span>🔴 Crítico</span>
-            <span>⚫ N/A</span>
-          </div>
-        </div>
-
-        <!-- Columna Derecha: Acciones, Repuestos y Checklist -->
-        <div class="taller-col-acciones">
-          
-          <!-- Falla reportada y cliente -->
-          <div class="taller-detail-box info-cliente-box">
-            <h4>DATOS DEL VEHÍCULO</h4>
-            <p><strong>Cliente:</strong> ${o.cliente || 'No registrado'} - ${o.telefono || ''}</p>
-            <p><strong>Falla Reportada:</strong> <span class="txt-falla-alert">${o.falla_reportada || 'Inspección preventiva.'}</span></p>
-          </div>
-
-          <!-- Acciones de Almacén y Control -->
-          <div class="taller-detail-box control-taller-box">
-            <h4>FLUJO DE TRABAJO</h4>
-            <div class="taller-actions-buttons">
-              <button class="taller-btn-ctrl btn-repuestos" id="btn-pedir-repuesto">
-                📦 PEDIR REPUESTO AL ALMACÉN
-              </button>
-              <button class="taller-btn-ctrl btn-proceso-taller" id="btn-poner-proceso">
-                ⚙️ MARCAR EN PROCESO
-              </button>
-              <button class="taller-btn-ctrl btn-espera-taller" id="btn-poner-espera">
-                ⏳ ESPERANDO REPUESTOS
-              </button>
-              <button class="taller-btn-ctrl btn-finalizar-taller" id="btn-poner-finalizado">
-                ✅ FINALIZAR SERVICIO
-              </button>
+      <!-- Hero Card del Auto y Falla Reportada -->
+      <div class="taller-hero-card" style="background:var(--white); border:1px solid var(--slate-8); border-radius:14px; padding:20px; margin-bottom:18px; box-shadow:var(--shadow-sm);">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:16px; margin-bottom:16px;">
+          <div>
+            <div style="display:flex; align-items:center; gap:12px; margin-bottom:6px;">
+              <span style="font-family:monospace; font-weight:900; font-size:22px; background:var(--dark); color:var(--brand); padding:4px 12px; border-radius:6px; letter-spacing:1px; box-shadow:var(--shadow-sm);">
+                ${escapeHtml(o.placa || 'SIN PLACA')}
+              </span>
+              <span style="font-size:18px; font-weight:800; color:var(--dark);">
+                ${escapeHtml(o.vehiculo || 'Vehículo')}
+              </span>
+            </div>
+            <div style="font-size:13px; color:var(--slate-4); display:flex; gap:14px; flex-wrap:wrap;">
+              <span>👤 <strong>Cliente:</strong> ${escapeHtml(o.cliente || 'No registrado')}</span>
+              ${o.telefono ? `<span>📞 <strong>Tel:</strong> <a href="tel:${escapeHtml(o.telefono)}" style="color:var(--brand); text-decoration:none; font-weight:700;">${escapeHtml(o.telefono)}</a></span>` : ''}
+              <span>👨‍🔧 <strong>Mecánico:</strong> <span style="color:#10b981; font-weight:700;">${escapeHtml(o.mecanico || selectedMecanico.nombre)}</span></span>
             </div>
           </div>
-
-          <!-- Estado del diagnóstico en lista -->
-          <div class="taller-detail-box checklist-resumen-box">
-            <h4>RESUMEN DEL DIAGNÓSTICO</h4>
-            <div class="taller-checklist-list">
-              ${checklistTextHtml}
-            </div>
-            <button class="taller-btn-save-diagnostico" id="btn-guardar-diagnostico-principal">
-              💾 GUARDAR Y SINCRONIZAR CHECKLIST
+          <div style="display:flex; align-items:center; gap:8px;">
+            <button id="btn-taller-refresh-detail" class="btn-ghost" style="padding:6px 12px; font-size:12px; border:1px solid var(--slate-8); border-radius:6px; cursor:pointer; background:var(--slate-9);">
+              🔄 Actualizar Ficha
             </button>
           </div>
+        </div>
 
+        <!-- Falla reportada resaltada -->
+        <div style="background:#fffbeb; border:1.5px solid #fde68a; border-radius:10px; padding:14px 18px;">
+          <div style="font-size:11px; font-weight:800; text-transform:uppercase; color:#b45309; letter-spacing:0.5px; margin-bottom:4px; display:flex; align-items:center; gap:6px;">
+            <span>🚨 Falla Reportada por el Cliente / Síntoma:</span>
+          </div>
+          <div style="font-size:15px; font-weight:700; color:#78350f; line-height:1.4;">
+            ${escapeHtml(o.falla_reportada || 'Inspección y mantenimiento preventivo general.')}
+          </div>
         </div>
       </div>
+
+      <!-- Flujo Inmediato Contextual de 1 Toque -->
+      ${contextualFlowHtml}
+
+      <!-- Gestión Táctica de Repuestos -->
+      <div style="background:var(--white); border:1px solid var(--slate-8); border-radius:14px; padding:20px; margin-bottom:18px; box-shadow:var(--shadow-sm);">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:12px;">
+          <div>
+            <h3 style="margin:0 0 3px 0; font-size:15px; font-weight:800; color:var(--dark); display:flex; align-items:center; gap:8px;">
+              <span>📦 Repuestos y Piezas Requeridas</span>
+            </h3>
+            <p style="margin:0; font-size:12px; color:var(--slate-4);">Pide piezas de almacén o reporta compras externas si el taller o el cliente deben conseguirlas fuera.</p>
+          </div>
+          <div style="display:flex; gap:10px; flex-wrap:wrap;">
+            <button id="btn-pedir-repuesto" style="padding:10px 16px; font-size:12px; font-weight:800; border-radius:8px; display:flex; align-items:center; gap:6px; cursor:pointer; background:#f1f5f9; border:1.5px solid #cbd5e1; color:#0f172a;">
+              📦 Pedir de Almacén (Stock)
+            </button>
+            <button id="btn-pedir-externo-modal" style="padding:10px 16px; font-size:12px; font-weight:800; border-radius:8px; display:flex; align-items:center; gap:6px; cursor:pointer; background:#fef3c7; border:1.5px solid #f59e0b; color:#92400e;">
+              🛒 Pedir Pieza Externa / Comprar
+            </button>
+          </div>
+        </div>
+
+        <!-- Indicador de repuesto externo esperando si existe -->
+        ${o.repuestos_esperando ? `
+          <div style="background:#fef3c7; border:1px solid #fde68a; border-radius:8px; padding:12px 14px; margin-bottom:12px; display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span style="font-size:18px;">🛒</span>
+              <div>
+                <div style="font-size:12px; font-weight:800; color:#92400e;">Repuesto Externo Pendiente:</div>
+                <div style="font-size:13px; font-weight:700; color:#78350f;">${escapeHtml(o.repuestos_esperando)}</div>
+              </div>
+            </div>
+            <button id="btn-quitar-espera-repuesto" style="background:#ffffff; border:1px solid #d97706; color:#92400e; padding:6px 12px; border-radius:6px; font-size:11px; font-weight:800; cursor:pointer;">
+              ✓ Marcar como Recibido
+            </button>
+          </div>
+        ` : ''}
+
+        <div id="taller-lista-repuestos-container" style="font-size:12px; color:var(--slate-5); padding-top:4px;">
+          <em>Cargando lista de repuestos asignados...</em>
+        </div>
+      </div>
+
+      <!-- Acordeón Desplegable: Peritaje de Carrocería & 8 Zonas -->
+      <details class="taller-checklist-accordion" style="background:var(--white); border:1px solid var(--slate-8); border-radius:14px; overflow:hidden; box-shadow:var(--shadow-sm); margin-bottom:24px;">
+        <summary style="padding:16px 20px; font-weight:800; font-size:14px; color:var(--dark); cursor:pointer; display:flex; justify-content:space-between; align-items:center; user-select:none; background:var(--slate-9); border-bottom:1px solid var(--slate-8);">
+          <span style="display:flex; align-items:center; gap:8px;">
+            <span>📋 Peritaje de Carrocería & Checklist de Zonas</span>
+            <span style="font-size:11px; font-weight:600; color:var(--slate-4); background:var(--slate-8); padding:2px 8px; border-radius:99px;">Opcional</span>
+          </span>
+          <span style="font-size:12px; font-weight:700; color:var(--slate-4);">Tocar para desplegar silueta ▾</span>
+        </summary>
+        <div style="padding:20px;">
+          <p style="font-size:12px; color:var(--slate-4); margin-top:0; margin-bottom:16px;">
+            Utiliza esta silueta táctil para inspeccionar o reportar el estado físico de los componentes del vehículo si realizas un peritaje completo:
+          </p>
+          <div class="taller-detail-grid">
+            <!-- Columna Izquierda: Silueta -->
+            <div class="taller-col-silueta">
+              <div class="taller-svg-wrapper">
+                ${svgSilhouette}
+              </div>
+              <div class="taller-silueta-legend">
+                <span>🟢 Excelente</span>
+                <span>🟡 Regular</span>
+                <span>🔴 Crítico</span>
+                <span>⚫ N/A</span>
+              </div>
+            </div>
+            <!-- Columna Derecha: Resumen y guardar -->
+            <div class="taller-col-acciones">
+              <div class="taller-checklist-list">
+                ${checklistTextHtml}
+              </div>
+              <button class="taller-btn-save-diagnostico" id="btn-guardar-diagnostico-principal" style="margin-top:14px;">
+                💾 GUARDAR Y SINCRONIZAR CHECKLIST
+              </button>
+            </div>
+          </div>
+        </div>
+      </details>
     </div>
 
     <!-- Cajón Táctil Inferior (Bottom Drawer) para Diagnóstico de Componente -->
@@ -525,7 +665,7 @@ function renderDetalleOrden() {
       </div>
     </div>
 
-    <!-- Modal Pedir Repuesto -->
+    <!-- Modal Pedir Repuesto de Almacén -->
     <div class="taller-modal-backdrop hidden" id="modal-repuestos-backdrop">
       <div class="taller-modal">
         <div class="taller-modal-header">
@@ -576,76 +716,170 @@ function renderDetalleOrden() {
         </div>
       </div>
     </div>
+
+    <!-- Modal Rápido: Reportar Pieza Externa / Comprar Fuera -->
+    <div class="taller-modal-backdrop hidden" id="modal-externo-backdrop">
+      <div class="taller-modal" style="max-width:480px;">
+        <div class="taller-modal-header" style="background:#fffbeb; border-bottom:1px solid #fef3c7;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="font-size:20px;">🛒</span>
+            <h3 style="margin:0; font-size:16px; font-weight:800; color:#92400e;">Reportar Repuesto Externo</h3>
+          </div>
+          <button class="taller-modal-close" id="btn-close-externo-modal">✕</button>
+        </div>
+        <form id="form-pieza-externa">
+          <div class="taller-modal-body" style="padding:20px; display:flex; flex-direction:column; gap:16px;">
+            <p style="margin:0; font-size:12px; color:#78350f; line-height:1.4; background:#fef3c7; padding:10px 12px; border-radius:6px; border:1px solid #fde68a;">
+              💡 Registra las piezas que no están en stock en almacén. La orden se pausará en <strong>"Esperando Repuestos"</strong> con un borde visual en el Kanban hasta que llegue la pieza.
+            </p>
+
+            <div>
+              <label style="display:block; font-size:12px; font-weight:700; color:var(--dark); margin-bottom:6px;">
+                ¿Qué repuesto o pieza se necesita? *
+              </label>
+              <input type="text" id="input-pieza-externa" required placeholder="Ej: Bomba de agua, Kit de embrague, etc." class="form-input" style="width:100%; font-size:13px; padding:10px 12px; border:1px solid var(--slate-7); border-radius:8px;" />
+            </div>
+
+            <div>
+              <label style="display:block; font-size:12px; font-weight:700; color:var(--dark); margin-bottom:6px;">
+                ¿Quién gestionará la compra / entrega?
+              </label>
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                <label id="lbl-origen-taller" style="display:flex; align-items:center; gap:8px; padding:10px; border:1.5px solid #0284c7; background:#f0f9ff; border-radius:8px; cursor:pointer; font-size:12px; font-weight:700; color:#0369a1;">
+                  <input type="radio" name="origen-externo" value="[Taller compra]" checked style="accent-color:#0284c7;" />
+                  🏢 Taller compra fuera
+                </label>
+                <label id="lbl-origen-cliente" style="display:flex; align-items:center; gap:8px; padding:10px; border:1.5px solid var(--slate-7); background:var(--white); border-radius:8px; cursor:pointer; font-size:12px; font-weight:700; color:var(--slate-4);">
+                  <input type="radio" name="origen-externo" value="[Cliente traerá]" style="accent-color:#0284c7;" />
+                  👤 Cliente lo traerá
+                </label>
+              </div>
+            </div>
+
+            <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:8px;">
+              <button type="button" class="btn-ghost" id="btn-cancel-externo" style="padding:10px 16px; border:1px solid var(--slate-8); border-radius:8px; cursor:pointer;">
+                Cancelar
+              </button>
+              <button type="submit" id="btn-submit-externo" style="background:#f59e0b; border:none; color:#ffffff; padding:10px 20px; border-radius:8px; font-size:13px; font-weight:800; cursor:pointer; display:flex; align-items:center; gap:6px; box-shadow:0 4px 12px rgba(245,158,11,0.3);">
+                ⏸️ Pausar y Guardar Nota
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
   `;
 
-  // Event Listeners para la orden
+  // Cargar repuestos asíncronamente
+  cargarRepuestosDeOrden(o.id);
+
+  // Event Listeners principales
   document.getElementById('btn-back-to-list')?.addEventListener('click', () => {
     selectedOrden = null;
     render();
   });
 
-  // Escuchar clics en los elementos interactivos del checklist de texto
-  containerEl.querySelectorAll('.taller-chk-row').forEach(row => {
-    row.addEventListener('click', () => {
-      const key = row.dataset.key;
-      openComponentDrawer(key, diag);
-    });
+  document.getElementById('btn-taller-refresh-detail')?.addEventListener('click', async () => {
+    await cargarDatos();
+    const fresh = ordenesList.find(x => x.id === o.id);
+    if (fresh) {
+      selectedOrden = fresh;
+      render();
+    }
   });
 
-  // Escuchar clics en los botones interactivos del SVG
-  containerEl.querySelectorAll('.taller-svg-hotzone').forEach(zone => {
-    zone.addEventListener('click', () => {
-      const key = zone.dataset.key;
-      openComponentDrawer(key, diag);
-    });
+  // Acciones 1-Toque
+  document.getElementById('btn-taller-comenzar')?.addEventListener('click', () => actualizarEstadoOrden('En Proceso'));
+
+  document.getElementById('btn-taller-reanudar')?.addEventListener('click', async () => {
+    await reanudarTrabajo();
   });
 
-  // Controladores del Cajón (Drawer)
-  const drawerBackdrop = document.getElementById('drawer-backdrop');
-  const btnCloseDrawer = document.getElementById('btn-close-drawer');
-  const btnSaveDrawer = document.getElementById('btn-save-drawer-component');
-  const drawerStatusBtns = containerEl.querySelectorAll('.taller-drawer-status-btn');
-  let activeStateSelection = 'na';
-
-  drawerStatusBtns.forEach(btn => {
-    btn.addEventListener('click', () => {
-      drawerStatusBtns.forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      activeStateSelection = btn.dataset.state;
-    });
+  document.getElementById('btn-quitar-espera-repuesto')?.addEventListener('click', async () => {
+    await reanudarTrabajo();
   });
 
-  btnCloseDrawer?.addEventListener('click', () => {
-    drawerBackdrop.classList.add('hidden');
+  document.getElementById('btn-taller-finalizar')?.addEventListener('click', () => finalizarServicioCompleto());
+
+  // Modal Repuesto Externo
+  const modalExterno = document.getElementById('modal-externo-backdrop');
+  const btnPedirExterno = document.getElementById('btn-pedir-externo-modal');
+  const btnCloseExterno = document.getElementById('btn-close-externo-modal');
+  const btnCancelExterno = document.getElementById('btn-cancel-externo');
+  const formExterno = document.getElementById('form-pieza-externa');
+  const radTaller = document.querySelector('input[name="origen-externo"][value="[Taller compra]"]');
+  const radCliente = document.querySelector('input[name="origen-externo"][value="[Cliente traerá]"]');
+  const lblTaller = document.getElementById('lbl-origen-taller');
+  const lblCliente = document.getElementById('lbl-origen-cliente');
+
+  const updateRadioStyles = () => {
+    if (radTaller && radTaller.checked) {
+      if (lblTaller) {
+        lblTaller.style.borderColor = '#0284c7';
+        lblTaller.style.background = '#f0f9ff';
+        lblTaller.style.color = '#0369a1';
+      }
+      if (lblCliente) {
+        lblCliente.style.borderColor = 'var(--slate-7)';
+        lblCliente.style.background = 'var(--white)';
+        lblCliente.style.color = 'var(--slate-4)';
+      }
+    } else if (lblCliente) {
+      lblCliente.style.borderColor = '#0284c7';
+      lblCliente.style.background = '#f0f9ff';
+      lblCliente.style.color = '#0369a1';
+      if (lblTaller) {
+        lblTaller.style.borderColor = 'var(--slate-7)';
+        lblTaller.style.background = 'var(--white)';
+        lblTaller.style.color = 'var(--slate-4)';
+      }
+    }
+  };
+
+  radTaller?.addEventListener('change', updateRadioStyles);
+  radCliente?.addEventListener('change', updateRadioStyles);
+
+  btnPedirExterno?.addEventListener('click', () => {
+    modalExterno.classList.remove('hidden');
+    const inp = document.getElementById('input-pieza-externa');
+    if (inp) {
+      inp.value = '';
+      inp.focus();
+    }
   });
 
-  btnSaveDrawer?.addEventListener('click', async () => {
-    const key = document.getElementById('drawer-comp-key').value;
-    const notas = document.getElementById('drawer-comp-notas').value;
+  const closeExterno = () => modalExterno.classList.add('hidden');
+  btnCloseExterno?.addEventListener('click', closeExterno);
+  btnCancelExterno?.addEventListener('click', closeExterno);
 
-    diag[key] = {
-      estado: activeStateSelection,
-      notas: notas
-    };
+  formExterno?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const input = document.getElementById('input-pieza-externa');
+    const pieza = input ? input.value.trim() : '';
+    if (!pieza) {
+      alert('Por favor indica qué pieza o repuesto se requiere.');
+      return;
+    }
+    const origenChecked = document.querySelector('input[name="origen-externo"]:checked');
+    const origen = origenChecked ? origenChecked.value : '[Taller compra]';
+    const notaCompleta = `${origen} ${pieza}`;
 
-    // Cerrar cajón
-    drawerBackdrop.classList.add('hidden');
-
-    // Sincronizar en el servidor automáticamente
-    await realizarSincronizacionChecklist(diag);
+    try {
+      const res = await cambiarEstado(selectedOrden.id, {
+        estado: 'Esperando Repuestos',
+        repuestos_esperando: notaCompleta
+      });
+      selectedOrden.estado = res.estado;
+      selectedOrden.repuestos_esperando = res.repuestos_esperando || notaCompleta;
+      closeExterno();
+      alert(`⏳ Orden pausada en "Esperando Repuestos":\n${notaCompleta}`);
+      render();
+    } catch (err) {
+      alert(`⚠️ Error al reportar repuesto externo: ${err.message}`);
+    }
   });
 
-  // Acciones de Cambio de Estado de Orden
-  document.getElementById('btn-poner-proceso')?.addEventListener('click', () => actualizarEstadoOrden('En Proceso'));
-  document.getElementById('btn-poner-espera')?.addEventListener('click', () => actualizarEstadoOrden('Esperando Repuestos'));
-  document.getElementById('btn-poner-finalizado')?.addEventListener('click', () => finalizarServicioCompleto());
-
-  // Acción guardar checklist manual
-  document.getElementById('btn-guardar-diagnostico-principal')?.addEventListener('click', async () => {
-    await realizarSincronizacionChecklist(diag, true);
-  });
-
-  // Modal Repuestos
+  // Modal Repuestos de Almacén
   const modalRepuestos = document.getElementById('modal-repuestos-backdrop');
   const btnPedirRepuesto = document.getElementById('btn-pedir-repuesto');
   const btnCloseRepuestos = document.getElementById('btn-close-repuestos-modal');
@@ -665,7 +899,6 @@ function renderDetalleOrden() {
     renderRepuestosTable(e.target.value);
   });
 
-  // Cantidades del modal de pedidos
   const countMinus = document.getElementById('btn-count-minus');
   const countPlus = document.getElementById('btn-count-plus');
   const cantInput = document.getElementById('pedido-cantidad');
@@ -696,18 +929,109 @@ function renderDetalleOrden() {
       };
 
       await crearSolicitudMecanico(data);
-      alert('✅ Solicitud enviada a Almacén. Por favor espere que el jefe de almacén entregue el repuesto.');
+      alert('✅ Solicitud enviada a Almacén. El jefe de almacén confirmará la entrega de las piezas.');
       modalRepuestos.classList.add('hidden');
       document.getElementById('pedido-form-box').classList.add('hidden');
+      cargarRepuestosDeOrden(o.id);
     } catch (err) {
       alert(`⚠️ Error al enviar solicitud: ${err.message}`);
     }
   });
+
+  // Event Listeners de Inspección / Silueta (Acordeón)
+  containerEl.querySelectorAll('.taller-chk-row').forEach(row => {
+    row.addEventListener('click', () => {
+      const key = row.dataset.key;
+      openComponentDrawer(key, diag);
+    });
+  });
+
+  containerEl.querySelectorAll('.taller-svg-hotzone').forEach(zone => {
+    zone.addEventListener('click', () => {
+      const key = zone.dataset.key;
+      openComponentDrawer(key, diag);
+    });
+  });
+
+  const drawerBackdrop = document.getElementById('drawer-backdrop');
+  const btnCloseDrawer = document.getElementById('btn-close-drawer');
+  const btnSaveDrawer = document.getElementById('btn-save-drawer-component');
+  const drawerStatusBtns = containerEl.querySelectorAll('.taller-drawer-status-btn');
+  let activeStateSelection = 'na';
+
+  drawerStatusBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      drawerStatusBtns.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      activeStateSelection = btn.dataset.state;
+    });
+  });
+
+  btnCloseDrawer?.addEventListener('click', () => {
+    drawerBackdrop.classList.add('hidden');
+  });
+
+  btnSaveDrawer?.addEventListener('click', async () => {
+    const key = document.getElementById('drawer-comp-key').value;
+    const notas = document.getElementById('drawer-comp-notas').value;
+
+    diag[key] = {
+      estado: activeStateSelection,
+      notas: notas
+    };
+
+    drawerBackdrop.classList.add('hidden');
+    await realizarSincronizacionChecklist(diag);
+  });
+
+  document.getElementById('btn-guardar-diagnostico-principal')?.addEventListener('click', async () => {
+    await realizarSincronizacionChecklist(diag, true);
+  });
 }
 
 // ─────────────────────────────────────────────────────────────
-// ACCIONES INTERNAS
+// ACCIONES INTERNAS Y SINCRONIZACIÓN
 // ─────────────────────────────────────────────────────────────
+
+async function reanudarTrabajo() {
+  try {
+    const res = await cambiarEstado(selectedOrden.id, { estado: 'En Proceso', repuestos_esperando: '' });
+    selectedOrden.estado = res.estado;
+    selectedOrden.repuestos_esperando = '';
+    alert('▶️ Repuestos recibidos. Orden reanudada a "En Proceso".');
+    render();
+  } catch (err) {
+    alert(`⚠️ Error al reanudar orden: ${err.message}`);
+  }
+}
+
+async function cargarRepuestosDeOrden(ordenId) {
+  const container = document.getElementById('taller-lista-repuestos-container');
+  if (!container) return;
+  try {
+    const freshOrd = await getOrden(ordenId);
+    const items = freshOrd.items || [];
+    const repuestos = items.filter(it => it.tipo === 'almacen' || it.repuesto_cod);
+    if (repuestos.length === 0 && !freshOrd.repuestos_esperando) {
+      container.innerHTML = `<span style="color:var(--slate-4); font-size:12px;">No hay repuestos registrados aún en esta orden. Usa los botones superiores para solicitarlos.</span>`;
+      return;
+    }
+    let html = '<div style="display:flex; flex-wrap:wrap; gap:8px;">';
+    repuestos.forEach(r => {
+      html += `
+        <span style="background:var(--slate-9); border:1px solid var(--slate-8); border-radius:6px; padding:6px 12px; font-size:12px; display:inline-flex; align-items:center; gap:6px;">
+          <span style="color:#10b981; font-weight:800;">${escapeHtml(r.repuesto_cod || 'REP')}</span>
+          <span style="color:var(--dark); font-weight:700;">${escapeHtml(r.descripcion)}</span>
+          <span style="color:var(--slate-4); font-size:11px;">(Cant: ${r.cantidad})</span>
+        </span>
+      `;
+    });
+    html += '</div>';
+    container.innerHTML = html;
+  } catch (_) {
+    container.innerHTML = `<span style="color:var(--slate-5); font-size:12px;">Usa los botones superiores para pedir piezas de almacén o registrar compras externas.</span>`;
+  }
+}
 
 async function realizarSincronizacionChecklist(diag, mostrarAlerta = false) {
   try {
@@ -734,17 +1058,17 @@ async function actualizarEstadoOrden(nuevoEstado) {
 }
 
 async function finalizarServicioCompleto() {
-  const confirmar = confirm('¿Está seguro de marcar este servicio como FINALIZADO? Esto colocará la orden en espera de cobro y notificará al administrador.');
+  const confirmar = confirm('¿Confirmas que has FINALIZADO todos los trabajos en este vehículo?\n\nLa orden pasará a "Listo para Entrega" y la cuenta se enviará a Caja para el cobro.');
   if (!confirmar) return;
 
   try {
-    const res = await cambiarEstado(selectedOrden.id, { 
+    await cambiarEstado(selectedOrden.id, { 
       estado: 'Finalizado',
       pasar_facturacion: true,
       total: selectedOrden.total_estimado 
     });
+    alert('🎉 ¡Servicio finalizado con éxito!\nEl vehículo quedó listo para cobro en Caja y entrega.');
     selectedOrden = null;
-    alert('✅ Servicio Finalizado. El vehículo está listo para entrega.');
     await cargarDatos();
   } catch (err) {
     alert(`⚠️ Error al finalizar servicio: ${err.message}`);

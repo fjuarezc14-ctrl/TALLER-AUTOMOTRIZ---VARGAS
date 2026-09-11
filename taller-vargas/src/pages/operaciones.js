@@ -532,9 +532,14 @@ function renderKanbanCard(o, col) {
   const estaEnEspera = o.estado === 'Esperando Repuestos' || Boolean(o.repuestos_esperando);
   const esCuelloBotella = diasTranscurridos > 3 && (o.estado === 'Diagnostico' || estaEnEspera);
 
-  const optsSelect = mecanicosList.map(m =>
-    `<option value="${m.id}" ${o.mecanico && o.mecanico === m.nombre ? 'selected' : ''}>${m.nombre}</option>`
-  ).join('');
+  const optsSelect = mecanicosList.map(m => {
+    const stat = mecStats.find(s => s.id === m.id);
+    const count = stat ? stat.ordenes_activas : (typeof m.ordenes_activas === 'number' ? m.ordenes_activas : 0);
+    let tag = '🟢 0';
+    if (count > 0 && count <= 2) tag = `🟡 ${count}`;
+    else if (count > 2) tag = `🔴 ${count}`;
+    return `<option value="${m.id}" ${o.mecanico && o.mecanico === m.nombre ? 'selected' : ''}>${m.nombre} (${tag})</option>`;
+  }).join('');
 
   const isAdmin = window.isAdminAuthorized && window.isAdminAuthorized();
 

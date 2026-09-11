@@ -39,6 +39,22 @@ function initDamageCanvas() {
   }
 }
 
+function formatMecanicoOption(m, ordenes = ordenesList) {
+  let count = typeof m.ordenes_activas === 'number'
+    ? m.ordenes_activas
+    : (ordenes || []).filter(o => o.mecanico_id === m.id && !['Finalizado', 'Entregado', 'No realizo servicio'].includes(o.estado)).length;
+
+  let badge = '';
+  if (count === 0) {
+    badge = '🟢 Libre (0 autos)';
+  } else if (count <= 2) {
+    badge = `🟡 Normal (${count} ${count === 1 ? 'auto' : 'autos'})`;
+  } else {
+    badge = `🔴 Alta carga (${count} autos)`;
+  }
+  return `${m.nombre} — ${badge}`;
+}
+
 
 export async function init(container) {
   containerElement = container;
@@ -1390,7 +1406,7 @@ function renderModales() {
                 <label class="form-label">Mecánico Asignado (Opcional)</label>
                 <select id="ord-mecanico" class="form-select">
                   <option value="">-- Sin asignar --</option>
-                  ${mecanicosList.map(m => `<option value="${m.id}">${m.nombre}</option>`).join('')}
+                  ${mecanicosList.map(m => `<option value="${m.id}">${formatMecanicoOption(m)}</option>`).join('')}
                 </select>
               </div>
 
@@ -2110,7 +2126,7 @@ function renderModales() {
               <label class="form-label" style="font-weight:700; font-size:12px;">👨‍🔧 Mecánico Responsable (Opcional)</label>
               <select id="rapida-mecanico-select" class="form-select" style="font-size:12px;">
                 <option value="">-- Sin asignar por ahora --</option>
-                ${mecanicosList.map(m => `<option value="${m.id}">${m.nombre} (${m.especialidad || 'General'})</option>`).join('')}
+                ${mecanicosList.map(m => `<option value="${m.id}">${formatMecanicoOption(m)}</option>`).join('')}
               </select>
             </div>
 
