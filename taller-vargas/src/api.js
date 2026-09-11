@@ -9,12 +9,11 @@ function getBaseUrl() {
   if (envUrl && !envUrl.includes('localhost')) {
     return envUrl.replace(/\/+$/, '');
   }
-  // En producción (Nginx) o si el navegador accede desde una IP/dominio remoto (no localhost)
+  // En producción (Nginx) o si el navegador accede desde una IP/dominio remoto o local
   if (import.meta.env.PROD || (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1')) {
     return ''; // Usa rutas relativas (/api), aprovechando Nginx o el proxy inverso
   }
-  // En desarrollo local en la misma máquina
-  return envUrl || 'http://localhost:3001';
+  return envUrl || '';
 }
 
 export const BASE_URL = getBaseUrl();

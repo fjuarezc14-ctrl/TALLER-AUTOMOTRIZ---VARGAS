@@ -21,6 +21,14 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="TallerVargas">
   <link rel="apple-touch-icon" href="/icono-192x192.png">
+  <script>
+    window.toggleSidebar = window.toggleSidebar || function() {
+      const s = document.getElementById('sidebar-menu');
+      const b = document.getElementById('sidebar-backdrop');
+      if (s) s.classList.toggle('sidebar-open');
+      if (b) b.classList.toggle('hidden');
+    };
+  </script>
 </head>
 <body class="flex h-screen overflow-hidden">
 

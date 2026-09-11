@@ -121,8 +121,8 @@ async function refreshStockAlerts() {
 window.toggleSidebar = function() {
   const sidebar  = document.getElementById('sidebar-menu');
   const backdrop = document.getElementById('sidebar-backdrop');
-  sidebar.classList.toggle('sidebar-open');
-  backdrop.classList.toggle('hidden');
+  if (sidebar) sidebar.classList.toggle('sidebar-open');
+  if (backdrop) backdrop.classList.toggle('hidden');
 };
 
 // Exponer función de toggle de submenú en el sidebar
@@ -132,10 +132,10 @@ window.toggleSubmenu = function(id, btnEl) {
     const isOpen = submenu.classList.contains('open');
     if (isOpen) {
       submenu.classList.remove('open');
-      btnEl.classList.remove('open');
+      if (btnEl) btnEl.classList.remove('open');
     } else {
       submenu.classList.add('open');
-      btnEl.classList.add('open');
+      if (btnEl) btnEl.classList.add('open');
     }
   }
 };
