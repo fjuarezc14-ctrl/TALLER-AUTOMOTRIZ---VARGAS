@@ -138,6 +138,8 @@ window.toggleSubmenu = function(id, btnEl) {
       if (btnEl) btnEl.classList.add('open');
     }
   }
+};
+
 // ── Sistema Global de Toast Notifications ─────────────────
 window.showToast = function(message, type = 'success') {
   let toastContainer = document.getElementById('toast-container');
