@@ -3624,6 +3624,7 @@ async function ejecutarTransicionContextual(ordenId, nuevoEstado, extra = {}) {
     await cambiarEstado(ordenId, payload);
     store.invalidate('all');
     await cargarDatos();
+    if (window.showToast) window.showToast(`Estado actualizado a: ${nuevoEstado}`, 'success');
     // Refrescar modal de detalle con los datos actualizados
     await verDetalleOrden(ordenId);
   } catch (err) {

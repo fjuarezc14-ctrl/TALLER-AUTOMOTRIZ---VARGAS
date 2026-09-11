@@ -138,6 +138,87 @@ window.toggleSubmenu = function(id, btnEl) {
       if (btnEl) btnEl.classList.add('open');
     }
   }
+// ── Sistema Global de Toast Notifications ─────────────────
+window.showToast = function(message, type = 'success') {
+  let toastContainer = document.getElementById('toast-container');
+  if (!toastContainer) {
+    toastContainer = document.createElement('div');
+    toastContainer.id = 'toast-container';
+    toastContainer.style.cssText = 'position:fixed; top:20px; right:20px; z-index:9999; display:flex; flex-direction:column; gap:10px; pointer-events:none;';
+    document.body.appendChild(toastContainer);
+  }
+
+  const toast = document.createElement('div');
+  const bgColor = type === 'success' ? '#10b981' : type === 'error' ? '#ef4444' : '#3b82f6';
+  const icon = type === 'success' ? '✓' : type === 'error' ? '✕' : 'ℹ';
+  toast.style.cssText = `background:${bgColor}; color:white; padding:12px 18px; border-radius:10px; font-weight:600; font-size:13px; box-shadow:0 10px 25px rgba(0,0,0,0.2); display:flex; align-items:center; gap:10px; pointer-events:auto; transition:all 0.3s ease; font-family:Inter, sans-serif;`;
+  toast.innerHTML = `<span style="font-weight:900; background:rgba(255,255,255,0.2); width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px;">${icon}</span> <span>${message}</span>`;
+  toastContainer.appendChild(toast);
+
+  setTimeout(() => {
+    toast.style.opacity = '0';
+    toast.style.transform = 'translateY(-10px)';
+    setTimeout(() => toast.remove(), 300);
+  }, 3500);
+};
+
+// ── Impresión de Ticket Térmico 80mm ────────────────────────
+window.imprimirTicketTermico = function(cobro) {
+  if (!cobro) return;
+  const printWindow = window.open('', '_blank', 'width=350,height=600');
+  if (!printWindow) return alert('Por favor permite las ventanas emergentes para imprimir tickets.');
+  
+  const itemsHTML = (cobro.items || []).map(i => `
+    <tr>
+      <td style="text-align:left;padding:3px 0;">${i.descripcion}</td>
+      <td style="text-align:center;">${i.cantidad}</td>
+      <td style="text-align:right;">S/ ${parseFloat(i.precio_unitario).toFixed(2)}</td>
+    </tr>
+  `).join('');
+
+  printWindow.document.write(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Ticket ${cobro.comprobante_numero || 'RI-0001'}</title>
+      <style>
+        body { font-family: monospace; font-size: 12px; width: 80mm; margin: 0; padding: 10px; color: #000; }
+        .text-center { text-align: center; }
+        .text-right { text-align: right; }
+        .border-dashed { border-bottom: 1px dashed #000; margin: 8px 0; }
+        table { width: 100%; border-collapse: collapse; font-size: 11px; }
+      </style>
+    </head>
+    <body onload="window.print(); window.close();">
+      <div class="text-center">
+        <h3 style="margin:0;">TALLER AUTOMOTRIZ VARGAS</h3>
+        <p style="margin:2px 0;">RUC: 20512345678</p>
+        <p style="margin:2px 0;">Av. Las Flores 123 - Lima</p>
+        <div class="border-dashed"></div>
+        <h4 style="margin:4px 0;">${cobro.tipo_comprobante || 'VOUCHER'}: ${cobro.comprobante_numero || 'RI-0001'}</h4>
+        <p style="margin:2px 0;">Fecha: ${new Date().toLocaleDateString('es-PE')}</p>
+        <p style="margin:2px 0;">Cliente: ${cobro.cliente_nombre || 'Cliente General'}</p>
+        <p style="margin:2px 0;">Placa: ${cobro.placa || '—'}</p>
+      </div>
+      <div class="border-dashed"></div>
+      <table>
+        <thead>
+          <tr><th style="text-align:left;">Desc</th><th>Cant</th><th style="text-align:right;">Total</th></tr>
+        </thead>
+        <tbody>${itemsHTML || '<tr><td colspan="3">Servicios de Taller Automotriz</td></tr>'}</tbody>
+      </table>
+      <div class="border-dashed"></div>
+      <p class="text-right"><strong>TOTAL: S/ ${parseFloat(cobro.monto_neto !== null && cobro.monto_neto !== undefined ? cobro.monto_neto : cobro.monto_total || 0).toFixed(2)}</strong></p>
+      <p class="text-right">Método: ${cobro.metodo_pago || 'Efectivo'}</p>
+      <div class="border-dashed"></div>
+      <div class="text-center">
+        <p style="margin:4px 0;">¡Gracias por su preferencia!</p>
+        <p style="margin:2px 0;font-size:10px;">Conserve este ticket como garantía</p>
+      </div>
+    </body>
+    </html>
+  `);
+  printWindow.document.close();
 };
 
 // Cerrar ventanas emergentes (modales) al presionar la tecla Escape
