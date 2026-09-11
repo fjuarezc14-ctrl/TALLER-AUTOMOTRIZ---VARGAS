@@ -170,17 +170,17 @@ function attachEvents() {
 
   function setLoading(val) {
     const btn = document.getElementById('login-btn');
-    btn.disabled = val;
-    btnText.textContent = val ? 'Verificando...' : 'Iniciar Sesión';
-    spinner.classList.toggle('hidden', !val);
+    if (btn) btn.disabled = val;
+    if (btnText) btnText.textContent = val ? 'Verificando...' : 'Iniciar Sesión';
+    if (spinner) spinner.classList.toggle('hidden', !val);
   }
 
   function showError(msg) {
-    errorMsg.textContent = msg;
-    errorBox.classList.remove('hidden');
+    if (errorMsg) errorMsg.textContent = msg;
+    if (errorBox) errorBox.classList.remove('hidden');
   }
 
   function hideError() {
-    errorBox.classList.add('hidden');
+    if (errorBox) errorBox.classList.add('hidden');
   }
 }

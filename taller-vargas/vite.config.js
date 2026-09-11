@@ -4,9 +4,7 @@ export default defineConfig({
   server: {
     port: 5174,
     host: '0.0.0.0',
-
     allowedHosts: true,
-
     watch: {
       // Necesario en Docker sobre Windows: inotify no funciona en volúmenes montados
       usePolling: true,
