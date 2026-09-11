@@ -103,8 +103,17 @@ router.post("/", async (req, res) => {
 });
 
 router.put("/:id", async (req, res) => {
-  const { vehiculo_id,cliente_id,mecanico_id,kilometraje,nivel_combustible,falla_reportada,estado,repuestos_esperando,fecha_entrega,nota_interna,fecha_ingreso,
+  const { _solo_nota_interna, vehiculo_id,cliente_id,mecanico_id,kilometraje,nivel_combustible,falla_reportada,estado,repuestos_esperando,fecha_entrega,nota_interna,fecha_ingreso,
     conductor_nombre, conductor_doc, conductor_telefono, es_garantia, garantia_motivo, mecanico_negligente_id } = req.body;
+  
+  if (_solo_nota_interna) {
+    try {
+      const r = await query("UPDATE ordenes_servicio SET nota_interna=$1 WHERE id=$2 RETURNING *", [nota_interna||"", req.params.id]);
+      if (!r.rows.length) return res.status(404).json({ error: "Orden no encontrada" });
+      return res.json(r.rows[0]);
+    } catch (err) { return res.status(500).json({ error: err.message }); }
+  }
+
   const client = await getClient();
   try {
     await client.query("BEGIN");
@@ -366,6 +375,19 @@ router.patch("/:id/diagnostico", async (req, res) => {
     const r = await query(
       "UPDATE ordenes_servicio SET diagnostico=$1 WHERE id=$2 RETURNING *",
       [diagnostico ? JSON.stringify(diagnostico) : null, req.params.id]
+    );
+    if (!r.rows.length) return res.status(404).json({ error: "Orden no encontrada" });
+    res.json(r.rows[0]);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// PATCH /ordenes/:id/nota-interna — actualizar nota interna de la orden
+router.patch("/:id/nota-interna", async (req, res) => {
+  const { nota_interna } = req.body;
+  try {
+    const r = await query(
+      "UPDATE ordenes_servicio SET nota_interna=$1 WHERE id=$2 RETURNING *",
+      [nota_interna || "", req.params.id]
     );
     if (!r.rows.length) return res.status(404).json({ error: "Orden no encontrada" });
     res.json(r.rows[0]);
