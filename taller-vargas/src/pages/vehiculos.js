@@ -9,6 +9,7 @@ let clientesList     = [];
 let viewMode         = 'cards';  // 'cards' | 'list'
 let vehPaginaActual  = 1;
 const VEH_PAGE_SIZE  = 12;
+let activeKeydownHandler = null;
 
 // ── Constantes ────────────────────────────────────────────
 const TIPO_ICONS = {
@@ -150,9 +151,39 @@ function renderVehiculos(vehiculos) {
     actualizarListaVehiculos(); 
   });
 
-  // Formulario
-  document.getElementById('btn-close-veh-modal-x').addEventListener('click', cerrarModalVehiculo);
-  document.getElementById('btn-close-veh-modal-cancel').addEventListener('click', cerrarModalVehiculo);
+  // Formulario y Modales
+  document.getElementById('btn-close-veh-modal-x')?.addEventListener('click', cerrarModalVehiculo);
+  document.getElementById('btn-close-veh-modal-cancel')?.addEventListener('click', cerrarModalVehiculo);
+  document.getElementById('btn-close-historial-x')?.addEventListener('click', cerrarModalHistorial);
+  document.getElementById('btn-close-historial-footer')?.addEventListener('click', cerrarModalHistorial);
+
+  // Cerrar al hacer clic en el backdrop oscuro
+  document.getElementById('modal-vehiculo')?.addEventListener('click', (e) => {
+    if (e.target.id === 'modal-vehiculo') cerrarModalVehiculo();
+  });
+  document.getElementById('modal-historial')?.addEventListener('click', (e) => {
+    if (e.target.id === 'modal-historial') cerrarModalHistorial();
+  });
+
+  // Cerrar con tecla Escape
+  if (activeKeydownHandler) {
+    document.removeEventListener('keydown', activeKeydownHandler);
+  }
+  activeKeydownHandler = (e) => {
+    if (e.key === 'Escape') {
+      const modalHist = document.getElementById('modal-historial');
+      if (modalHist && modalHist.classList.contains('active')) {
+        cerrarModalHistorial();
+        return;
+      }
+      const modalVeh = document.getElementById('modal-vehiculo');
+      if (modalVeh && modalVeh.classList.contains('active')) {
+        cerrarModalVehiculo();
+      }
+    }
+  };
+  document.addEventListener('keydown', activeKeydownHandler);
+
   document.getElementById('form-vehiculo').addEventListener('submit', guardarVehiculo);
 
   // Buscador dinámico de cliente en el modal de vehículo
@@ -1080,6 +1111,11 @@ function renderModalHistorial() {
             </div>
           </div>
         </div>
+        <div class="modal-footer" style="display:flex;justify-content:flex-end;gap:10px;padding:12px 20px;border-top:1px solid var(--slate-8);background:var(--slate-9);border-radius:0 0 12px 12px;">
+          <button type="button" class="btn-ghost" id="btn-close-historial-footer" style="padding:7px 18px;font-size:12px;font-weight:700;cursor:pointer;">
+            ✕ Cerrar Expediente
+          </button>
+        </div>
       </div>
     </div>
   `;
@@ -1297,7 +1333,21 @@ async function verHistorial(id) {
 }
 
 function cerrarModalHistorial() {
-  document.getElementById('modal-historial').classList.remove('active');
+  const modal = document.getElementById('modal-historial');
+  if (modal) modal.classList.remove('active');
+  try {
+    const url = new URL(window.location.href);
+    if (url.searchParams.has('abrir')) {
+      url.searchParams.delete('abrir');
+      window.history.replaceState({}, '', url.pathname + (url.search ? url.search : ''));
+    }
+  } catch (_) {}
 }
 
-export function destroy() {}
+export function destroy() {
+  if (activeKeydownHandler) {
+    document.removeEventListener('keydown', activeKeydownHandler);
+    activeKeydownHandler = null;
+  }
+  containerElement = null;
+}
