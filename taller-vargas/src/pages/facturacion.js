@@ -83,7 +83,8 @@ function calcMetrics() {
 
   cobrosList.forEach(c => {
     if (c.estado === 'Cancelado' || c.estado === 'Dividido') {
-      const cDateStr = new Date(c.fecha_cobro).toLocaleDateString('en-US');
+      const rawDate = typeof c.fecha_cobro === 'string' ? c.fecha_cobro.split('T')[0] : '';
+      const cDateStr = rawDate ? new Date(rawDate + 'T12:00:00').toLocaleDateString('en-US') : new Date(c.fecha_cobro).toLocaleDateString('en-US');
       if (cDateStr === todayStr) {
         const m = c.metodo_pago || 'Efectivo';
         const total = parseFloat(c.monto_neto !== null && c.monto_neto !== undefined ? c.monto_neto : c.monto_total);

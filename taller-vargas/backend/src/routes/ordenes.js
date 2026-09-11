@@ -297,6 +297,14 @@ router.post("/:id/items", async (req, res) => {
     const item = await client.query("INSERT INTO items_costo (orden_id,tipo,descripcion,cantidad,precio_unitario,repuesto_cod) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *",
       [req.params.id,tipo||"manual",descripcion,cantidad,precio_unitario,repuesto_cod||null]);
     if (tipo==="almacen" && repuesto_cod) {
+      const stockCheck = await client.query("SELECT stock, descripcion FROM almacen WHERE codigo=$1", [repuesto_cod]);
+      if (stockCheck.rows.length > 0 && stockCheck.rows[0].stock < cantidad) {
+        await client.query("ROLLBACK");
+        client.release();
+        return res.status(400).json({ 
+          error: `Stock insuficiente para "${stockCheck.rows[0].descripcion}". Disponible: ${stockCheck.rows[0].stock}, Solicitado: ${cantidad}` 
+        });
+      }
       await client.query("UPDATE almacen SET stock=stock-$1 WHERE codigo=$2", [cantidad,repuesto_cod]);
     }
     const tot = await client.query("SELECT COALESCE(SUM(cantidad*precio_unitario),0) AS t FROM items_costo WHERE orden_id=$1", [req.params.id]);
