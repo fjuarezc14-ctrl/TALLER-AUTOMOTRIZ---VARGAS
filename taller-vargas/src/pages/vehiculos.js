@@ -417,9 +417,9 @@ function calcSemaforo(v) {
   const kmFallback = v.km_ultimo_servicio || 0;
 
   const getStatus = (kmComponente, limite) => {
-    const kmUltimo = (kmComponente !== null && kmComponente !== undefined) ? kmComponente : kmFallback;
+    if (kmComponente === null || kmComponente === undefined) return 'unknown';
     if (!kmAct) return 'unknown';
-    const diff = kmAct - kmUltimo;
+    const diff = kmAct - kmComponente;
     if (diff <= 0) return 'ok';
     const pct = diff / limite;
     if (pct < 0.7) return 'ok';
@@ -1263,8 +1263,17 @@ async function verHistorial(id) {
 
   // Semáforo en el historial con barra de progreso
   const semHtml = (label, icon, kmComponente, limite) => {
-    const kmUltimo = kmComponente !== null && kmComponente !== undefined ? kmComponente : (v.km_ultimo_servicio || 0);
-    const diff = (v.km_actual || 0) - kmUltimo;
+    if (kmComponente === null || kmComponente === undefined) {
+      return `
+        <div style="background:var(--slate-9);border-radius:var(--radius-md);padding:10px;border:1px solid var(--slate-8);">
+          <div style="font-size:10px;font-weight:800;color:var(--slate-5);text-transform:uppercase;">${icon} ${label}</div>
+          <div style="font-size:12px;font-weight:700;color:var(--slate-5);margin-top:4px;">Sin servicio en taller</div>
+          <div class="km-bar-wrap"><div class="km-bar-fill" style="width:0%;background:#94a3b8"></div></div>
+          <div style="font-size:10px;color:var(--slate-5);margin-top:3px;">Intervalo: cada ${limite.toLocaleString()} km</div>
+        </div>
+      `;
+    }
+    const diff = (v.km_actual || 0) - kmComponente;
     const cleanDiff = diff > 0 ? diff : 0;
     const pct = Math.min(100, Math.round((cleanDiff / limite) * 100));
     const barCls = pct < 70 ? 'ok' : pct < 100 ? 'warn' : 'over';
