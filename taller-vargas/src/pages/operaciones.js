@@ -538,7 +538,9 @@ function renderKanbanCard(o, col) {
     let tag = '🟢 0';
     if (count > 0 && count <= 2) tag = `🟡 ${count}`;
     else if (count > 2) tag = `🔴 ${count}`;
-    return `<option value="${m.id}" ${o.mecanico && o.mecanico === m.nombre ? 'selected' : ''}>${m.nombre} (${tag})</option>`;
+    const isSelected = (o.mecanico_id && Number(o.mecanico_id) === Number(m.id)) || 
+      (o.mecanico && o.mecanico.trim().toLowerCase() === (m.nombre || '').trim().toLowerCase());
+    return `<option value="${m.id}" ${isSelected ? 'selected' : ''}>${m.nombre} (${tag})</option>`;
   }).join('');
 
   const isAdmin = window.isAdminAuthorized && window.isAdminAuthorized();

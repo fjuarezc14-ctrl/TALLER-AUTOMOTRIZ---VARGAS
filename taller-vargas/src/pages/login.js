@@ -149,6 +149,8 @@ function attachEvents() {
       // Guardar token y datos del usuario
       localStorage.setItem('vargas_token', data.token);
       localStorage.setItem('vargas_user', JSON.stringify(data.user));
+      localStorage.removeItem('taller_mecanico_id');
+      localStorage.removeItem('taller_mecanico_nombre');
       // Redirigir según el rol del usuario
       window.location.hash = '';
       if (data.user && data.user.rol === 'operario') {

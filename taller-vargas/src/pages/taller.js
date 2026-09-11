@@ -58,6 +58,75 @@ const ESTADOS_COMPONENTE = {
   na:      { label: 'No Aplica (N/A)', color: '#94a3b8', bg: '#334155', border: '#94a3b8', text: '⚫' }
 };
 
+// Comparador robusto para saber si una orden pertenece al mecánico seleccionado
+function esOrdenDeMecanico(o, mec) {
+  if (!o || !mec) return false;
+  if (o.mecanico_id && mec.id && Number(o.mecanico_id) === Number(mec.id)) {
+    return true;
+  }
+  if (o.mecanico && mec.nombre) {
+    const oMec = o.mecanico.trim().toLowerCase();
+    const sMec = mec.nombre.trim().toLowerCase();
+    return oMec === sMec || oMec.includes(sMec) || sMec.includes(oMec);
+  }
+  return false;
+}
+
+// Sincronización inteligente de sesión con el usuario autenticado
+function sincronizarMecanico(mecanicos) {
+  const userStr = localStorage.getItem('vargas_user');
+  let currentUser = null;
+  if (userStr) {
+    try { currentUser = JSON.parse(userStr); } catch (_) {}
+  }
+
+  // 1. Si el usuario autenticado tiene rol 'operario', forzar SIEMPRE a su perfil propio
+  if (currentUser && currentUser.rol === 'operario') {
+    const uName = (currentUser.username || '').trim().toLowerCase();
+    let match = mecanicos.find(m => (m.nombre || '').trim().toLowerCase() === uName);
+    if (!match) {
+      match = mecanicos.find(m => {
+        const mName = (m.nombre || '').trim().toLowerCase();
+        return mName.includes(uName) || uName.includes(mName);
+      });
+    }
+
+    if (match) {
+      selectedMecanico = { id: match.id, nombre: match.nombre };
+    } else {
+      selectedMecanico = { id: currentUser.id, nombre: currentUser.username };
+    }
+    localStorage.setItem('taller_mecanico_id', selectedMecanico.id);
+    localStorage.setItem('taller_mecanico_nombre', selectedMecanico.nombre);
+    return;
+  }
+
+  // 2. Si no es operario (admin/recepción), revisar si tenía una selección previa guardada y activa
+  const savedId = localStorage.getItem('taller_mecanico_id');
+  const savedName = localStorage.getItem('taller_mecanico_nombre');
+  if (savedId && savedName) {
+    const matchSaved = mecanicos.find(m => m.id === parseInt(savedId) && m.activo);
+    if (matchSaved) {
+      selectedMecanico = { id: matchSaved.id, nombre: matchSaved.nombre };
+      return;
+    }
+  }
+
+  // 3. Si no hay selección, intentar asociar si coincide el username del usuario
+  if (currentUser) {
+    const uName = (currentUser.username || '').trim().toLowerCase();
+    const match = mecanicos.find(m => (m.nombre || '').trim().toLowerCase() === uName);
+    if (match) {
+      selectedMecanico = { id: match.id, nombre: match.nombre };
+      localStorage.setItem('taller_mecanico_id', match.id);
+      localStorage.setItem('taller_mecanico_nombre', match.nombre);
+      return;
+    }
+  }
+
+  selectedMecanico = null;
+}
+
 // ─────────────────────────────────────────────────────────────
 // INIT / DESTROY
 // ─────────────────────────────────────────────────────────────
@@ -67,11 +136,22 @@ export async function init(container) {
   // Agregar clase CSS especial para forzar el tema industrial oscuro en este portal
   containerEl.classList.add('modo-taller-wrapper');
 
-  // Recuperar sesión de mecánico si existe
-  const savedId = localStorage.getItem('taller_mecanico_id');
-  const savedName = localStorage.getItem('taller_mecanico_nombre');
-  if (savedId && savedName) {
-    selectedMecanico = { id: parseInt(savedId), nombre: savedName };
+  // Solo precargar si NO es un usuario operario (los operarios se resuelven de forma estricta en sincronizarMecanico)
+  const userStr = localStorage.getItem('vargas_user');
+  let isOperario = false;
+  try {
+    const u = JSON.parse(userStr);
+    isOperario = u && u.rol === 'operario';
+  } catch (_) {}
+
+  if (!isOperario) {
+    const savedId = localStorage.getItem('taller_mecanico_id');
+    const savedName = localStorage.getItem('taller_mecanico_nombre');
+    if (savedId && savedName) {
+      selectedMecanico = { id: parseInt(savedId), nombre: savedName };
+    } else {
+      selectedMecanico = null;
+    }
   } else {
     selectedMecanico = null;
   }
@@ -107,25 +187,8 @@ async function cargarDatos() {
     
     mecanicosList = mecanicos.filter(m => m.activo);
 
-    // Auto-detección inteligente: si no hay mecánico seleccionado pero el usuario logueado coincide con un mecánico
-    if (!selectedMecanico) {
-      const userStr = localStorage.getItem('vargas_user');
-      if (userStr) {
-        try {
-          const user = JSON.parse(userStr);
-          const uName = (user.username || '').toLowerCase().trim();
-          const match = mecanicosList.find(m => {
-            const mName = m.nombre.toLowerCase().trim();
-            return mName === uName || mName.includes(uName) || uName.includes(mName);
-          });
-          if (match) {
-            selectedMecanico = { id: match.id, nombre: match.nombre };
-            localStorage.setItem('taller_mecanico_id', match.id);
-            localStorage.setItem('taller_mecanico_nombre', match.nombre);
-          }
-        } catch (_) {}
-      }
-    }
+    // Sincronización inteligente de sesión con el usuario autenticado
+    sincronizarMecanico(mecanicosList);
 
     // Filtrar órdenes activas (no finalizadas)
     const ESTADOS_ACTIVOS = ['Diagnostico', 'En Proceso', 'Esperando Repuestos'];
@@ -233,16 +296,24 @@ function renderSelectorMecanico() {
 // VISTA: LISTA DE TRABAJOS ACTIVOS
 // ─────────────────────────────────────────────────────────────
 function renderListaTrabajos() {
+  const userStr = localStorage.getItem('vargas_user');
+  let isOperario = false;
+  try {
+    const u = JSON.parse(userStr);
+    isOperario = u && u.rol === 'operario';
+  } catch (_) {}
+
   // Filtrar órdenes según pestaña activa
   let filtradas = [];
   if (viewFilter === 'mis-ordenes') {
-    filtradas = ordenesList.filter(o => o.mecanico === selectedMecanico.nombre);
+    filtradas = ordenesList.filter(o => esOrdenDeMecanico(o, selectedMecanico));
   } else {
     filtradas = ordenesList;
   }
 
   const tabMisActive = viewFilter === 'mis-ordenes' ? 'taller-tab-active' : '';
   const tabTodasActive = viewFilter === 'todas' ? 'taller-tab-active' : '';
+  const misOrdenesCount = ordenesList.filter(o => esOrdenDeMecanico(o, selectedMecanico)).length;
 
   let gridHtml = '';
   if (filtradas.length === 0) {
@@ -257,7 +328,7 @@ function renderListaTrabajos() {
     gridHtml = `
       <div class="taller-trabajos-grid">
         ${filtradas.map(o => {
-          const esMia = o.mecanico === selectedMecanico.nombre;
+          const esMia = esOrdenDeMecanico(o, selectedMecanico);
           const estaEnEspera = o.estado === 'Esperando Repuestos' || Boolean(o.repuestos_esperando);
           let badgeEstado = '';
           if (estaEnEspera) {
@@ -317,16 +388,16 @@ function renderListaTrabajos() {
           </button>
           <div class="taller-user-info">
             <span>Mecánico:</span>
-            <strong>${selectedMecanico.nombre}</strong>
+            <strong>${escapeHtml(selectedMecanico ? selectedMecanico.nombre : 'Sin Seleccionar')}</strong>
           </div>
-          <button class="taller-btn-logout" id="btn-logout-taller">Cambiar Mecánico</button>
+          ${!isOperario ? `<button class="taller-btn-logout" id="btn-logout-taller">Cambiar Mecánico</button>` : ''}
         </div>
       </div>
 
       <!-- Controles de pestaña -->
       <div class="taller-tabs-container">
         <button class="taller-tab-btn ${tabMisActive}" id="tab-mis-trabajos">
-          🛠️ MIS ÓRDENES (${ordenesList.filter(o => o.mecanico === selectedMecanico.nombre).length})
+          🛠️ MIS ÓRDENES (${misOrdenesCount})
         </button>
         <button class="taller-tab-btn ${tabTodasActive}" id="tab-todos-trabajos">
           🚗 TODAS LAS ÓRDENES DEL TALLER (${ordenesList.length})

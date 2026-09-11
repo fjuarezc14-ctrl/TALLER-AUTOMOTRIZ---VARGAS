@@ -39,6 +39,8 @@ async function request(path, options = {}) {
   if (res.status === 401 && path !== '/auth/login') {
     localStorage.removeItem('vargas_token');
     localStorage.removeItem('vargas_user');
+    localStorage.removeItem('taller_mecanico_id');
+    localStorage.removeItem('taller_mecanico_nombre');
     window.navigate && window.navigate('/login');
     throw new ApiError('Sesión expirada. Por favor vuelve a iniciar sesión.', 401);
   }
@@ -57,6 +59,8 @@ export const getMe = () => request('/auth/me');
 export function logout() {
   localStorage.removeItem('vargas_token');
   localStorage.removeItem('vargas_user');
+  localStorage.removeItem('taller_mecanico_id');
+  localStorage.removeItem('taller_mecanico_nombre');
 }
 
 // ── Dashboard ────────────────────────────────────────────
