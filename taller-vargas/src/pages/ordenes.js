@@ -320,6 +320,54 @@ function renderPage() {
   const formInlineCli = document.getElementById('form-inline-cliente');
   if (formInlineCli) formInlineCli.addEventListener('submit', guardarInlineCliente);
 
+  // Validación en vivo de DNI existente en modal inline
+  document.getElementById('inline-cli-num-doc')?.addEventListener('input', (e) => {
+    const docVal = e.target.value.trim().toLowerCase();
+    const fb = document.getElementById('inline-cli-doc-feedback');
+    if (!fb) return;
+    if (!docVal) {
+      fb.style.display = 'none';
+      return;
+    }
+    const match = (clientesList || []).find(c => c.num_doc && c.num_doc.trim().toLowerCase() === docVal);
+    if (match) {
+      fb.style.display = 'block';
+      fb.style.color = '#ef4444';
+      fb.innerHTML = `❌ Este documento ya pertenece a: <strong>${match.nombre}</strong>`;
+    } else {
+      fb.style.display = 'none';
+      fb.innerHTML = '';
+    }
+  });
+
+  // Advertencia informativa en vivo de Teléfono existente en modal inline
+  document.getElementById('inline-cli-telefono')?.addEventListener('input', (e) => {
+    const rawTel = e.target.value.trim();
+    const cleanTel = rawTel.replace(/\D/g, '');
+    const fb = document.getElementById('inline-cli-tel-feedback');
+    if (!fb) return;
+    if (!cleanTel || cleanTel.length < 6) {
+      fb.style.display = 'none';
+      return;
+    }
+    const match = (clientesList || []).find(c => {
+      const cTelClean = (c.telefono || '').replace(/\D/g, '');
+      return cTelClean && cTelClean === cleanTel;
+    });
+    if (match) {
+      fb.style.display = 'block';
+      fb.style.color = '#b45309';
+      fb.style.background = '#fef3c7';
+      fb.style.padding = '4px 8px';
+      fb.style.borderRadius = '4px';
+      fb.style.border = '1px solid #fde68a';
+      fb.innerHTML = `⚠️ Este teléfono ya pertenece a: <strong>${match.nombre}</strong>. <em>(Puedes continuar si es familiar o empresa)</em>.`;
+    } else {
+      fb.style.display = 'none';
+      fb.innerHTML = '';
+    }
+  });
+
   const btnInlineAddVeh = document.getElementById('btn-inline-add-vehiculo');
   if (btnInlineAddVeh) btnInlineAddVeh.addEventListener('click', () => abrirModalInlineVehiculo('stepper'));
 
@@ -2175,11 +2223,13 @@ function renderModales() {
               <div class="form-group" style="margin:0;">
                 <label class="form-label" style="font-size:11px; font-weight:700;">N° Documento *</label>
                 <input type="text" id="inline-cli-num-doc" class="form-input" required placeholder="Ej: 70123456" maxlength="20" style="font-size:12px; font-family:monospace;" />
+                <div id="inline-cli-doc-feedback" style="display:none;font-size:10.5px;margin-top:4px;font-weight:600;"></div>
               </div>
             </div>
             <div class="form-group" style="margin:0;">
               <label class="form-label" style="font-size:11px; font-weight:700;">Teléfono / WhatsApp *</label>
               <input type="tel" id="inline-cli-telefono" class="form-input" required placeholder="Ej: 987654321" maxlength="15" style="font-size:12px;" />
+              <div id="inline-cli-tel-feedback" style="display:none;font-size:10.5px;margin-top:4px;font-weight:600;"></div>
             </div>
             <div class="form-group" style="margin:0;">
               <label class="form-label" style="font-size:11px; font-weight:700;">Dirección (Opcional)</label>
@@ -2394,6 +2444,10 @@ function abrirModalInlineCliente(origin = 'stepper') {
   const modal = document.getElementById('modal-inline-cliente');
   const form = document.getElementById('form-inline-cliente');
   if (form) form.reset();
+  const docFb = document.getElementById('inline-cli-doc-feedback');
+  const telFb = document.getElementById('inline-cli-tel-feedback');
+  if (docFb) { docFb.style.display = 'none'; docFb.innerHTML = ''; }
+  if (telFb) { telFb.style.display = 'none'; telFb.innerHTML = ''; }
   if (modal) {
     modal.classList.add('active');
     setTimeout(() => {
@@ -2419,6 +2473,13 @@ async function guardarInlineCliente(e) {
   if (!nombre) { alert('Por favor, ingresa el nombre o razón social del cliente.'); return; }
   if (!num_doc) { alert('Por favor, ingresa el número de documento.'); return; }
   if (!telefono) { alert('Por favor, ingresa el teléfono o WhatsApp.'); return; }
+
+  // Validar si el documento ya existe
+  const matchDoc = (clientesList || []).find(c => c.num_doc && c.num_doc.trim().toLowerCase() === num_doc.toLowerCase());
+  if (matchDoc) {
+    alert(`No se puede registrar: El documento ${num_doc} ya está registrado a nombre de "${matchDoc.nombre}".`);
+    return;
+  }
 
   const submitBtn = document.getElementById('btn-submit-inline-cli');
   if (submitBtn) {
@@ -3747,10 +3808,10 @@ function buscarRepuestoEnAlmacen(tipoComponente, textoSugerido) {
   }
   // Añadir palabras clave según tipo de componente
   if (tipoComponente === 'aceite') keys.push('aceite');
-  else if (tipoComponente === 'frenos') keys.push('freno', 'pastilla');
+  else if (tipoComponente === 'frenos') keys.push('pastilla', 'zapata', 'freno');
   else if (tipoComponente === 'bujias') keys.push('bujia');
   else if (tipoComponente === 'filtros') keys.push('filtro');
-  else if (tipoComponente === 'liquido') keys.push('liquido', 'freno');
+  else if (tipoComponente === 'liquido') keys.push('liquido', 'líquido', 'dot');
   else if (tipoComponente === 'refrigerante') keys.push('refrigerante', 'coolant', 'anticongelante');
   else if (tipoComponente === 'distribucion') keys.push('distribucion', 'faja', 'correa');
 
@@ -3758,15 +3819,25 @@ function buscarRepuestoEnAlmacen(tipoComponente, textoSugerido) {
   let matched = null;
   if (keys.length > 0) {
     // Prioridad 1: Coincide alguna palabra clave y tiene stock > 0
-    matched = almacenList.find(p => 
-      p.stock > 0 && 
-      keys.some(k => p.descripcion.toLowerCase().includes(k) || p.codigo.toLowerCase().includes(k))
-    );
+    matched = almacenList.find(p => {
+      if (p.stock <= 0) return false;
+      const desc = p.descripcion.toLowerCase();
+      const cod = p.codigo.toLowerCase();
+      // Si estamos buscando pastillas de freno, evitar que coincida con líquidos
+      if (tipoComponente === 'frenos' && (desc.includes('liquido') || desc.includes('líquido'))) return false;
+      // Si estamos buscando líquido de frenos, debe contener liquido o dot
+      if (tipoComponente === 'liquido' && !desc.includes('liquido') && !desc.includes('líquido') && !desc.includes('dot')) return false;
+      return keys.some(k => desc.includes(k) || cod.includes(k));
+    });
     // Prioridad 2: Coincide alguna palabra clave, aunque stock sea 0
     if (!matched) {
-      matched = almacenList.find(p => 
-        keys.some(k => p.descripcion.toLowerCase().includes(k) || p.codigo.toLowerCase().includes(k))
-      );
+      matched = almacenList.find(p => {
+        const desc = p.descripcion.toLowerCase();
+        const cod = p.codigo.toLowerCase();
+        if (tipoComponente === 'frenos' && (desc.includes('liquido') || desc.includes('líquido'))) return false;
+        if (tipoComponente === 'liquido' && !desc.includes('liquido') && !desc.includes('líquido') && !desc.includes('dot')) return false;
+        return keys.some(k => desc.includes(k) || cod.includes(k));
+      });
     }
   }
   return matched;

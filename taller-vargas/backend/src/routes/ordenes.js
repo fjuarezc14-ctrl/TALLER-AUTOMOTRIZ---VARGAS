@@ -246,7 +246,7 @@ router.patch("/:id/estado", async (req, res) => {
           updates.push(`km_ultimo_aceite = $${paramIndex++}`);
           params.push(kmVal);
         }
-        if (descripciones.some(d => /freno|pastilla|zapata|disco\s*freno/i.test(d))) {
+        if (descripciones.some(d => /pastilla|zapata|disco\s*freno/i.test(d) || (/freno/i.test(d) && !/liquido|dot\s*4|dot4/i.test(d)))) {
           updates.push(`km_ultimo_frenos = $${paramIndex++}`);
           params.push(kmVal);
         }

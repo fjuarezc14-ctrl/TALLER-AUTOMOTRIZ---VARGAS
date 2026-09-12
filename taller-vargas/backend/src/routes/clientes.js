@@ -174,6 +174,12 @@ router.get("/:id/historial", async (req, res) => {
 router.post("/", async (req, res) => {
   const { tipo_doc, num_doc, nombre, telefono, correo, direccion, notas } = req.body;
   try {
+    if (num_doc) {
+      const checkDoc = await query("SELECT nombre FROM clientes WHERE num_doc = $1", [num_doc.trim()]);
+      if (checkDoc.rows.length > 0) {
+        return res.status(409).json({ error: `Ya existe un cliente con ese documento: ${checkDoc.rows[0].nombre}.` });
+      }
+    }
     const r = await query(
       "INSERT INTO clientes (tipo_doc,num_doc,nombre,telefono,correo,direccion,notas) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *",
       [tipo_doc, num_doc, nombre, telefono, correo || null, direccion || null, notas || null]
@@ -191,13 +197,22 @@ router.post("/", async (req, res) => {
 router.put("/:id", async (req, res) => {
   const { tipo_doc, num_doc, nombre, telefono, correo, direccion, notas } = req.body;
   try {
+    if (num_doc) {
+      const checkDoc = await query("SELECT nombre FROM clientes WHERE num_doc = $1 AND id != $2", [num_doc.trim(), req.params.id]);
+      if (checkDoc.rows.length > 0) {
+        return res.status(409).json({ error: `El documento ya pertenece a otro cliente: ${checkDoc.rows[0].nombre}.` });
+      }
+    }
     const r = await query(
       "UPDATE clientes SET tipo_doc=$1,num_doc=$2,nombre=$3,telefono=$4,correo=$5,direccion=$6,notas=$7 WHERE id=$8 RETURNING *",
       [tipo_doc, num_doc, nombre, telefono, correo || null, direccion || null, notas || null, req.params.id]
     );
     if (!r.rows.length) return res.status(404).json({ error: "Cliente no encontrado" });
     res.json(r.rows[0]);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) {
+    if (err.code === "23505") return res.status(409).json({ error: "Ya existe un cliente con ese documento." });
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // ──────────────────────────────────────────────────────────────

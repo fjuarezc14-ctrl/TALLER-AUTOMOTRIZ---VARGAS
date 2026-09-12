@@ -557,6 +557,7 @@ function renderModalCliente() {
               <div class="form-group col-span-2">
                 <label class="form-label">Número Documento</label>
                 <input type="text" id="cli-num-doc" class="form-input font-mono" required placeholder="Ej: 12345678" />
+                <div id="cli-num-doc-feedback" style="display:none;font-size:11px;margin-top:4px;font-weight:600;"></div>
               </div>
             </div>
 
@@ -570,6 +571,7 @@ function renderModalCliente() {
               <div class="form-group">
                 <label class="form-label">Teléfono / WhatsApp</label>
                 <input type="text" id="cli-telefono" class="form-input" required placeholder="Ej: 987654321" />
+                <div id="cli-telefono-feedback" style="display:none;font-size:11px;margin-top:4px;font-weight:600;"></div>
               </div>
               <div class="form-group">
                 <label class="form-label">Correo (Opcional)</label>
@@ -635,6 +637,57 @@ function bindEventsCRM() {
   // Form submit
   document.getElementById('form-cliente')?.addEventListener('submit', guardarCliente);
 
+  // Validación en vivo de DNI / Documento existente
+  document.getElementById('cli-num-doc')?.addEventListener('input', (e) => {
+    const docVal = e.target.value.trim().toLowerCase();
+    const curId = document.getElementById('cliente-id')?.value;
+    const fb = document.getElementById('cli-num-doc-feedback');
+    if (!fb) return;
+    if (!docVal) {
+      fb.style.display = 'none';
+      return;
+    }
+    const match = (clientesList || []).find(c => c.num_doc && c.num_doc.trim().toLowerCase() === docVal && c.id != curId);
+    if (match) {
+      fb.style.display = 'block';
+      fb.style.color = '#ef4444';
+      fb.innerHTML = `❌ Este documento ya pertenece a: <strong>${match.nombre}</strong>`;
+    } else {
+      fb.style.display = 'none';
+      fb.innerHTML = '';
+    }
+  });
+
+  // Advertencia informativa en vivo de Teléfono existente
+  document.getElementById('cli-telefono')?.addEventListener('input', (e) => {
+    const rawTel = e.target.value.trim();
+    const cleanTel = rawTel.replace(/\D/g, '');
+    const curId = document.getElementById('cliente-id')?.value;
+    const fb = document.getElementById('cli-telefono-feedback');
+    if (!fb) return;
+    if (!cleanTel || cleanTel.length < 6) {
+      fb.style.display = 'none';
+      return;
+    }
+    const match = (clientesList || []).find(c => {
+      if (c.id == curId) return false;
+      const cTelClean = (c.telefono || '').replace(/\D/g, '');
+      return cTelClean && cTelClean === cleanTel;
+    });
+    if (match) {
+      fb.style.display = 'block';
+      fb.style.color = '#b45309';
+      fb.style.background = '#fef3c7';
+      fb.style.padding = '4px 8px';
+      fb.style.borderRadius = '4px';
+      fb.style.border = '1px solid #fde68a';
+      fb.innerHTML = `⚠️ Este teléfono ya está registrado a nombre de: <strong>${match.nombre}</strong>. <em>(Puedes continuar si es familiar o empresa)</em>.`;
+    } else {
+      fb.style.display = 'none';
+      fb.innerHTML = '';
+    }
+  });
+
   bindListaItems();
 }
 
@@ -656,6 +709,11 @@ function bindListaItems() {
 function abrirModalCliente(id = null) {
   const modal = document.getElementById('modal-cliente');
   document.getElementById('form-cliente').reset();
+
+  const docFb = document.getElementById('cli-num-doc-feedback');
+  const telFb = document.getElementById('cli-telefono-feedback');
+  if (docFb) { docFb.style.display = 'none'; docFb.innerHTML = ''; }
+  if (telFb) { telFb.style.display = 'none'; telFb.innerHTML = ''; }
 
   if (id) {
     const c = clientesList.find(x => x.id == id);
@@ -695,6 +753,17 @@ async function guardarCliente(e) {
     direccion: document.getElementById('cli-direccion').value.trim() || null,
     notas:     document.getElementById('cli-notas').value.trim()     || null,
   };
+
+  // Bloquear guardado si el documento ya pertenece a otro cliente
+  const matchDoc = (clientesList || []).find(c => c.num_doc && c.num_doc.trim().toLowerCase() === data.num_doc.toLowerCase() && c.id != id);
+  if (matchDoc) {
+    const msg = document.createElement('p');
+    msg.style.cssText = 'color:#ef4444;font-size:12px;margin:8px 16px 0;font-weight:600;';
+    msg.textContent = `No se puede guardar: El documento ya pertenece a ${matchDoc.nombre}.`;
+    document.querySelector('#form-cliente .modal-footer')?.before(msg);
+    setTimeout(() => msg.remove(), 4000);
+    return;
+  }
 
   btn.disabled    = true;
   btn.textContent = 'Guardando...';
