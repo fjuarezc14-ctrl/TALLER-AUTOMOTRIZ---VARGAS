@@ -44,12 +44,13 @@ const ALLOWED_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp', '.
 router.post('/', async (req, res) => {
   const { titulo, filename, tipo, size_mb, area, subido_por, cliente_id, vehiculo_id, notas, fileData } = req.body;
   try {
-    // Validar nombre de archivo y extensión
+    // Validar nombre de archivo y extensión (sanitizar para prevenir Path Traversal)
     if (!filename || typeof filename !== 'string') {
       return res.status(400).json({ error: 'Nombre de archivo inválido.' });
     }
 
-    const ext = path.extname(filename).toLowerCase();
+    const safeFilename = path.basename(filename);
+    const ext = path.extname(safeFilename).toLowerCase();
     if (!ALLOWED_EXTENSIONS.includes(ext)) {
       return res.status(400).json({
         error: `Formato de archivo no permitido. Solo se permiten imágenes, PDFs y documentos de oficina (${ALLOWED_EXTENSIONS.join(', ')}).`
@@ -74,14 +75,14 @@ router.post('/', async (req, res) => {
       // Crear la carpeta si no existe
       await fs.mkdir(uploadsDir, { recursive: true });
       
-      const filePath = path.join(uploadsDir, filename);
+      const filePath = path.join(uploadsDir, safeFilename);
       await fs.writeFile(filePath, buffer);
     }
 
     const result = await query(
       `INSERT INTO archivos (titulo, filename, tipo, size_mb, area, subido_por, cliente_id, vehiculo_id, notas)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
-      [titulo, filename, tipo, finalSizeMb, area, subido_por || 'Administrador',
+      [titulo, safeFilename, tipo, finalSizeMb, area, subido_por || 'Administrador',
        cliente_id || null, vehiculo_id || null, notas || null]
     );
     res.status(201).json(result.rows[0]);
@@ -97,8 +98,8 @@ router.delete('/:id', soloAdmin, async (req, res) => {
     // Primero buscar el nombre del archivo para borrarlo del disco
     const fileResult = await query('SELECT filename FROM archivos WHERE id=$1', [req.params.id]);
     if (fileResult.rows.length > 0) {
-      const filename = fileResult.rows[0].filename;
-      const filePath = path.join(process.cwd(), 'uploads', filename);
+      const safeFilename = path.basename(fileResult.rows[0].filename);
+      const filePath = path.join(process.cwd(), 'uploads', safeFilename);
       try {
         await fs.unlink(filePath);
       } catch (err) {

@@ -3,7 +3,20 @@
 // Centraliza todas las llamadas al backend REST
 // ============================================================
 
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+function getBaseUrl() {
+  const envUrl = import.meta.env.VITE_API_URL;
+  // Si está explícitamente configurada una URL externa completa que no sea localhost, usarla
+  if (envUrl && !envUrl.includes('localhost')) {
+    return envUrl.replace(/\/+$/, '');
+  }
+  // En producción (Nginx) o si el navegador accede desde una IP/dominio remoto o local
+  if (import.meta.env.PROD || (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1')) {
+    return ''; // Usa rutas relativas (/api), aprovechando Nginx o el proxy inverso
+  }
+  return envUrl || '';
+}
+
+export const BASE_URL = getBaseUrl();
 
 class ApiError extends Error {
   constructor(message, status) {
@@ -100,7 +113,7 @@ export const cambiarEstado  = (id, data) => request(`/ordenes/${id}/estado`, { m
 export const addItem        = (id, data) => request(`/ordenes/${id}/items`, { method: 'POST', body: data });
 export const deleteItem     = (oid, iid) => request(`/ordenes/${oid}/items/${iid}`, { method: 'DELETE' });
 export const guardarDiagnosticoOrden   = (id, diagnostico) => request(`/ordenes/${id}/diagnostico`, { method: 'PATCH', body: { diagnostico } });
-export const patchNotaInternaOrden     = (id, nota_interna) => request(`/ordenes/${id}`, { method: 'PUT', body: { _solo_nota_interna: true, nota_interna } });
+export const patchNotaInternaOrden     = (id, nota_interna) => request(`/ordenes/${id}/nota-interna`, { method: 'PATCH', body: { nota_interna } });
 
 // ── Almacén ───────────────────────────────────────────────
 export const getAlmacen       = ()           => request('/almacen');

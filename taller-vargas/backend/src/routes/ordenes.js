@@ -103,8 +103,17 @@ router.post("/", async (req, res) => {
 });
 
 router.put("/:id", async (req, res) => {
-  const { vehiculo_id,cliente_id,mecanico_id,kilometraje,nivel_combustible,falla_reportada,estado,repuestos_esperando,fecha_entrega,nota_interna,fecha_ingreso,
+  const { _solo_nota_interna, vehiculo_id,cliente_id,mecanico_id,kilometraje,nivel_combustible,falla_reportada,estado,repuestos_esperando,fecha_entrega,nota_interna,fecha_ingreso,
     conductor_nombre, conductor_doc, conductor_telefono, es_garantia, garantia_motivo, mecanico_negligente_id } = req.body;
+  
+  if (_solo_nota_interna) {
+    try {
+      const r = await query("UPDATE ordenes_servicio SET nota_interna=$1 WHERE id=$2 RETURNING *", [nota_interna||"", req.params.id]);
+      if (!r.rows.length) return res.status(404).json({ error: "Orden no encontrada" });
+      return res.json(r.rows[0]);
+    } catch (err) { return res.status(500).json({ error: err.message }); }
+  }
+
   const client = await getClient();
   try {
     await client.query("BEGIN");
@@ -373,6 +382,14 @@ router.post("/:id/items", async (req, res) => {
     const item = await client.query("INSERT INTO items_costo (orden_id,tipo,descripcion,cantidad,precio_unitario,repuesto_cod) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *",
       [req.params.id,tipo||"manual",descripcion,cantidad,precio_unitario,repuesto_cod||null]);
     if (tipo==="almacen" && repuesto_cod) {
+      const stockCheck = await client.query("SELECT stock, descripcion FROM almacen WHERE codigo=$1", [repuesto_cod]);
+      if (stockCheck.rows.length > 0 && stockCheck.rows[0].stock < cantidad) {
+        await client.query("ROLLBACK");
+        client.release();
+        return res.status(400).json({ 
+          error: `Stock insuficiente para "${stockCheck.rows[0].descripcion}". Disponible: ${stockCheck.rows[0].stock}, Solicitado: ${cantidad}` 
+        });
+      }
       await client.query("UPDATE almacen SET stock=stock-$1 WHERE codigo=$2", [cantidad,repuesto_cod]);
     }
     const tot = await client.query("SELECT COALESCE(SUM(cantidad*precio_unitario),0) AS t FROM items_costo WHERE orden_id=$1", [req.params.id]);
@@ -449,6 +466,19 @@ router.patch("/:id/diagnostico", async (req, res) => {
     const r = await query(
       "UPDATE ordenes_servicio SET diagnostico=$1 WHERE id=$2 RETURNING *",
       [diagnostico ? JSON.stringify(diagnostico) : null, req.params.id]
+    );
+    if (!r.rows.length) return res.status(404).json({ error: "Orden no encontrada" });
+    res.json(r.rows[0]);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// PATCH /ordenes/:id/nota-interna — actualizar nota interna de la orden
+router.patch("/:id/nota-interna", async (req, res) => {
+  const { nota_interna } = req.body;
+  try {
+    const r = await query(
+      "UPDATE ordenes_servicio SET nota_interna=$1 WHERE id=$2 RETURNING *",
+      [nota_interna || "", req.params.id]
     );
     if (!r.rows.length) return res.status(404).json({ error: "Orden no encontrada" });
     res.json(r.rows[0]);

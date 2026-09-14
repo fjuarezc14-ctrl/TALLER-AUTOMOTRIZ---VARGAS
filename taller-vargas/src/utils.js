@@ -41,3 +41,13 @@ export function formatCurrency(value) {
   var num = parseFloat(value) || 0;
   return 'S/ ' + num.toFixed(2);
 }
+
+export function escapeHtml(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}

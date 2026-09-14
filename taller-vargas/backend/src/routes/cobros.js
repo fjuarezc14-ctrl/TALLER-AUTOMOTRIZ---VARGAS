@@ -11,23 +11,26 @@ async function getNextComprobanteNumero(client, tipo) {
   else if (tipo === 'Recibo Interno') prefix = 'RI-';
   else prefix = 'NV-'; // fallback Nota de Venta
 
-  // We search for both comprobante_numero and comprobante2_numero to get the absolute maximum sequence number
   const res = await client.query(
-    `SELECT comprobante_numero AS num FROM cobros WHERE tipo_comprobante = $1 AND comprobante_numero LIKE $2
-     UNION
-     SELECT comprobante2_numero AS num FROM cobros WHERE comprobante2 = $1 AND comprobante2_numero LIKE $2
-     ORDER BY num DESC LIMIT 1`,
+    `SELECT num FROM (
+       SELECT comprobante_numero AS num FROM cobros WHERE tipo_comprobante = $1 AND comprobante_numero LIKE $2
+       UNION ALL
+       SELECT comprobante2_numero AS num FROM cobros WHERE comprobante2 = $1 AND comprobante2_numero LIKE $2
+     ) AS t WHERE num IS NOT NULL`,
     [tipo, prefix + '%']
   );
 
-  let nextSeq = 1;
-  if (res.rows.length > 0) {
-    const lastNum = res.rows[0].num;
-    const match = lastNum.match(/\d+$/);
-    if (match) {
-      nextSeq = parseInt(match[0], 10) + 1;
+  let maxSeq = 0;
+  for (const row of res.rows) {
+    if (row.num) {
+      const match = row.num.match(/\d+$/);
+      if (match) {
+        const val = parseInt(match[0], 10);
+        if (val > maxSeq) maxSeq = val;
+      }
     }
   }
+  const nextSeq = maxSeq + 1;
   return `${prefix}${String(nextSeq).padStart(4, '0')}`;
 }
 

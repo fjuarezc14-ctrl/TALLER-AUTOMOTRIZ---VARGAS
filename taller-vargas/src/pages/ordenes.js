@@ -1294,7 +1294,7 @@ function renderModales() {
         </div>
         <form id="form-nueva-orden" novalidate>
           <!-- Barra de Progreso Stepper -->
-          <div class="stepper-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; padding-bottom:12px; border-bottom:1px solid var(--slate-8);">
+          <div class="stepper-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; padding:10px; padding-inline:30px; border-bottom:1px solid var(--slate-8);">
             <div class="step-indicator active" data-step="1" style="font-size:11px; font-weight:800; color:var(--brand); display:flex; align-items:center; gap:6px;">
               <span class="step-num" style="width:20px; height:20px; background:var(--brand); color:var(--dark); border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:10px; transition: all 0.2s;">1</span>
               Vehículo
@@ -3624,6 +3624,7 @@ async function ejecutarTransicionContextual(ordenId, nuevoEstado, extra = {}) {
     await cambiarEstado(ordenId, payload);
     store.invalidate('all');
     await cargarDatos();
+    if (window.showToast) window.showToast(`Estado actualizado a: ${nuevoEstado}`, 'success');
     // Refrescar modal de detalle con los datos actualizados
     await verDetalleOrden(ordenId);
   } catch (err) {

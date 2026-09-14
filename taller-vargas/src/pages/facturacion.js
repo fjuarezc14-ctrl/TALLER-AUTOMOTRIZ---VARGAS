@@ -83,7 +83,8 @@ function calcMetrics() {
 
   cobrosList.forEach(c => {
     if (c.estado === 'Cancelado' || c.estado === 'Dividido') {
-      const cDateStr = new Date(c.fecha_cobro).toLocaleDateString('en-US');
+      const rawDate = typeof c.fecha_cobro === 'string' ? c.fecha_cobro.split('T')[0] : '';
+      const cDateStr = rawDate ? new Date(rawDate + 'T12:00:00').toLocaleDateString('en-US') : new Date(c.fecha_cobro).toLocaleDateString('en-US');
       if (cDateStr === todayStr) {
         const m = c.metodo_pago || 'Efectivo';
         const total = parseFloat(c.monto_neto !== null && c.monto_neto !== undefined ? c.monto_neto : c.monto_total);
@@ -534,7 +535,10 @@ function renderPage() {
             </button>
             <button class="btn-success" id="btn-imprimir-factura" style="font-size:12px;">
               <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="margin-right:4px;"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect width="12" height="8" x="6" y="14"/></svg>
-              Imprimir
+              Imprimir A4
+            </button>
+            <button class="btn-primary" id="btn-imprimir-ticket" style="font-size:12px;background:#3b82f6;border-color:#3b82f6;color:white;">
+              🧾 Ticket 80mm
             </button>
             <button class="btn-ghost modal-close" id="btn-close-factura-x" style="font-size:12px;">
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
@@ -718,6 +722,12 @@ function renderPage() {
     }
   });
   document.getElementById('btn-descargar-xml').addEventListener('click', descargarXML);
+  const btnTicket = document.getElementById('btn-imprimir-ticket');
+  if (btnTicket) {
+    btnTicket.addEventListener('click', () => {
+      if (currentCobro) window.imprimirTicketTermico(currentCobro);
+    });
+  }
   document.getElementById('btn-enviar-whatsapp').addEventListener('click', enviarComprobantePorWhatsApp);
 
 function enviarComprobantePorWhatsApp() {
@@ -1052,6 +1062,7 @@ async function procesarCobroRapido(e) {
     }
     cerrarModal('modal-cobro-rapido');
     await cargarDatos();
+    if (window.showToast) window.showToast('Pago registrado exitosamente', 'success');
 
     // Trigger PDF/XML generation in the background
     if (cobroGuardado && cobroGuardado.orden_id) {

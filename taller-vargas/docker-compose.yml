@@ -1,4 +1,4 @@
-﻿version: "3.8"
+version: "3.8"
 
 # =========================================================
 # TALLER VARGAS — DESARROLLO LOCAL (no usar en producción)
@@ -28,7 +28,7 @@ services:
       - /app/node_modules
     environment:
       - NODE_ENV=development
-      - VITE_API_URL=${VITE_API_URL:-http://localhost:3001}
+      - VITE_API_URL=${VITE_API_URL:-}
     depends_on:
       - backend
     restart: unless-stopped

@@ -69,17 +69,28 @@ router.put('/:id', requiereToken, soloAdmin, async (req, res) => {
 // PATCH /api/almacen/:id/stock  (ajuste rápido de stock)
 router.patch('/:id/stock', requiereToken, soloAdmin, async (req, res) => {
   const { operacion, cantidad } = req.body; // operacion: 'sumar' | 'restar'
+  const qty = Math.abs(parseInt(cantidad, 10) || 0);
+  if (qty <= 0) return res.status(400).json({ error: 'Cantidad debe ser un número entero mayor a 0.' });
+
   try {
-    const op = operacion === 'sumar' ? '+' : '-';
-    const result = await query(
-      `UPDATE almacen SET stock = stock ${op} $1 WHERE id=$2 RETURNING *`,
-      [Math.abs(cantidad), req.params.id]
-    );
-    if (!result.rows.length) return res.status(404).json({ error: 'Producto no encontrado' });
-    if (result.rows[0].stock < 0) {
-      await query('UPDATE almacen SET stock = 0 WHERE id=$1', [req.params.id]);
-      return res.status(400).json({ error: 'No hay suficiente stock para realizar el retiro.' });
+    let result;
+    if (operacion === 'sumar') {
+      result = await query(
+        `UPDATE almacen SET stock = stock + $1 WHERE id=$2 RETURNING *`,
+        [qty, req.params.id]
+      );
+    } else {
+      result = await query(
+        `UPDATE almacen SET stock = stock - $1 WHERE id=$2 AND stock >= $1 RETURNING *`,
+        [qty, req.params.id]
+      );
+      if (!result.rows.length) {
+        const check = await query('SELECT stock FROM almacen WHERE id=$1', [req.params.id]);
+        if (!check.rows.length) return res.status(404).json({ error: 'Producto no encontrado' });
+        return res.status(400).json({ error: `No hay suficiente stock para realizar el retiro. Stock actual: ${check.rows[0].stock}` });
+      }
     }
+    if (!result.rows.length) return res.status(404).json({ error: 'Producto no encontrado' });
     res.json(result.rows[0]);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -95,7 +106,7 @@ router.delete('/:id', requiereToken, soloAdmin, async (req, res) => {
 // ── Solicitudes de mecánicos ───────────────────────────────
 
 // POST /api/almacen/solicitudes  (mecánico solicita repuestos)
-router.post('/solicitudes', async (req, res) => {
+router.post('/solicitudes', requiereToken, async (req, res) => {
   const { mecanico_id, orden_id, repuesto_id, cantidad, fecha_entrega, confirmado } = req.body;
   const isConfirmado = confirmado === undefined ? false : !!confirmado;
 
@@ -124,7 +135,7 @@ router.post('/solicitudes', async (req, res) => {
 });
 
 // GET /api/almacen/solicitudes
-router.get('/solicitudes', async (_req, res) => {
+router.get('/solicitudes', requiereToken, async (_req, res) => {
   try {
     const result = await query(`
       SELECT sm.*, m.nombre AS mecanico_nombre, a.descripcion AS repuesto_desc,
