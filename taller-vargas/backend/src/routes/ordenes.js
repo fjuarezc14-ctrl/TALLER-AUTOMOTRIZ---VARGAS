@@ -192,26 +192,90 @@ router.put("/:id", async (req, res) => {
 });
 
 router.patch("/:id/estado", async (req, res) => {
-  const { estado, repuestos_esperando, pasar_facturacion, fecha_entrega } = req.body;
+  const { estado, repuestos_esperando, pasar_facturacion, fecha_entrega, mano_obra_final, nota_mecanico } = req.body;
   const client = await getClient();
   try {
     await client.query("BEGIN");
+
+    // 1. Obtener la orden actual
+    const checkOrd = await client.query("SELECT * FROM ordenes_servicio WHERE id = $1", [req.params.id]);
+    if (!checkOrd.rows.length) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: "Orden no encontrada" });
+    }
+    const ordActual = checkOrd.rows[0];
+    const estadoActual = ordActual.estado;
+
+    // 2. Validar permisos por Rol
+    const isAdmin = req.user && (req.user.rol === 'administrador' || req.user.rol === 'admin');
+
+    if (!isAdmin) {
+      // Regla A: El operario NO puede entregar el vehículo directamente a cliente (le corresponde a Recepción/Caja)
+      if (estado === "Entregado") {
+        await client.query("ROLLBACK");
+        return res.status(403).json({ 
+          error: "Acceso restringido: La entrega del vehículo al cliente debe ser confirmada por Recepción o Administración tras verificar el cobro en Caja." 
+        });
+      }
+
+      // Regla B: El operario NO puede anular o cancelar órdenes
+      if (estado === "No realizo servicio" || estado === "Cancelado") {
+        await client.query("ROLLBACK");
+        return res.status(403).json({ 
+          error: "Acceso restringido: Solo un administrador puede cancelar o anular una orden de servicio." 
+        });
+      }
+
+      // Regla C: Si la orden ya está en 'Finalizado' o 'Entregado', el operario NO puede retrocederla ni reabrirla
+      if ((estadoActual === "Finalizado" || estadoActual === "Entregado") && estado !== estadoActual) {
+        await client.query("ROLLBACK");
+        return res.status(403).json({ 
+          error: "Acceso restringido: Esta orden ya fue enviada a Caja o entregada. Solo un administrador puede reabrirla." 
+        });
+      }
+    }
+
+    // 3. Regla para 'Entregado': debe estar saldada en Caja
     if (estado === "Entregado") {
       const cobroCheck = await client.query("SELECT estado FROM cobros WHERE orden_id = $1", [req.params.id]);
       if (cobroCheck.rows.length > 0 && cobroCheck.rows[0].estado === "Pendiente") {
         await client.query("ROLLBACK");
-        client.release();
         return res.status(400).json({ error: "No se puede marcar como Entregado porque tiene un cobro pendiente en Facturación." });
       }
     }
+
+    // 4. Si el técnico envió ajuste de Mano de Obra en el cierre
+    if (mano_obra_final !== undefined && mano_obra_final !== null && String(mano_obra_final).trim() !== '') {
+      const moVal = Math.max(0, parseFloat(mano_obra_final) || 0);
+      const moExist = await client.query("SELECT id FROM items_costo WHERE orden_id = $1 AND tipo = 'mano_obra' ORDER BY id ASC LIMIT 1", [req.params.id]);
+      if (moExist.rows.length > 0) {
+        await client.query("UPDATE items_costo SET cantidad = 1, precio_unitario = $1 WHERE id = $2", [moVal, moExist.rows[0].id]);
+      } else if (moVal > 0) {
+        await client.query("INSERT INTO items_costo (orden_id, tipo, descripcion, cantidad, precio_unitario) VALUES ($1, 'mano_obra', 'Mano de obra y servicios técnicos', 1, $2)", [req.params.id, moVal]);
+      }
+    }
+
+    // 5. Si el técnico envió nota u observación para Caja
+    let notaFinal = ordActual.nota_interna || "";
+    if (nota_mecanico && String(nota_mecanico).trim()) {
+      const textoNota = String(nota_mecanico).trim();
+      const prefix = `[Técnico ${req.user ? req.user.username : 'Mecánico'}]:`;
+      notaFinal = notaFinal ? `${notaFinal}\n${prefix} ${textoNota}` : `${prefix} ${textoNota}`;
+    }
+
+    // 6. Calcular total estimado acumulado
     const totalRes = await client.query("SELECT COALESCE(SUM(cantidad*precio_unitario),0) AS total FROM items_costo WHERE orden_id=$1", [req.params.id]);
     let total = parseFloat(totalRes.rows[0].total);
-    const ordCheck = await client.query("SELECT es_garantia FROM ordenes_servicio WHERE id=$1", [req.params.id]);
-    if (ordCheck.rows.length > 0 && ordCheck.rows[0].es_garantia) {
+    if (ordActual.es_garantia) {
       total = 0.00;
     }
-    const ordRes = await client.query("UPDATE ordenes_servicio SET estado=$1,repuestos_esperando=$2,total_estimado=$3,fecha_entrega=$4 WHERE id=$5 RETURNING *", 
-      [estado, repuestos_esperando||"", total, fecha_entrega || null, req.params.id]);
+
+    const ordRes = await client.query(
+      `UPDATE ordenes_servicio 
+       SET estado=$1, repuestos_esperando=$2, total_estimado=$3, fecha_entrega=$4, nota_interna=$5 
+       WHERE id=$6 RETURNING *`, 
+      [estado, repuestos_esperando || "", total, fecha_entrega || null, notaFinal, req.params.id]
+    );
     
     const ordObj = ordRes.rows[0];
     if (estado === "Finalizado" && ordObj && ordObj.vehiculo_id) {
@@ -294,6 +358,18 @@ router.post("/:id/items", async (req, res) => {
   const client = await getClient();
   try {
     await client.query("BEGIN");
+    const ordCheck = await client.query("SELECT estado, es_garantia FROM ordenes_servicio WHERE id=$1", [req.params.id]);
+    if (!ordCheck.rows.length) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: "Orden no encontrada" });
+    }
+
+    const isAdmin = req.user && (req.user.rol === 'administrador' || req.user.rol === 'admin');
+    if (!isAdmin && (ordCheck.rows[0].estado === 'Finalizado' || ordCheck.rows[0].estado === 'Entregado')) {
+      await client.query("ROLLBACK");
+      return res.status(403).json({ error: "No se pueden agregar ítems a una orden que ya fue enviada a Caja o entregada." });
+    }
+
     const item = await client.query("INSERT INTO items_costo (orden_id,tipo,descripcion,cantidad,precio_unitario,repuesto_cod) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *",
       [req.params.id,tipo||"manual",descripcion,cantidad,precio_unitario,repuesto_cod||null]);
     if (tipo==="almacen" && repuesto_cod) {
@@ -301,8 +377,7 @@ router.post("/:id/items", async (req, res) => {
     }
     const tot = await client.query("SELECT COALESCE(SUM(cantidad*precio_unitario),0) AS t FROM items_costo WHERE orden_id=$1", [req.params.id]);
     let totalVal = parseFloat(tot.rows[0].t);
-    const ordCheck = await client.query("SELECT es_garantia FROM ordenes_servicio WHERE id=$1", [req.params.id]);
-    if (ordCheck.rows.length > 0 && ordCheck.rows[0].es_garantia) {
+    if (ordCheck.rows[0].es_garantia) {
       totalVal = 0.00;
     }
     await client.query("UPDATE ordenes_servicio SET total_estimado=$1 WHERE id=$2", [totalVal, req.params.id]);
@@ -317,6 +392,18 @@ router.delete("/:id/items/:itemId", async (req, res) => {
   const client = await getClient();
   try {
     await client.query("BEGIN");
+    const ordCheck = await client.query("SELECT estado, es_garantia FROM ordenes_servicio WHERE id=$1", [req.params.id]);
+    if (!ordCheck.rows.length) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: "Orden no encontrada" });
+    }
+
+    const isAdmin = req.user && (req.user.rol === 'administrador' || req.user.rol === 'admin');
+    if (!isAdmin && (ordCheck.rows[0].estado === 'Finalizado' || ordCheck.rows[0].estado === 'Entregado')) {
+      await client.query("ROLLBACK");
+      return res.status(403).json({ error: "No se pueden eliminar ítems de una orden que ya fue enviada a Caja o entregada." });
+    }
+
     const it = await client.query("SELECT * FROM items_costo WHERE id=$1 AND orden_id=$2", [req.params.itemId,req.params.id]);
     if (!it.rows.length) { await client.query("ROLLBACK"); return res.status(404).json({ error: "Item no encontrado" }); }
     await client.query("DELETE FROM items_costo WHERE id=$1", [req.params.itemId]);
@@ -325,8 +412,7 @@ router.delete("/:id/items/:itemId", async (req, res) => {
     }
     const tot = await client.query("SELECT COALESCE(SUM(cantidad*precio_unitario),0) AS t FROM items_costo WHERE orden_id=$1", [req.params.id]);
     let totalVal = parseFloat(tot.rows[0].t);
-    const ordCheck = await client.query("SELECT es_garantia FROM ordenes_servicio WHERE id=$1", [req.params.id]);
-    if (ordCheck.rows.length > 0 && ordCheck.rows[0].es_garantia) {
+    if (ordCheck.rows[0].es_garantia) {
       totalVal = 0.00;
     }
     await client.query("UPDATE ordenes_servicio SET total_estimado=$1 WHERE id=$2", [totalVal, req.params.id]);
@@ -340,6 +426,11 @@ router.delete("/:id/items/:itemId", async (req, res) => {
 
 // PATCH /ordenes/:id/mecanico  — reasignación rápida de mecánico desde el Kanban
 router.patch("/:id/mecanico", async (req, res) => {
+  const isAdmin = req.user && (req.user.rol === 'administrador' || req.user.rol === 'admin');
+  if (!isAdmin) {
+    return res.status(403).json({ error: "Acceso restringido: Solo un administrador puede reasignar mecánicos." });
+  }
+
   const { mecanico_id } = req.body;
   try {
     const r = await query(

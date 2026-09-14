@@ -176,7 +176,11 @@ app.get('/api/auth/me', (req, res) => {
 });
 
 app.use((_req, res) => res.status(404).json({ error: "Ruta no encontrada" }));
-app.use((err, _req, res, _next) => res.status(500).json({ error: err.message }));
+app.use((err, _req, res, next) => {
+  console.error('[Unhandled Error in Express]:', err);
+  if (res.headersSent) return next(err);
+  res.status(500).json({ error: err.message });
+});
 
 app.listen(PORT, () => {
   console.log(`🔧 Taller Vargas API en http://localhost:${PORT}`);

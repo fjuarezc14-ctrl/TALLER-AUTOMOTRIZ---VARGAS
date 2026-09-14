@@ -357,6 +357,12 @@ function renderPage() {
               <p style="font-size:10px;font-weight:700;color:var(--slate-5);text-transform:uppercase;">Total a Cobrar</p>
               <p id="cobro-rapido-monto" style="font-size:30px;font-weight:900;color:var(--dark);font-family:monospace;margin-top:4px;"></p>
               <p id="cobro-rapido-cliente" style="font-size:12px;color:var(--slate-5);margin-top:4px;"></p>
+              <div id="cobro-rapido-nota-box" class="hidden" style="margin-top:10px; background:#fffbeb; border:1.5px solid #fde68a; border-radius:8px; padding:10px 12px; font-size:11px; text-align:left; color:#92400e;">
+                <strong style="display:flex; align-items:center; gap:5px; margin-bottom:3px; color:#b45309;">
+                  <span>📝</span> <span>Reporte del Técnico / Bahía:</span>
+                </strong>
+                <span id="cobro-rapido-nota-text" style="line-height:1.4; display:block; white-space:pre-line; color:#78350f;"></span>
+              </div>
             </div>
 
             <!-- Ajuste de Caja (Descuento o Recargo) -->
@@ -935,7 +941,17 @@ function abrirCobroRapido(id) {
   document.getElementById('cobro-rapido-monto').textContent = `S/ ${parseFloat(c.monto_total).toFixed(2)}`;
   document.getElementById('cobro-rapido-cliente').textContent = `${c.cliente_nombre} | ${c.tipo_doc}: ${c.num_doc}`;
 
-  // Resetear campos de descuento
+  // Mostrar nota técnica / reporte del mecánico si existe
+  const notaBox = document.getElementById('cobro-rapido-nota-box');
+  const notaText = document.getElementById('cobro-rapido-nota-text');
+  if (notaBox && notaText) {
+    if (c.nota_interna && c.nota_interna.trim()) {
+      notaText.textContent = c.nota_interna;
+      notaBox.classList.remove('hidden');
+    } else {
+      notaBox.classList.add('hidden');
+    }
+  }
   document.getElementById('cobro-descuento-tipo').value = '';
   const descValInput = document.getElementById('cobro-descuento-valor');
   descValInput.value = '';

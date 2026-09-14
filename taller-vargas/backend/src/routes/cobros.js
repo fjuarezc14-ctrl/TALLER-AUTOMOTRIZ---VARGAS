@@ -46,11 +46,12 @@ router.get('/', requiereToken, soloAdmin, async (_req, res) => {
 
     const result = await query(`
       SELECT co.*, c.nombre AS cliente_nombre, c.tipo_doc, c.num_doc, c.telefono AS cliente_telefono,
-             os.id AS orden_numero, v.placa
+             os.id AS orden_numero, v.placa, os.nota_interna, os.falla_reportada, m.nombre AS mecanico_nombre
       FROM cobros co
       LEFT JOIN clientes c ON co.cliente_id = c.id
       LEFT JOIN ordenes_servicio os ON co.orden_id = os.id
       LEFT JOIN vehiculos v ON os.vehiculo_id = v.id
+      LEFT JOIN mecanicos m ON os.mecanico_id = m.id
       ORDER BY co.fecha_emision DESC, co.id DESC
     `);
     res.json(result.rows);

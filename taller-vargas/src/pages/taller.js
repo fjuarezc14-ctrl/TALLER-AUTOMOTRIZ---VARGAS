@@ -839,6 +839,76 @@ function renderDetalleOrden() {
         </form>
       </div>
     </div>
+
+    <!-- Modal Anti-Error: Finalizar Servicio y Enviar a Caja -->
+    <div class="taller-modal-backdrop hidden" id="modal-finalizar-backdrop">
+      <div class="taller-modal" style="max-width:540px;">
+        <div class="taller-modal-header" style="background:#ecfdf5; border-bottom:1px solid #d1fae5;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="font-size:22px;">🏁</span>
+            <div>
+              <h3 style="margin:0; font-size:16px; font-weight:800; color:#065f46;">Finalizar Servicio Técnico</h3>
+              <p style="margin:0; font-size:11px; color:#047857;">Orden #${o.id} — Placa: <strong>${escapeHtml(o.placa || 'Auto')}</strong></p>
+            </div>
+          </div>
+          <button type="button" class="taller-modal-close" id="btn-close-finalizar-modal">✕</button>
+        </div>
+        <form id="form-finalizar-servicio">
+          <div class="taller-modal-body" style="padding:20px; display:flex; flex-direction:column; gap:16px;">
+            <!-- Alerta de confirmación / Anti-error -->
+            <div style="background:#fef3c7; border:1.5px solid #fde68a; border-radius:8px; padding:12px; font-size:12px; color:#92400e; line-height:1.4;">
+              ⚠️ <strong>¿Confirmas que has terminado todos los trabajos mecánicos?</strong><br/>
+              Al finalizar, esta orden saldrá de tu bahía de trabajo y pasará a <strong>Caja / Facturación</strong>. Como técnico ya no podrás modificar repuestos ni reabrirla.
+            </div>
+
+            <!-- Resumen de Repuestos e Insumos usados en la orden -->
+            <div>
+              <label style="display:block; font-size:12px; font-weight:700; color:var(--dark); margin-bottom:6px;">
+                📦 Repuestos e Insumos Utilizados en esta Orden:
+              </label>
+              <div id="finalizar-resumen-repuestos" style="background:var(--slate-9); border:1px solid var(--slate-8); border-radius:8px; padding:10px 12px; font-size:12px; color:var(--slate-4); max-height:120px; overflow-y:auto;">
+                <em>Cargando lista de repuestos...</em>
+              </div>
+            </div>
+
+            <!-- Campo Mano de Obra Final / Estimada por el Técnico -->
+            <div>
+              <label for="finalizar-input-mano-obra" style="display:block; font-size:12px; font-weight:700; color:var(--dark); margin-bottom:4px;">
+                🔧 Mano de Obra Final Estimada (S/)
+              </label>
+              <span style="display:block; font-size:11px; color:var(--slate-4); margin-bottom:6px;">
+                Si el trabajo tomó más tiempo o dificultad de lo estimado, ajusta el monto aquí. (La dueña/administración decidirá el cobro final en Caja).
+              </span>
+              <div style="position:relative;">
+                <span style="position:absolute; left:12px; top:50%; transform:translateY(-50%); font-weight:800; color:var(--slate-4); font-size:14px;">S/</span>
+                <input type="number" step="0.50" min="0" id="finalizar-input-mano-obra" class="form-input" style="width:100%; font-size:15px; font-weight:800; padding:10px 12px 10px 36px; border:1.5px solid var(--slate-7); border-radius:8px;" placeholder="0.00" />
+              </div>
+            </div>
+
+            <!-- Notas Técnicas / Observaciones para Caja -->
+            <div>
+              <label for="finalizar-input-nota" style="display:block; font-size:12px; font-weight:700; color:var(--dark); margin-bottom:4px;">
+                📝 Observaciones / Nota para Caja (Opcional):
+              </label>
+              <span style="display:block; font-size:11px; color:var(--slate-4); margin-bottom:6px;">
+                Explica cualquier detalle relevante: trabajos adicionales efectuados, dificultad, recomendaciones para el cliente o acuerdos previos.
+              </span>
+              <textarea id="finalizar-input-nota" rows="3" class="form-input" style="width:100%; font-size:12px; padding:10px 12px; border:1px solid var(--slate-7); border-radius:8px; resize:vertical;" placeholder="Ej: Se reemplazaron mangueras extra por fisura. Cliente avisado."></textarea>
+            </div>
+
+            <!-- Botones de Acción -->
+            <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:8px;">
+              <button type="button" class="btn-ghost" id="btn-cancel-finalizar-modal" style="padding:10px 16px; border:1px solid var(--slate-8); border-radius:8px; cursor:pointer;">
+                Regresar al Taller
+              </button>
+              <button type="submit" id="btn-submit-finalizar-confirm" style="background:#10b981; border:none; color:#ffffff; padding:10px 22px; border-radius:8px; font-size:13px; font-weight:800; cursor:pointer; display:flex; align-items:center; gap:6px; box-shadow:0 4px 14px rgba(16,185,129,0.35);">
+                🏁 Confirmar y Enviar a Caja
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
   `;
 
   // Cargar repuestos asíncronamente
@@ -870,7 +940,99 @@ function renderDetalleOrden() {
     await reanudarTrabajo();
   });
 
-  document.getElementById('btn-taller-finalizar')?.addEventListener('click', () => finalizarServicioCompleto());
+  // Modal Finalizar Servicio Técnico (Anti-Error con Mano de Obra y Nota para Caja)
+  const modalFinalizar = document.getElementById('modal-finalizar-backdrop');
+  const btnCloseFinalizar = document.getElementById('btn-close-finalizar-modal');
+  const btnCancelFinalizar = document.getElementById('btn-cancel-finalizar-modal');
+  const formFinalizar = document.getElementById('form-finalizar-servicio');
+  const inputManoObra = document.getElementById('finalizar-input-mano-obra');
+  const inputNota = document.getElementById('finalizar-input-nota');
+  const resumenRepuestos = document.getElementById('finalizar-resumen-repuestos');
+
+  const closeFinalizar = () => modalFinalizar?.classList.add('hidden');
+  btnCloseFinalizar?.addEventListener('click', closeFinalizar);
+  btnCancelFinalizar?.addEventListener('click', closeFinalizar);
+
+  document.getElementById('btn-taller-finalizar')?.addEventListener('click', async () => {
+    if (!modalFinalizar) return;
+    modalFinalizar.classList.remove('hidden');
+    if (resumenRepuestos) {
+      resumenRepuestos.innerHTML = '<em>Cargando resumen de la orden...</em>';
+    }
+    try {
+      const freshOrd = await getOrden(o.id);
+      const items = freshOrd.items || [];
+      const repuestos = items.filter(it => it.tipo === 'almacen' || it.repuesto_cod);
+      const manoObraItem = items.find(it => it.tipo === 'mano_obra');
+
+      if (inputManoObra) {
+        if (manoObraItem) {
+          inputManoObra.value = parseFloat(manoObraItem.precio_unitario || 0).toFixed(2);
+        } else {
+          const repuestosTotal = repuestos.reduce((acc, r) => acc + (parseFloat(r.cantidad) * parseFloat(r.precio_unitario) || 0), 0);
+          const diff = Math.max(0, (parseFloat(freshOrd.total_estimado) || 0) - repuestosTotal);
+          inputManoObra.value = diff > 0 ? diff.toFixed(2) : '0.00';
+        }
+      }
+
+      if (inputNota) {
+        inputNota.value = '';
+      }
+
+      if (resumenRepuestos) {
+        if (repuestos.length === 0 && !freshOrd.repuestos_esperando) {
+          resumenRepuestos.innerHTML = '<span style="color:var(--slate-4);">No se utilizaron repuestos de almacén en esta orden.</span>';
+        } else {
+          let html = '<ul style="margin:0; padding-left:18px; list-style-type:disc; color:var(--dark);">';
+          repuestos.forEach(r => {
+            html += `<li><strong>${escapeHtml(r.descripcion)}</strong> (Cant: ${r.cantidad}) — S/ ${(parseFloat(r.cantidad) * parseFloat(r.precio_unitario) || 0).toFixed(2)}</li>`;
+          });
+          if (freshOrd.repuestos_esperando) {
+            html += `<li style="color:#d97706;"><em>Externo: ${escapeHtml(freshOrd.repuestos_esperando)}</em></li>`;
+          }
+          html += '</ul>';
+          resumenRepuestos.innerHTML = html;
+        }
+      }
+    } catch (err) {
+      if (resumenRepuestos) {
+        resumenRepuestos.innerHTML = `<span style="color:#ef4444;">Error cargando repuestos: ${escapeHtml(err.message)}</span>`;
+      }
+    }
+  });
+
+  formFinalizar?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btnSubmit = document.getElementById('btn-submit-finalizar-confirm');
+    if (btnSubmit) {
+      btnSubmit.disabled = true;
+      btnSubmit.textContent = 'Enviando a Caja...';
+    }
+
+    const moVal = inputManoObra ? parseFloat(inputManoObra.value) : undefined;
+    const notaVal = inputNota ? inputNota.value.trim() : '';
+
+    try {
+      await cambiarEstado(o.id, {
+        estado: 'Finalizado',
+        pasar_facturacion: true,
+        mano_obra_final: !isNaN(moVal) ? moVal : 0,
+        nota_mecanico: notaVal
+      });
+
+      closeFinalizar();
+      alert('🎉 ¡Servicio finalizado con éxito!\n\nLa orden se ha enviado a Facturación y Caja para cobro y entrega al cliente.');
+      selectedOrden = null;
+      await cargarDatos();
+      render();
+    } catch (err) {
+      alert(`⚠️ Error al finalizar servicio: ${err.message}`);
+      if (btnSubmit) {
+        btnSubmit.disabled = false;
+        btnSubmit.innerHTML = '🏁 Confirmar y Enviar a Caja';
+      }
+    }
+  });
 
   // Modal Repuesto Externo
   const modalExterno = document.getElementById('modal-externo-backdrop');
@@ -1128,23 +1290,6 @@ async function actualizarEstadoOrden(nuevoEstado) {
   }
 }
 
-async function finalizarServicioCompleto() {
-  const confirmar = confirm('¿Confirmas que has FINALIZADO todos los trabajos en este vehículo?\n\nLa orden pasará a "Listo para Entrega" y la cuenta se enviará a Caja para el cobro.');
-  if (!confirmar) return;
-
-  try {
-    await cambiarEstado(selectedOrden.id, { 
-      estado: 'Finalizado',
-      pasar_facturacion: true,
-      total: selectedOrden.total_estimado 
-    });
-    alert('🎉 ¡Servicio finalizado con éxito!\nEl vehículo quedó listo para cobro en Caja y entrega.');
-    selectedOrden = null;
-    await cargarDatos();
-  } catch (err) {
-    alert(`⚠️ Error al finalizar servicio: ${err.message}`);
-  }
-}
 
 function openComponentDrawer(key, diag) {
   const comp = COMPONENTE_METADATA[key] || { label: key, icon: '🔧' };

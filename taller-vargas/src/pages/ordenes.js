@@ -3640,6 +3640,31 @@ function abrirModalEstado(id) {
   const o = ordenesList.find(item => item.id == id);
   if (!o) return;
 
+  const userStr = localStorage.getItem('vargas_user');
+  let isOperario = false;
+  try {
+    const u = JSON.parse(userStr);
+    isOperario = u && u.rol === 'operario';
+  } catch (_) {}
+
+  if (isOperario && (o.estado === 'Finalizado' || o.estado === 'Entregado')) {
+    alert('⚠️ Esta orden ya fue enviada a Caja o entregada al cliente. Solo un administrador o recepcionista puede reabrirla.');
+    return;
+  }
+
+  const selectEst = document.getElementById('select-cambio-estado');
+  if (selectEst) {
+    Array.from(selectEst.options).forEach(opt => {
+      if (isOperario && (opt.value === 'Entregado' || opt.value === 'No realizo servicio')) {
+        opt.disabled = true;
+        opt.hidden = true;
+      } else {
+        opt.disabled = false;
+        opt.hidden = false;
+      }
+    });
+  }
+
   document.getElementById('status-orden-id').value = o.id;
   document.getElementById('select-cambio-estado').value = o.estado;
   document.getElementById('status-repuestos-textarea').value = o.repuestos_esperando || '';
