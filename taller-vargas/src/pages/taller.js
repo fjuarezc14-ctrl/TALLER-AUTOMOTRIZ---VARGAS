@@ -5,6 +5,7 @@ import {
   cambiarEstado, 
   getAlmacenMecanico, 
   crearSolicitudMecanico, 
+  getSolicitudesMecanico,
   guardarDiagnosticoOrden 
 } from '../api.js';
 
@@ -27,6 +28,7 @@ let repuestosAlmacen = [];
 let selectedMecanico = null; // { id, nombre }
 let viewFilter = 'mis-ordenes'; // 'mis-ordenes' | 'todas'
 let selectedOrden = null; // Orden completa bajo edición
+let carritoRepuestos = []; // Carrito multi-item para pedidos a almacén
 
 // Componentes del Checklist del Auto (8 Zonas)
 const COMPONENTES = [
@@ -98,6 +100,7 @@ function sincronizarMecanico(mecanicos) {
     }
     localStorage.setItem('taller_mecanico_id', selectedMecanico.id);
     localStorage.setItem('taller_mecanico_nombre', selectedMecanico.nombre);
+    viewFilter = 'mis-ordenes';
     return;
   }
 
@@ -136,6 +139,11 @@ export async function init(container) {
   // Agregar clase CSS especial para forzar el tema industrial oscuro en este portal
   containerEl.classList.add('modo-taller-wrapper');
 
+  // Siempre resetear la orden previa y el carrito para garantizar sesión limpia
+  selectedOrden = null;
+  viewFilter = 'mis-ordenes';
+  carritoRepuestos = [];
+
   // Solo precargar si NO es un usuario operario (los operarios se resuelven de forma estricta en sincronizarMecanico)
   const userStr = localStorage.getItem('vargas_user');
   let isOperario = false;
@@ -164,6 +172,10 @@ export function destroy() {
     containerEl.classList.remove('modo-taller-wrapper');
     containerEl = null;
   }
+  selectedOrden = null;
+  selectedMecanico = null;
+  viewFilter = 'mis-ordenes';
+  carritoRepuestos = [];
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -198,7 +210,16 @@ async function cargarDatos() {
     // Si la orden seleccionada sigue activa, refrescar su información; si no, cerrarla
     if (selectedOrden) {
       const actual = ordenesList.find(o => o.id === selectedOrden.id);
-      if (actual) {
+      const userStr = localStorage.getItem('vargas_user');
+      let isOperario = false;
+      try {
+        const u = JSON.parse(userStr);
+        isOperario = u && u.rol === 'operario';
+      } catch (_) {}
+
+      const esMia = selectedMecanico ? esOrdenDeMecanico(actual, selectedMecanico) : false;
+
+      if (actual && (!isOperario || esMia)) {
         selectedOrden = actual;
       } else {
         selectedOrden = null;
@@ -442,6 +463,10 @@ function renderListaTrabajos() {
       const id = parseInt(el.dataset.id);
       const ord = ordenesList.find(o => o.id === id);
       if (ord) {
+        if (isOperario && !esOrdenDeMecanico(ord, selectedMecanico)) {
+          alert(`Esta orden está asignada a ${ord.mecanico || 'otro mecánico'}. Solo puedes operar tus órdenes asignadas.`);
+          return;
+        }
         selectedOrden = ord;
         render();
       }
@@ -736,52 +761,45 @@ function renderDetalleOrden() {
       </div>
     </div>
 
-    <!-- Modal Pedir Repuesto de Almacén -->
+    <!-- Modal Repuestos de Almacén (Carrito Multipedido) -->
     <div class="taller-modal-backdrop hidden" id="modal-repuestos-backdrop">
-      <div class="taller-modal">
-        <div class="taller-modal-header">
-          <h3>📦 Solicitar Repuestos al Almacén</h3>
+      <div class="taller-modal" style="max-width:620px; max-height:90vh;">
+        <div class="taller-modal-header" style="background:#f8fafc; border-bottom:1px solid var(--slate-8);">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="font-size:22px;">📦</span>
+            <div>
+              <h3 style="margin:0; font-size:16px; font-weight:800; color:var(--dark);">Solicitar Repuestos al Almacén</h3>
+              <p style="margin:0; font-size:11px; color:var(--slate-4);">Selecciona uno o más repuestos en stock para añadirlos a la orden</p>
+            </div>
+          </div>
           <button class="taller-modal-close" id="btn-close-repuestos-modal">✕</button>
         </div>
-        <div class="taller-modal-body">
+        <div class="taller-modal-body" style="padding:16px 20px; gap:12px;">
+          <!-- Buscador -->
           <div class="taller-search-box">
-            <input type="text" id="modal-search-repuesto" placeholder="Buscar repuesto por código o descripción...">
+            <input type="text" id="modal-search-repuesto" placeholder="🔍 Buscar por código o nombre de repuesto..." style="padding:10px 14px; font-size:13px;">
           </div>
           
-          <div class="taller-modal-table-wrapper">
+          <!-- Tabla de Repuestos en Almacén -->
+          <div class="taller-modal-table-wrapper" style="max-height:160px; border:1px solid var(--slate-8); border-radius:8px;">
             <table class="taller-modal-table">
               <thead>
                 <tr>
-                  <th>Código</th>
+                  <th style="width:90px;">Código</th>
                   <th>Descripción</th>
-                  <th>Stock</th>
-                  <th>Acción</th>
+                  <th style="width:60px; text-align:center;">Stock</th>
+                  <th style="width:110px; text-align:center;">Acción</th>
                 </tr>
               </thead>
               <tbody id="modal-repuestos-tbody">
-                <!-- Se llena con JS -->
+                <!-- Se llena con renderRepuestosTable -->
               </tbody>
             </table>
           </div>
 
-          <!-- Formulario de Pedido Interno (se activa al seleccionar un item) -->
-          <div class="taller-pedir-form hidden" id="pedido-form-box">
-            <hr class="taller-divider">
-            <h4 id="pedido-repuesto-title">Repuesto: Amortiguador</h4>
-            <input type="hidden" id="pedido-repuesto-id" value="">
-            
-            <div class="taller-pedir-row">
-              <label>Cantidad:</label>
-              <div class="taller-counter-wrapper">
-                <button type="button" class="taller-btn-counter" id="btn-count-minus">-</button>
-                <input type="number" id="pedido-cantidad" value="1" min="1" readonly>
-                <button type="button" class="taller-btn-counter" id="btn-count-plus">+</button>
-              </div>
-            </div>
-            
-            <button class="taller-btn-submit-pedido" id="btn-submit-pedido-almacen">
-              ENVIAR SOLICITUD DE REPUESTO
-            </button>
+          <!-- Carrito de Repuestos Seleccionados (Multipedido) -->
+          <div id="pedido-carrito-box">
+            <!-- Se llena con renderCarritoRepuestos -->
           </div>
 
         </div>
@@ -960,10 +978,17 @@ function renderDetalleOrden() {
       resumenRepuestos.innerHTML = '<em>Cargando resumen de la orden...</em>';
     }
     try {
-      const freshOrd = await getOrden(o.id);
+      const [freshOrd, todasSolicitudes] = await Promise.all([
+        getOrden(o.id),
+        getSolicitudesMecanico().catch(() => [])
+      ]);
       const items = freshOrd.items || [];
       const repuestos = items.filter(it => it.tipo === 'almacen' || it.repuesto_cod);
       const manoObraItem = items.find(it => it.tipo === 'mano_obra');
+
+      const solPendientes = (todasSolicitudes || []).filter(s => 
+        (Number(s.orden_id) === Number(o.id) || Number(s.orden_numero) === Number(o.id)) && !s.confirmado
+      );
 
       if (inputManoObra) {
         if (manoObraItem) {
@@ -980,15 +1005,18 @@ function renderDetalleOrden() {
       }
 
       if (resumenRepuestos) {
-        if (repuestos.length === 0 && !freshOrd.repuestos_esperando) {
+        if (repuestos.length === 0 && solPendientes.length === 0 && !freshOrd.repuestos_esperando) {
           resumenRepuestos.innerHTML = '<span style="color:var(--slate-4);">No se utilizaron repuestos de almacén en esta orden.</span>';
         } else {
-          let html = '<ul style="margin:0; padding-left:18px; list-style-type:disc; color:var(--dark);">';
+          let html = '<ul style="margin:0; padding-left:18px; list-style-type:disc; color:var(--dark); display:flex; flex-direction:column; gap:4px;">';
           repuestos.forEach(r => {
-            html += `<li><strong>${escapeHtml(r.descripcion)}</strong> (Cant: ${r.cantidad}) — S/ ${(parseFloat(r.cantidad) * parseFloat(r.precio_unitario) || 0).toFixed(2)}</li>`;
+            html += `<li><strong>✅ ${escapeHtml(r.descripcion)}</strong> (Cant: ${r.cantidad}) — S/ ${(parseFloat(r.cantidad) * parseFloat(r.precio_unitario) || 0).toFixed(2)}</li>`;
+          });
+          solPendientes.forEach(s => {
+            html += `<li style="color:#b45309;"><strong>⏳ ${escapeHtml(s.repuesto_desc || 'Repuesto')}</strong> (Cant: ${s.cantidad}) — <span style="font-weight:700;">Pendiente de entrega en almacén</span></li>`;
           });
           if (freshOrd.repuestos_esperando) {
-            html += `<li style="color:#d97706;"><em>Externo: ${escapeHtml(freshOrd.repuestos_esperando)}</em></li>`;
+            html += `<li style="color:#d97706;"><em>🛒 Externo: ${escapeHtml(freshOrd.repuestos_esperando)}</em></li>`;
           }
           html += '</ul>';
           resumenRepuestos.innerHTML = html;
@@ -1112,63 +1140,26 @@ function renderDetalleOrden() {
     }
   });
 
-  // Modal Repuestos de Almacén
+  // Modal Repuestos de Almacén (Carrito Multipedido)
   const modalRepuestos = document.getElementById('modal-repuestos-backdrop');
   const btnPedirRepuesto = document.getElementById('btn-pedir-repuesto');
   const btnCloseRepuestos = document.getElementById('btn-close-repuestos-modal');
   const searchRepuestoInput = document.getElementById('modal-search-repuesto');
 
   btnPedirRepuesto?.addEventListener('click', () => {
-    modalRepuestos.classList.remove('hidden');
+    modalRepuestos?.classList.remove('hidden');
+    carritoRepuestos = [];
+    if (searchRepuestoInput) searchRepuestoInput.value = '';
     renderRepuestosTable('');
+    renderCarritoRepuestos();
   });
 
   btnCloseRepuestos?.addEventListener('click', () => {
-    modalRepuestos.classList.add('hidden');
-    document.getElementById('pedido-form-box').classList.add('hidden');
+    modalRepuestos?.classList.add('hidden');
   });
 
   searchRepuestoInput?.addEventListener('input', (e) => {
     renderRepuestosTable(e.target.value);
-  });
-
-  const countMinus = document.getElementById('btn-count-minus');
-  const countPlus = document.getElementById('btn-count-plus');
-  const cantInput = document.getElementById('pedido-cantidad');
-
-  countMinus?.addEventListener('click', () => {
-    let val = parseInt(cantInput.value) || 1;
-    if (val > 1) cantInput.value = val - 1;
-  });
-
-  countPlus?.addEventListener('click', () => {
-    let val = parseInt(cantInput.value) || 1;
-    const maxStock = parseInt(document.getElementById('pedido-repuesto-id').dataset.stock) || 999;
-    if (val < maxStock) cantInput.value = val + 1;
-  });
-
-  document.getElementById('btn-submit-pedido-almacen')?.addEventListener('click', async () => {
-    const repuestoId = parseInt(document.getElementById('pedido-repuesto-id').value);
-    const cantidad = parseInt(cantInput.value) || 1;
-
-    try {
-      const data = {
-        mecanico_id: selectedMecanico.id,
-        orden_id: o.id,
-        repuesto_id: repuestoId,
-        cantidad: cantidad,
-        fecha_entrega: new Date().toISOString().split('T')[0],
-        confirmado: false
-      };
-
-      await crearSolicitudMecanico(data);
-      alert('✅ Solicitud enviada a Almacén. El jefe de almacén confirmará la entrega de las piezas.');
-      modalRepuestos.classList.add('hidden');
-      document.getElementById('pedido-form-box').classList.add('hidden');
-      cargarRepuestosDeOrden(o.id);
-    } catch (err) {
-      alert(`⚠️ Error al enviar solicitud: ${err.message}`);
-    }
   });
 
   // Event Listeners de Inspección / Silueta (Acordeón)
@@ -1242,23 +1233,84 @@ async function cargarRepuestosDeOrden(ordenId) {
   const container = document.getElementById('taller-lista-repuestos-container');
   if (!container) return;
   try {
-    const freshOrd = await getOrden(ordenId);
+    const [freshOrd, todasSolicitudes] = await Promise.all([
+      getOrden(ordenId),
+      getSolicitudesMecanico().catch(() => [])
+    ]);
     const items = freshOrd.items || [];
-    const repuestos = items.filter(it => it.tipo === 'almacen' || it.repuesto_cod);
-    if (repuestos.length === 0 && !freshOrd.repuestos_esperando) {
+    const repuestosConfirmados = items.filter(it => it.tipo === 'almacen' || it.repuesto_cod);
+
+    // Solicitudes para esta orden aún no confirmadas en almacén
+    const solicitudesDeOrden = (todasSolicitudes || []).filter(s => 
+      Number(s.orden_id) === Number(ordenId) || Number(s.orden_numero) === Number(ordenId)
+    );
+    const solicitudesPendientes = solicitudesDeOrden.filter(s => !s.confirmado);
+
+    if (repuestosConfirmados.length === 0 && solicitudesPendientes.length === 0 && !freshOrd.repuestos_esperando) {
       container.innerHTML = `<span style="color:var(--slate-4); font-size:12px;">No hay repuestos registrados aún en esta orden. Usa los botones superiores para solicitarlos.</span>`;
       return;
     }
-    let html = '<div style="display:flex; flex-wrap:wrap; gap:8px;">';
-    repuestos.forEach(r => {
+
+    let html = '<div style="display:flex; flex-direction:column; gap:10px;">';
+
+    // 1. Solicitudes pendientes de entrega por almacén (Badge Amarillo / Advertencia)
+    if (solicitudesPendientes.length > 0) {
       html += `
-        <span style="background:var(--slate-9); border:1px solid var(--slate-8); border-radius:6px; padding:6px 12px; font-size:12px; display:inline-flex; align-items:center; gap:6px;">
-          <span style="color:#10b981; font-weight:800;">${escapeHtml(r.repuesto_cod || 'REP')}</span>
-          <span style="color:var(--dark); font-weight:700;">${escapeHtml(r.descripcion)}</span>
-          <span style="color:var(--slate-4); font-size:11px;">(Cant: ${r.cantidad})</span>
-        </span>
+        <div>
+          <div style="font-size:11px; font-weight:800; color:#b45309; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:5px; display:flex; align-items:center; gap:5px;">
+            <span>⏳ Solicitados a Almacén (Pendiente de Entrega):</span>
+          </div>
+          <div style="display:flex; flex-wrap:wrap; gap:8px;">
+            ${solicitudesPendientes.map(s => `
+              <span style="background:#fffbeb; border:1.5px solid #fde68a; border-radius:6px; padding:6px 12px; font-size:12px; display:inline-flex; align-items:center; gap:6px; box-shadow:0 1px 3px rgba(245,158,11,0.1);">
+                <span style="color:#d97706; font-weight:800;">${escapeHtml(s.repuesto_cod || 'REP')}</span>
+                <span style="color:#78350f; font-weight:700;">${escapeHtml(s.repuesto_desc || 'Repuesto')}</span>
+                <span style="background:#fef3c7; color:#92400e; padding:1px 6px; border-radius:4px; font-size:11px; font-weight:800;">Cant: ${s.cantidad}</span>
+                <span style="color:#b45309; font-size:11px; font-weight:600;">(Por despachar)</span>
+              </span>
+            `).join('')}
+          </div>
+        </div>
       `;
-    });
+    }
+
+    // 2. Repuestos ya entregados y cargados a la orden (Badge Verde)
+    if (repuestosConfirmados.length > 0) {
+      html += `
+        <div>
+          <div style="font-size:11px; font-weight:800; color:#065f46; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:5px; display:flex; align-items:center; gap:5px;">
+            <span>✅ Entregados por Almacén y Cargados a la Orden:</span>
+          </div>
+          <div style="display:flex; flex-wrap:wrap; gap:8px;">
+            ${repuestosConfirmados.map(r => `
+              <span style="background:#ecfdf5; border:1.5px solid #a7f3d0; border-radius:6px; padding:6px 12px; font-size:12px; display:inline-flex; align-items:center; gap:6px; box-shadow:0 1px 3px rgba(16,185,129,0.1);">
+                <span style="color:#059669; font-weight:800;">${escapeHtml(r.repuesto_cod || 'REP')}</span>
+                <span style="color:#065f46; font-weight:700;">${escapeHtml(r.descripcion)}</span>
+                <span style="background:#d1fae5; color:#065f46; padding:1px 6px; border-radius:4px; font-size:11px; font-weight:800;">Cant: ${r.cantidad}</span>
+              </span>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    }
+
+    // 3. Repuesto externo si existe
+    if (freshOrd.repuestos_esperando) {
+      html += `
+        <div>
+          <div style="font-size:11px; font-weight:800; color:#9a3412; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:5px; display:flex; align-items:center; gap:5px;">
+            <span>🛒 Repuesto Externo Reportado:</span>
+          </div>
+          <div style="display:flex; flex-wrap:wrap; gap:8px;">
+            <span style="background:#fff7ed; border:1.5px solid #fed7aa; border-radius:6px; padding:6px 12px; font-size:12px; display:inline-flex; align-items:center; gap:6px;">
+              <span style="color:#ea580c; font-weight:800;">EXT</span>
+              <span style="color:#9a3412; font-weight:700;">${escapeHtml(freshOrd.repuestos_esperando)}</span>
+            </span>
+          </div>
+        </div>
+      `;
+    }
+
     html += '</div>';
     container.innerHTML = html;
   } catch (_) {
@@ -1314,47 +1366,265 @@ function openComponentDrawer(key, diag) {
 }
 
 function renderRepuestosTable(searchStr) {
-  const searchLower = searchStr.toLowerCase();
+  const searchLower = (searchStr || '').toLowerCase();
   const filtrados = repuestosAlmacen.filter(r => 
-    r.codigo.toLowerCase().includes(searchLower) || 
-    r.descripcion.toLowerCase().includes(searchLower)
+    (r.codigo || '').toLowerCase().includes(searchLower) || 
+    (r.descripcion || '').toLowerCase().includes(searchLower)
   );
 
   const tbody = document.getElementById('modal-repuestos-tbody');
+  if (!tbody) return;
+
   if (filtrados.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="4" class="text-center text-slate-400">No se encontraron repuestos con stock disponible.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="4" class="text-center text-slate-400" style="padding:14px; text-align:center;">No se encontraron repuestos con stock disponible.</td></tr>`;
     return;
   }
 
-  tbody.innerHTML = filtrados.map(r => `
-    <tr>
-      <td class="font-bold text-emerald-400">${r.codigo}</td>
-      <td>${r.descripcion}</td>
-      <td class="text-center font-bold">${r.stock}</td>
-      <td>
-        <button class="taller-btn-seleccionar-repuesto" data-id="${r.id}" data-desc="${r.descripcion}" data-stock="${r.stock}">
-          Seleccionar
-        </button>
-      </td>
-    </tr>
-  `).join('');
+  tbody.innerHTML = filtrados.map(r => {
+    const stockNum = parseInt(r.stock) || 0;
+    const itemEnCarrito = carritoRepuestos.find(c => c.repuesto_id === r.id);
+    const cantEnCarrito = itemEnCarrito ? itemEnCarrito.cantidad : 0;
+    const sinStock = stockNum <= 0;
+
+    return `
+      <tr style="${itemEnCarrito ? 'background:#f0f9ff;' : ''}">
+        <td class="font-bold text-emerald-400" style="padding:8px 10px;">${escapeHtml(r.codigo)}</td>
+        <td style="padding:8px 10px; font-weight:600;">
+          ${escapeHtml(r.descripcion)}
+          ${cantEnCarrito > 0 ? `<span style="font-size:10px; background:#0284c7; color:#ffffff; padding:1px 6px; border-radius:4px; margin-left:6px; font-weight:800;">En lista: ${cantEnCarrito}</span>` : ''}
+        </td>
+        <td class="text-center font-bold" style="padding:8px 10px; text-align:center; color:${stockNum > 3 ? '#10b981' : (stockNum > 0 ? '#f59e0b' : '#ef4444')};">
+          ${stockNum}
+        </td>
+        <td style="padding:8px 10px; text-align:center;">
+          <button type="button" class="taller-btn-seleccionar-repuesto" data-id="${r.id}" data-cod="${escapeHtml(r.codigo)}" data-desc="${escapeHtml(r.descripcion)}" data-stock="${stockNum}" ${sinStock ? 'disabled style="opacity:0.5; cursor:not-allowed;"' : ''}>
+            ${cantEnCarrito > 0 ? '+ Sumar' : '+ Seleccionar'}
+          </button>
+        </td>
+      </tr>
+    `;
+  }).join('');
 
   tbody.querySelectorAll('.taller-btn-seleccionar-repuesto').forEach(btn => {
     btn.addEventListener('click', () => {
-      const id = btn.dataset.id;
+      const id = parseInt(btn.dataset.id);
+      const cod = btn.dataset.cod;
       const desc = btn.dataset.desc;
-      const stock = btn.dataset.stock;
+      const stock = parseInt(btn.dataset.stock) || 0;
 
-      const formBox = document.getElementById('pedido-form-box');
-      formBox.classList.remove('hidden');
+      if (stock <= 0) {
+        alert('Este repuesto se encuentra agotado en almacén.');
+        return;
+      }
 
-      document.getElementById('pedido-repuesto-title').textContent = `Repuesto: ${desc}`;
-      const inputId = document.getElementById('pedido-repuesto-id');
-      inputId.value = id;
-      inputId.dataset.stock = stock;
-      document.getElementById('pedido-cantidad').value = "1";
+      const existing = carritoRepuestos.find(item => item.repuesto_id === id);
+      if (existing) {
+        if (existing.cantidad < stock) {
+          existing.cantidad += 1;
+        } else {
+          alert(`Ya alcanzaste el límite de stock disponible para ${desc} (${stock} unids).`);
+          return;
+        }
+      } else {
+        carritoRepuestos.push({
+          repuesto_id: id,
+          codigo: cod,
+          descripcion: desc,
+          stock: stock,
+          cantidad: 1
+        });
+      }
+
+      renderCarritoRepuestos();
+      renderRepuestosTable(document.getElementById('modal-search-repuesto')?.value || '');
     });
   });
+}
+
+function renderCarritoRepuestos() {
+  const box = document.getElementById('pedido-carrito-box');
+  if (!box) return;
+
+  if (carritoRepuestos.length === 0) {
+    box.innerHTML = `
+      <div style="text-align:center; padding:14px; background:var(--slate-9); border:1.5px dashed var(--slate-7); border-radius:8px; color:var(--slate-4); font-size:12px;">
+        🛒 <strong>Tu lista de pedido está vacía</strong><br/>
+        Haz clic en <strong>+ Seleccionar</strong> en la tabla superior para agregar repuestos a esta orden.
+      </div>
+    `;
+    return;
+  }
+
+  const totalPiezas = carritoRepuestos.reduce((sum, it) => sum + it.cantidad, 0);
+
+  let html = `
+    <div style="background:#f8fafc; border:1.5px solid #e2e8f0; border-radius:10px; padding:12px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <span style="font-size:12px; font-weight:800; color:var(--dark); display:flex; align-items:center; gap:6px;">
+          <span>🛒 Repuestos a Solicitar (${carritoRepuestos.length} ${carritoRepuestos.length === 1 ? 'tipo' : 'tipos'}, ${totalPiezas} piezas en total):</span>
+        </span>
+        <button type="button" id="btn-vaciar-carrito-repuestos" style="background:none; border:none; color:#ef4444; font-size:11px; font-weight:700; cursor:pointer; text-decoration:underline;">
+          Vaciar lista
+        </button>
+      </div>
+
+      <div style="max-height:140px; overflow-y:auto; display:flex; flex-direction:column; gap:6px; margin-bottom:12px; padding-right:2px;">
+        ${carritoRepuestos.map((item, idx) => `
+          <div style="display:flex; align-items:center; justify-content:space-between; background:var(--white); border:1px solid var(--slate-8); border-radius:8px; padding:8px 10px; gap:8px;">
+            <div style="flex:1; min-width:0;">
+              <div style="font-size:12px; font-weight:800; color:var(--dark); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                <span style="color:#0284c7; font-weight:900;">${escapeHtml(item.codigo)}</span> - ${escapeHtml(item.descripcion)}
+              </div>
+              <div style="font-size:10px; color:var(--slate-4);">
+                Stock disponible en almacén: <strong>${item.stock}</strong>
+              </div>
+            </div>
+
+            <!-- Contador de Cantidad -->
+            <div style="display:flex; align-items:center; gap:6px;">
+              <div style="display:flex; align-items:center; background:var(--slate-9); border:1px solid var(--slate-8); border-radius:6px; overflow:hidden;">
+                <button type="button" class="btn-cart-minus" data-idx="${idx}" style="background:none; border:none; color:var(--dark); font-size:14px; font-weight:800; width:28px; height:28px; cursor:pointer; display:flex; align-items:center; justify-content:center;">-</button>
+                <input type="number" class="input-cart-cant" data-idx="${idx}" value="${item.cantidad}" min="1" max="${item.stock}" style="width:36px; height:28px; text-align:center; font-weight:800; font-size:12px; border:none; background:transparent; color:var(--dark);" />
+                <button type="button" class="btn-cart-plus" data-idx="${idx}" style="background:none; border:none; color:var(--dark); font-size:14px; font-weight:800; width:28px; height:28px; cursor:pointer; display:flex; align-items:center; justify-content:center;">+</button>
+              </div>
+              
+              <!-- Botón Eliminar de lista -->
+              <button type="button" class="btn-cart-remove" data-idx="${idx}" title="Quitar de la lista" style="background:#fee2e2; border:none; color:#dc2626; border-radius:6px; width:28px; height:28px; font-size:13px; cursor:pointer; display:flex; align-items:center; justify-content:center;">
+                ✕
+              </button>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+
+      <button type="button" id="btn-submit-pedido-almacen" style="width:100%; background:#10b981; border:none; color:#ffffff; padding:12px; border-radius:8px; font-size:13px; font-weight:800; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; box-shadow:0 4px 12px rgba(16,185,129,0.3);">
+        📦 Enviar Solicitud a Almacén (${totalPiezas} ${totalPiezas === 1 ? 'pieza' : 'piezas'})
+      </button>
+    </div>
+  `;
+
+  box.innerHTML = html;
+
+  // Listeners del carrito
+  box.querySelector('#btn-vaciar-carrito-repuestos')?.addEventListener('click', () => {
+    carritoRepuestos = [];
+    renderCarritoRepuestos();
+    renderRepuestosTable(document.getElementById('modal-search-repuesto')?.value || '');
+  });
+
+  box.querySelectorAll('.btn-cart-minus').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const idx = parseInt(btn.dataset.idx);
+      if (carritoRepuestos[idx]) {
+        if (carritoRepuestos[idx].cantidad > 1) {
+          carritoRepuestos[idx].cantidad--;
+        } else {
+          carritoRepuestos.splice(idx, 1);
+        }
+        renderCarritoRepuestos();
+        renderRepuestosTable(document.getElementById('modal-search-repuesto')?.value || '');
+      }
+    });
+  });
+
+  box.querySelectorAll('.btn-cart-plus').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const idx = parseInt(btn.dataset.idx);
+      const it = carritoRepuestos[idx];
+      if (it) {
+        if (it.cantidad < it.stock) {
+          it.cantidad++;
+          renderCarritoRepuestos();
+          renderRepuestosTable(document.getElementById('modal-search-repuesto')?.value || '');
+        } else {
+          alert(`No hay más stock disponible de ${it.descripcion} (Máximo: ${it.stock})`);
+        }
+      }
+    });
+  });
+
+  box.querySelectorAll('.input-cart-cant').forEach(inp => {
+    inp.addEventListener('change', () => {
+      const idx = parseInt(inp.dataset.idx);
+      const it = carritoRepuestos[idx];
+      if (it) {
+        let val = parseInt(inp.value) || 1;
+        if (val < 1) val = 1;
+        if (val > it.stock) {
+          alert(`La cantidad no puede superar el stock disponible (${it.stock})`);
+          val = it.stock;
+        }
+        it.cantidad = val;
+        renderCarritoRepuestos();
+        renderRepuestosTable(document.getElementById('modal-search-repuesto')?.value || '');
+      }
+    });
+  });
+
+  box.querySelectorAll('.btn-cart-remove').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const idx = parseInt(btn.dataset.idx);
+      carritoRepuestos.splice(idx, 1);
+      renderCarritoRepuestos();
+      renderRepuestosTable(document.getElementById('modal-search-repuesto')?.value || '');
+    });
+  });
+
+  box.querySelector('#btn-submit-pedido-almacen')?.addEventListener('click', async () => {
+    await enviarPedidoAlmacen();
+  });
+}
+
+async function enviarPedidoAlmacen() {
+  if (carritoRepuestos.length === 0) {
+    alert('No has seleccionado ningún repuesto.');
+    return;
+  }
+  if (!selectedOrden) {
+    alert('No hay una orden de servicio seleccionada.');
+    return;
+  }
+
+  const btnSubmit = document.getElementById('btn-submit-pedido-almacen');
+  if (btnSubmit) {
+    btnSubmit.disabled = true;
+    btnSubmit.innerHTML = '⏳ Enviando solicitudes a Almacén...';
+  }
+
+  const oId = selectedOrden.id;
+  const mId = selectedMecanico ? selectedMecanico.id : null;
+  const fechaHoy = new Date().toISOString().split('T')[0];
+
+  try {
+    const promises = carritoRepuestos.map(item => {
+      return crearSolicitudMecanico({
+        mecanico_id: mId,
+        orden_id: oId,
+        repuesto_id: item.repuesto_id,
+        cantidad: item.cantidad,
+        fecha_entrega: fechaHoy,
+        confirmado: false
+      });
+    });
+
+    await Promise.all(promises);
+
+    const totalPiezas = carritoRepuestos.reduce((s, it) => s + it.cantidad, 0);
+    const cantTipos = carritoRepuestos.length;
+
+    carritoRepuestos = [];
+    document.getElementById('modal-repuestos-backdrop')?.classList.add('hidden');
+
+    alert(`✅ ¡Solicitud enviada a Almacén con éxito!\n\nSe registraron ${totalPiezas} piezas (${cantTipos} ${cantTipos === 1 ? 'tipo de repuesto' : 'tipos de repuestos'}) para la Orden #${oId}.\nEl jefe de almacén confirmará la entrega física.`);
+
+    await cargarRepuestosDeOrden(oId);
+  } catch (err) {
+    alert(`⚠️ Error al enviar pedido de repuestos: ${err.message}`);
+    if (btnSubmit) {
+      btnSubmit.disabled = false;
+      btnSubmit.innerHTML = `📦 Enviar Solicitud a Almacén`;
+    }
+  }
 }
 
 function renderSilhouetteSVG(diag) {
