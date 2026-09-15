@@ -763,7 +763,7 @@ function renderDetalleOrden() {
 
     <!-- Modal Repuestos de Almacén (Carrito Multipedido) -->
     <div class="taller-modal-backdrop hidden" id="modal-repuestos-backdrop">
-      <div class="taller-modal" style="max-width:620px; max-height:90vh;">
+      <div class="taller-modal" style="max-width:680px; width:95%; max-height:90vh;">
         <div class="taller-modal-header" style="background:#f8fafc; border-bottom:1px solid var(--slate-8);">
           <div style="display:flex; align-items:center; gap:8px;">
             <span style="font-size:22px;">📦</span>
@@ -1388,15 +1388,17 @@ function renderRepuestosTable(searchStr) {
 
     return `
       <tr style="${itemEnCarrito ? 'background:#f0f9ff;' : ''}">
-        <td class="font-bold text-emerald-400" style="padding:8px 10px;">${escapeHtml(r.codigo)}</td>
-        <td style="padding:8px 10px; font-weight:600;">
-          ${escapeHtml(r.descripcion)}
-          ${cantEnCarrito > 0 ? `<span style="font-size:10px; background:#0284c7; color:#ffffff; padding:1px 6px; border-radius:4px; margin-left:6px; font-weight:800;">En lista: ${cantEnCarrito}</span>` : ''}
+        <td class="font-bold text-emerald-400" style="padding:8px 10px; white-space:nowrap;">${escapeHtml(r.codigo)}</td>
+        <td style="padding:8px 10px; font-weight:600; line-height:1.35;">
+          <div style="display:inline-flex; align-items:center; gap:6px; flex-wrap:wrap;">
+            <span>${escapeHtml(r.descripcion)}</span>
+            ${cantEnCarrito > 0 ? `<span style="font-size:10px; background:#0284c7; color:#ffffff; padding:2px 7px; border-radius:4px; font-weight:800; white-space:nowrap; display:inline-block; vertical-align:middle;">En lista: ${cantEnCarrito}</span>` : ''}
+          </div>
         </td>
         <td class="text-center font-bold" style="padding:8px 10px; text-align:center; color:${stockNum > 3 ? '#10b981' : (stockNum > 0 ? '#f59e0b' : '#ef4444')};">
           ${stockNum}
         </td>
-        <td style="padding:8px 10px; text-align:center;">
+        <td style="padding:8px 10px; text-align:center; white-space:nowrap;">
           <button type="button" class="taller-btn-seleccionar-repuesto" data-id="${r.id}" data-cod="${escapeHtml(r.codigo)}" data-desc="${escapeHtml(r.descripcion)}" data-stock="${stockNum}" ${sinStock ? 'disabled style="opacity:0.5; cursor:not-allowed;"' : ''}>
             ${cantEnCarrito > 0 ? '+ Sumar' : '+ Seleccionar'}
           </button>
