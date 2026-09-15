@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { query } from "../db.js";
-import { requiereToken } from "../middleware/auth.js";
+import { requiereToken, soloAdmin } from "../middleware/auth.js";
 
 const router = Router();
 router.use(requiereToken);
@@ -63,8 +63,8 @@ router.get("/stats", async (_req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// POST /mecanicos  — crear mecánico
-router.post("/", async (req, res) => {
+// POST /mecanicos  — crear mecánico (Solo Administrador)
+router.post("/", soloAdmin, async (req, res) => {
   const { nombre } = req.body;
   if (!nombre || !nombre.trim()) return res.status(400).json({ error: "El nombre es requerido" });
   try {
@@ -73,8 +73,8 @@ router.post("/", async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// PUT /mecanicos/:id  — actualizar nombre y/o estado activo
-router.put("/:id", async (req, res) => {
+// PUT /mecanicos/:id  — actualizar nombre y/o estado activo (Solo Administrador)
+router.put("/:id", soloAdmin, async (req, res) => {
   const { nombre, activo } = req.body;
   try {
     const fields = [];

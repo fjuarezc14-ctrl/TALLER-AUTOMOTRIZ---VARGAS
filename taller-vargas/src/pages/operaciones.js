@@ -115,6 +115,11 @@ function renderPage() {
   const root = document.getElementById('ops-root');
   if (!root) return;
 
+  const esAdmin = window.isAdminAuthorized ? window.isAdminAuthorized() : false;
+  if (!esAdmin && activeTab === 'equipo') {
+    activeTab = 'kanban';
+  }
+
   // KPI calculations
   const activas   = ordenesList.filter(o => o.estado !== 'Finalizado' && o.estado !== 'No realizo servicio');
   const mesActual = new Date().getMonth();
@@ -310,9 +315,11 @@ function renderPage() {
       <button class="ops-tab ${activeTab === 'kanban' ? 'active' : ''}" id="tab-kanban">
         📋 Tablero en Vivo
       </button>
+      ${esAdmin ? `
       <button class="ops-tab ${activeTab === 'equipo' ? 'active' : ''}" id="tab-equipo">
         👷 Equipo de Mecánicos
       </button>
+      ` : ''}
       <button class="ops-tab ${activeTab === 'taller' ? 'active' : ''}" id="tab-taller">
         🛠️ Portal Mecánico
       </button>
@@ -326,10 +333,10 @@ function renderPage() {
   `;
 
   // Eventos tabs
-  document.getElementById('tab-kanban').addEventListener('click', () => { activeTab = 'kanban'; renderTabContent(); activarTab(); });
-  document.getElementById('tab-equipo').addEventListener('click', () => { activeTab = 'equipo'; renderTabContent(); activarTab(); });
-  document.getElementById('tab-taller').addEventListener('click', () => { activeTab = 'taller'; renderTabContent(); activarTab(); });
-  document.getElementById('btn-refresh-ops').addEventListener('click', () => cargarDatos());
+  document.getElementById('tab-kanban')?.addEventListener('click', () => { activeTab = 'kanban'; renderTabContent(); activarTab(); });
+  document.getElementById('tab-equipo')?.addEventListener('click', () => { activeTab = 'equipo'; renderTabContent(); activarTab(); });
+  document.getElementById('tab-taller')?.addEventListener('click', () => { activeTab = 'taller'; renderTabContent(); activarTab(); });
+  document.getElementById('btn-refresh-ops')?.addEventListener('click', () => cargarDatos());
 
   renderTabContent();
 }
@@ -349,6 +356,12 @@ function activarTab() {
 function renderTabContent() {
   const tabContent = document.getElementById('ops-tab-content');
   if (!tabContent) return;
+
+  const esAdmin = window.isAdminAuthorized ? window.isAdminAuthorized() : false;
+  if (activeTab === 'equipo' && !esAdmin) {
+    activeTab = 'kanban';
+    activarTab();
+  }
 
   if (activeTab === 'kanban') {
     TallerModule.destroy();

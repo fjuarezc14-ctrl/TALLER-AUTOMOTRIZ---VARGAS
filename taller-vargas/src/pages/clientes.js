@@ -113,6 +113,7 @@ function renderCRM() {
   const clientesVip     = parseInt(stats.clientes_vip)     || clientesList.filter(c => segmento(c)==='vip').length;
   const inactivos       = parseInt(stats.clientes_inactivos)|| clientesList.filter(c => segmento(c)==='inactivo').length;
   const cobrosPendientes= parseInt(stats.cobros_pendientes) || 0;
+  const esAdmin         = window.isAdminAuthorized ? window.isAdminAuthorized() : false;
 
   root.innerHTML = `
     <!-- ─ Cabecera ──────────────────────────────────────────── -->
@@ -132,7 +133,7 @@ function renderCRM() {
       ${kpiCard('👥','Total Clientes', totalClientes, 'En el directorio','#6366f1','rgba(99,102,241,.12)')}
       ${kpiCard('⭐','Clientes VIP', clientesVip, `${totalClientes>0?Math.round(clientesVip/totalClientes*100):0}% del total`,'#f59e0b','rgba(245,158,11,.12)')}
       ${kpiCard('💤','Inactivos (>90d)', inactivos, 'Requieren reactivación','#ef4444','rgba(239,68,68,.12)')}
-      ${kpiCard('💳','Cobros Pendientes', cobrosPendientes, 'Por liquidar','#10b981','rgba(16,185,129,.12)')}
+      ${esAdmin ? kpiCard('💳','Cobros Pendientes', cobrosPendientes, 'Por liquidar','#10b981','rgba(16,185,129,.12)') : ''}
     </div>
 
     <!-- ─ Split Screen ──────────────────────────────────────── -->
@@ -204,6 +205,7 @@ function kpiCard(icon, label, valor, sub, color, bg) {
 
 // ─── Lista de clientes (panel izquierdo) ──────────────────────
 function renderListaClientes(lista) {
+  const esAdmin = window.isAdminAuthorized ? window.isAdminAuthorized() : false;
   const filtrados = lista.filter(c => {
     if (filtroActivo !== 'todos' && segmento(c) !== filtroActivo) return false;
     const q = (document.getElementById('crm-search')?.value || '').toLowerCase().trim();
@@ -242,7 +244,7 @@ function renderListaClientes(lista) {
         <div style="display:flex;gap:12px;margin-top:6px;align-items:center;">
           <span style="font-size:11px;color:var(--slate-5);">📞 ${c.telefono}</span>
           ${vCount>0?`<span style="font-size:11px;color:var(--slate-5);">🚗 ${vCount} vehículo${vCount>1?'s':''}</span>`:''}
-          <span style="font-size:11px;color:var(--slate-5);margin-left:auto;">S/. ${parseFloat(c.total_gastado||0).toFixed(0)}</span>
+          ${esAdmin ? `<span style="font-size:11px;color:var(--slate-5);margin-left:auto;">S/. ${parseFloat(c.total_gastado||0).toFixed(0)}</span>` : `<span style="font-size:11px;color:var(--slate-5);margin-left:auto;">${c.total_servicios || 0} visitas</span>`}
         </div>
       </div>`;
   }).join('');
@@ -271,6 +273,7 @@ async function renderFicha(cliente) {
     } catch (_) { historial = []; }
   }
 
+  const esAdmin   = window.isAdminAuthorized ? window.isAdminAuthorized() : false;
   const seg       = segmento(cliente);
   const segColor  = SEG_COLOR[seg];
   const vehiculos = Array.isArray(cliente.vehiculos_detalle) ? cliente.vehiculos_detalle.filter(v=>v&&v.placa) : [];
@@ -316,10 +319,10 @@ async function renderFicha(cliente) {
 
     <!-- KPIs personales -->
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:24px;">
-      ${miniKpi('💰','Gasto Total',gastoFmt,'#10b981')}
-      ${miniKpi('🔁','Servicios',numServ,'#6366f1')}
+      ${esAdmin ? miniKpi('💰','Gasto Total',gastoFmt,'#10b981') : ''}
+      ${miniKpi('🔁','Servicios Realizados',numServ,'#6366f1')}
       ${miniKpi('📅','Última Visita',ultimaV,'#f59e0b')}
-      ${miniKpi('🎯','Ticket Promedio',ticketProm,'#ec4899')}
+      ${esAdmin ? miniKpi('🎯','Ticket Promedio',ticketProm,'#ec4899') : miniKpi('🚗','Vehículos Registrados',vehiculos.length,'#10b981')}
     </div>
 
     <!-- Vehículos y Alertas Predictivas -->
@@ -477,6 +480,7 @@ function encodeHtmlAttr(str) {
 
 // ─── Timeline historial ───────────────────────────────────────
 function renderTimeline(historial) {
+  const esAdmin = window.isAdminAuthorized ? window.isAdminAuthorized() : false;
   const estadoColor = {
     'Finalizado':           '#10b981',
     'En Proceso':           '#6366f1',
@@ -514,9 +518,10 @@ function renderTimeline(historial) {
                   ${items.slice(0,3).map(it=>`<span style="font-size:10px;padding:2px 6px;border-radius:6px;background:var(--slate-9);color:var(--slate-4);">${it.descripcion?.substring(0,30)}</span>`).join('')}
                   ${items.length>3?`<span style="font-size:10px;padding:2px 6px;border-radius:6px;background:var(--slate-9);color:var(--slate-5);">+${items.length-3} más</span>`:''}
                 </div>` : ''}
+              ${esAdmin ? `
               <div style="text-align:right;margin-top:8px;font-size:14px;font-weight:800;color:${parseFloat(os.total_estimado)>0?'#10b981':'var(--slate-5)'};">
                 ${parseFloat(os.total_estimado)>0 ? `S/. ${parseFloat(os.total_estimado).toLocaleString('es-PE',{minimumFractionDigits:2})}` : 'S/. 0.00'}
-              </div>
+              </div>` : ''}
             </div>
           </div>`;
       }).join('')}
