@@ -272,7 +272,17 @@ function renderPage() {
         overflow-y: auto;
         padding: 40px 16px;
       }
-      #modal-cobro-rapido .modal-body { overflow-y: auto; max-height: calc(100vh - 200px); }
+      #modal-cobro-rapido .modal {
+        max-width: 620px;
+        width: 100%;
+      }
+      #modal-cobro-rapido .modal-body {
+        overflow-y: auto !important;
+        max-height: calc(90vh - 140px) !important;
+      }
+      #modal-cobro-rapido .modal-body > * {
+        flex-shrink: 0 !important;
+      }
       @media print {
         body > *:not(#print-area) { display: none !important; }
         #print-area { display: block !important; position: absolute; left: 0; top: 0; width: 100%; }
@@ -454,7 +464,7 @@ function renderPage() {
             <input type="hidden" id="cobro-rapido-total" />
             <input type="hidden" id="cobro-rapido-neto" />
 
-            <div style="background:var(--slate-9);padding:16px;border-radius:var(--radius-md);border:1px solid var(--slate-8);text-align:center;">
+            <div style="background:var(--slate-9);padding:16px;border-radius:var(--radius-md);border:1px solid var(--slate-8);text-align:center;flex-shrink:0;">
               <p style="font-size:10px;font-weight:700;color:var(--slate-5);text-transform:uppercase;">Total a Cobrar</p>
               <p id="cobro-rapido-monto" style="font-size:30px;font-weight:900;color:var(--dark);font-family:monospace;margin-top:4px;"></p>
               <p id="cobro-rapido-cliente" style="font-size:12px;color:var(--slate-5);margin-top:4px;"></p>
@@ -467,18 +477,18 @@ function renderPage() {
             </div>
 
             <!-- Desglose de Servicios y Repuestos -->
-            <div id="cobro-rapido-items-container" style="background:var(--white);border:1px solid var(--slate-8);border-radius:var(--radius-md);overflow:hidden;">
-              <div style="padding:8px 12px;background:var(--slate-9);border-bottom:1px solid var(--slate-8);display:flex;justify-content:space-between;align-items:center;">
-                <span style="font-size:11px;font-weight:800;color:var(--dark);text-transform:uppercase;letter-spacing:.5px;">📋 Desglose de Mano de Obra y Repuestos</span>
-                <span id="cobro-items-count" style="font-size:10px;color:var(--slate-5);font-weight:700;">—</span>
+            <div id="cobro-rapido-items-container" style="background:var(--white);border:1px solid var(--slate-8);border-radius:var(--radius-md);overflow:hidden;flex-shrink:0;min-height:100px;">
+              <div style="padding:9px 14px;background:var(--slate-9);border-bottom:1px solid var(--slate-8);display:flex;justify-content:space-between;align-items:center;">
+                <span style="font-size:11.5px;font-weight:800;color:var(--dark);text-transform:uppercase;letter-spacing:.5px;">📋 Desglose de Mano de Obra y Repuestos</span>
+                <span id="cobro-items-count" style="font-size:10.5px;color:var(--slate-4);font-weight:800;">—</span>
               </div>
-              <div id="cobro-rapido-items-list" style="max-height:160px;overflow-y:auto;padding:6px 12px;font-size:11px;">
-                <p style="text-align:center;color:var(--slate-5);padding:8px;margin:0;">Cargando desglose...</p>
+              <div id="cobro-rapido-items-list" style="max-height:200px;overflow-y:auto;padding:8px 12px;font-size:11px;">
+                <p style="text-align:center;color:var(--slate-5);padding:10px;margin:0;font-weight:600;">⏳ Cargando desglose...</p>
               </div>
             </div>
 
             <!-- Ajuste de Caja (Descuento o Recargo) -->
-            <div style="background:#f0fdf4;border:1px solid #bbf7d0;padding:12px;border-radius:var(--radius-md);display:flex;flex-direction:column;gap:10px;" id="caja-ajuste-wrapper">
+            <div style="background:#f0fdf4;border:1px solid #bbf7d0;padding:12px;border-radius:var(--radius-md);display:flex;flex-direction:column;gap:10px;flex-shrink:0;" id="caja-ajuste-wrapper">
               <p style="font-size:10px;font-weight:800;color:#166534;text-transform:uppercase;margin:0;">Ajuste de Caja: Descuento / Recargo (Opcional)</p>
               <div class="grid grid-cols-2 gap-3">
                 <div class="form-group">
