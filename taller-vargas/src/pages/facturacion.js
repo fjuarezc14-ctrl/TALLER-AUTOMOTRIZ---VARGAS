@@ -335,7 +335,7 @@ function renderPage() {
         <div>
           <p style="font-size:10px;font-weight:700;color:var(--slate-5);text-transform:uppercase;letter-spacing:.5px;">IGV 18% (Est.)</p>
           <p style="font-size:20px;font-weight:900;color:#7c3aed;line-height:1.1;margin-top:2px;font-family:monospace;">S/ ${igv.toLocaleString('es-PE',{minimumFractionDigits:2})}</p>
-          <p style="font-size:10px;color:var(--slate-5);Base imponible declarable</p>
+          <p style="font-size:10px;color:var(--slate-5);">Base imponible declarable</p>
         </div>
       </div>
       <div class="kpi-card" style="border-color:#bfdbfe;">
@@ -891,9 +891,24 @@ function enviarComprobantePorWhatsApp() {
     const rapido = e.target.closest('.btn-cobro-rapido');
     const portal  = e.target.closest('.btn-abrir-portal');
     const factura = e.target.closest('.btn-ver-factura');
+    const ticketDirecto = e.target.closest('.btn-ticket-directo');
     if (rapido) abrirCobroRapido(rapido.dataset.id);
     else if (portal) abrirPortalPago(portal.dataset.id);
     else if (factura) abrirFactura(factura.dataset.id);
+    else if (ticketDirecto) {
+      const c = cobrosList.find(item => item.id == ticketDirecto.dataset.id);
+      if (c) {
+        if (c.orden_id) {
+          getOrden(c.orden_id).then(ord => {
+            window.imprimirTicketTermico({ ...c, items: ord.items || [] });
+          }).catch(() => {
+            window.imprimirTicketTermico({ ...c, items: [] });
+          });
+        } else {
+          window.imprimirTicketTermico({ ...c, items: [] });
+        }
+      }
+    }
   });
 
   // Inicializar tab del portal
@@ -971,10 +986,15 @@ function renderTableRows(cobros) {
         </div>`;
     } else {
       actions = `
-        <button class="btn-icon btn-ver-factura" data-id="${c.id}" title="Ver Comprobante" style="color:var(--brand);font-size:11px;font-weight:700;display:flex;align-items:center;gap:4px;padding:6px 12px;border-radius:6px;background:#eff6ff;border:1px solid #bfdbfe;cursor:pointer;">
-          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-          Ver Comprobante
-        </button>`;
+        <div class="flex justify-end gap-2 items-center">
+          <button class="btn-icon btn-ticket-directo" data-id="${c.id}" title="Imprimir Ticket Térmico 80mm" style="color:#0f172a;font-size:11px;font-weight:700;display:flex;align-items:center;gap:4px;padding:6px 10px;border-radius:6px;background:#f1f5f9;border:1px solid #cbd5e1;cursor:pointer;">
+            🧾 Ticket
+          </button>
+          <button class="btn-icon btn-ver-factura" data-id="${c.id}" title="Ver Comprobante A4 / Opciones" style="color:var(--brand);font-size:11px;font-weight:700;display:flex;align-items:center;gap:4px;padding:6px 11px;border-radius:6px;background:#eff6ff;border:1px solid #bfdbfe;cursor:pointer;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            Ver Doc.
+          </button>
+        </div>`;
     }
 
     let totalHtml = '';
@@ -1067,7 +1087,7 @@ function abrirCobroRapido(id) {
   // Reset y carga de desglose de ítems
   const itemsContainer = document.getElementById('cobro-rapido-items-list');
   const itemsCountEl = document.getElementById('cobro-items-count');
-  if (itemsContainer) itemsContainer.innerHTML = '<p style="text-align:center;color:var(--slate-5);padding:8px;margin:0;">Cargando desglose de la orden...</p>';
+  if (itemsContainer) itemsContainer.innerHTML = '<p style="text-align:center;color:var(--slate-5);padding:10px;margin:0;font-weight:600;">⏳ Cargando desglose de la orden...</p>';
   if (itemsCountEl) itemsCountEl.textContent = '...';
 
   // Mostrar nota técnica / reporte del mecánico si existe
@@ -1088,17 +1108,17 @@ function abrirCobroRapido(id) {
       const items = ord.items || [];
       if (itemsCountEl) itemsCountEl.textContent = `${items.length} ítem${items.length !== 1 ? 's' : ''}`;
       if (items.length === 0) {
-        if (itemsContainer) itemsContainer.innerHTML = '<p style="text-align:center;color:var(--slate-5);padding:8px;margin:0;">Sin desglose de ítems registrado</p>';
+        if (itemsContainer) itemsContainer.innerHTML = '<p style="text-align:center;color:var(--slate-5);padding:12px;margin:0;font-weight:600;">Sin desglose de ítems registrado en la orden</p>';
       } else {
         if (itemsContainer) {
           itemsContainer.innerHTML = `
             <table style="width:100%;border-collapse:collapse;font-size:11px;">
               <thead>
-                <tr style="border-bottom:1px solid var(--slate-8);color:var(--slate-5);font-size:10px;text-align:left;">
-                  <th style="padding:4px 0;">Concepto / Ítem</th>
-                  <th style="text-align:center;padding:4px 0;">Tipo</th>
-                  <th style="text-align:center;padding:4px 0;">Cant</th>
-                  <th style="text-align:right;padding:4px 0;">Subtotal</th>
+                <tr style="border-bottom:1.5px solid var(--slate-7);color:var(--slate-4);font-size:10px;text-align:left;background:#f8fafc;">
+                  <th style="padding:6px 6px;">Concepto / Ítem</th>
+                  <th style="text-align:center;padding:6px 6px;width:80px;">Tipo</th>
+                  <th style="text-align:center;padding:6px 6px;width:45px;">Cant</th>
+                  <th style="text-align:right;padding:6px 6px;width:80px;">Subtotal</th>
                 </tr>
               </thead>
               <tbody>
@@ -1106,13 +1126,20 @@ function abrirCobroRapido(id) {
                   const isAlmacen = it.tipo === 'almacen';
                   const isLabor = it.tipo === 'mano_obra';
                   const tag = isLabor ? '🔧 M. Obra' : isAlmacen ? '📦 Almacén' : '🛒 Externo';
+                  const tagBg = isLabor ? '#f0fdf4' : isAlmacen ? '#eff6ff' : '#fffbeb';
+                  const tagColor = isLabor ? '#166534' : isAlmacen ? '#1e40af' : '#b45309';
                   const sub = parseFloat(it.subtotal || (it.cantidad * it.precio_unitario) || 0);
                   return `
                     <tr style="border-bottom:1px dashed var(--slate-8);">
-                      <td style="padding:5px 0;font-weight:600;color:var(--dark);">${it.descripcion}</td>
-                      <td style="text-align:center;padding:5px 0;font-size:10px;color:var(--slate-5);">${tag}</td>
-                      <td style="text-align:center;padding:5px 0;font-family:monospace;">${it.cantidad}</td>
-                      <td style="text-align:right;padding:5px 0;font-family:monospace;font-weight:700;color:var(--dark);">S/ ${sub.toFixed(2)}</td>
+                      <td style="padding:6px 6px;font-weight:600;color:var(--dark);">
+                        ${it.descripcion}
+                        ${it.repuesto_cod ? `<span style="font-size:9.5px;color:var(--slate-5);font-family:monospace;margin-left:3px;">[${it.repuesto_cod}]</span>` : ''}
+                      </td>
+                      <td style="text-align:center;padding:6px 6px;">
+                        <span style="font-size:9.5px;font-weight:700;padding:2px 6px;border-radius:4px;background:${tagBg};color:${tagColor};white-space:nowrap;">${tag}</span>
+                      </td>
+                      <td style="text-align:center;padding:6px 6px;font-family:monospace;font-weight:700;">${it.cantidad}</td>
+                      <td style="text-align:right;padding:6px 6px;font-family:monospace;font-weight:800;color:var(--dark);white-space:nowrap;">S/ ${sub.toFixed(2)}</td>
                     </tr>
                   `;
                 }).join('')}
@@ -1130,8 +1157,12 @@ function abrirCobroRapido(id) {
       }
     }).catch(err => {
       console.error("Error al cargar orden para cobro:", err);
-      if (itemsContainer) itemsContainer.innerHTML = '<p style="text-align:center;color:var(--slate-5);padding:8px;margin:0;">No se pudo cargar el desglose</p>';
+      if (itemsContainer) itemsContainer.innerHTML = '<p style="text-align:center;color:var(--slate-5);padding:10px;margin:0;">No se pudo cargar el desglose</p>';
+      if (itemsCountEl) itemsCountEl.textContent = '—';
     });
+  } else {
+    if (itemsContainer) itemsContainer.innerHTML = '<p style="text-align:center;color:var(--slate-5);padding:10px;margin:0;">Cobro directo sin orden de servicio asociada</p>';
+    if (itemsCountEl) itemsCountEl.textContent = '0 ítems';
   }
   document.getElementById('cobro-descuento-tipo').value = '';
   const descValInput = document.getElementById('cobro-descuento-valor');
