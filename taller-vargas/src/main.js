@@ -167,55 +167,159 @@ window.showToast = function(message, type = 'success') {
 // ── Impresión de Ticket Térmico 80mm ────────────────────────
 window.imprimirTicketTermico = function(cobro) {
   if (!cobro) return;
-  const printWindow = window.open('', '_blank', 'width=350,height=600');
-  if (!printWindow) return alert('Por favor permite las ventanas emergentes para imprimir tickets.');
+  const printWindow = window.open('', '_blank', 'width=380,height=650');
+  if (!printWindow) return alert('Por favor permite las ventanas emergentes en tu navegador para imprimir tickets.');
   
-  const itemsHTML = (cobro.items || []).map(i => `
-    <tr>
-      <td style="text-align:left;padding:3px 0;">${i.descripcion}</td>
-      <td style="text-align:center;">${i.cantidad}</td>
-      <td style="text-align:right;">S/ ${parseFloat(i.precio_unitario).toFixed(2)}</td>
-    </tr>
-  `).join('');
+  const totalOriginal = parseFloat(cobro.monto_total || 0);
+  const totalNeto = parseFloat(cobro.monto_neto !== null && cobro.monto_neto !== undefined ? cobro.monto_neto : totalOriginal);
+  const hasAjuste = totalOriginal !== totalNeto;
+
+  const items = Array.isArray(cobro.items) && cobro.items.length > 0 ? cobro.items : [];
+  const itemsHTML = items.map(i => {
+    const cant = parseFloat(i.cantidad) || 1;
+    const pu = parseFloat(i.precio_unitario) || 0;
+    const sub = parseFloat(i.subtotal || (cant * pu));
+    return `
+      <tr>
+        <td style="text-align:left;padding:3px 0;word-break:break-word;">${i.descripcion || 'Servicio Mecánico'}</td>
+        <td style="text-align:center;padding:3px 2px;">${cant}</td>
+        <td style="text-align:right;padding:3px 0;">S/ ${sub.toFixed(2)}</td>
+      </tr>
+    `;
+  }).join('');
+
+  const now = new Date();
+  const fechaStr = now.toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  const horaStr = now.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
 
   printWindow.document.write(`
     <!DOCTYPE html>
-    <html>
+    <html lang="es">
     <head>
-      <title>Ticket ${cobro.comprobante_numero || 'RI-0001'}</title>
+      <meta charset="UTF-8">
+      <title>Ticket ${cobro.comprobante_numero || 'TICKET'}</title>
       <style>
-        body { font-family: monospace; font-size: 12px; width: 80mm; margin: 0; padding: 10px; color: #000; }
+        body { 
+          font-family: 'Courier New', Courier, monospace; 
+          font-size: 11px; 
+          width: 76mm; 
+          margin: 0 auto; 
+          padding: 8px 6px; 
+          color: #000; 
+          background: #fff;
+          line-height: 1.3;
+        }
         .text-center { text-align: center; }
         .text-right { text-align: right; }
-        .border-dashed { border-bottom: 1px dashed #000; margin: 8px 0; }
+        .text-left { text-align: left; }
+        .bold { font-weight: bold; }
+        .border-dashed { border-bottom: 1px dashed #000; margin: 6px 0; }
+        .border-double { border-bottom: 2px solid #000; margin: 6px 0; }
         table { width: 100%; border-collapse: collapse; font-size: 11px; }
+        .no-print {
+          background: #f1f5f9;
+          border-bottom: 1px solid #cbd5e1;
+          padding: 8px;
+          margin: -8px -6px 12px -6px;
+          display: flex;
+          gap: 8px;
+          justify-content: center;
+        }
+        .no-print button {
+          font-family: system-ui, sans-serif;
+          font-size: 12px;
+          font-weight: 600;
+          padding: 6px 12px;
+          border-radius: 4px;
+          cursor: pointer;
+        }
+        .btn-prn { background: #0284c7; color: white; border: 1px solid #0284c7; }
+        .btn-cls { background: #e2e8f0; color: #334155; border: 1px solid #cbd5e1; }
+        @media print {
+          .no-print { display: none !important; }
+          body { width: 100%; padding: 0; }
+        }
       </style>
+      <script>
+        window.onafterprint = function() {
+          window.close();
+        };
+        window.onload = function() {
+          setTimeout(function() {
+            window.focus();
+            window.print();
+          }, 300);
+        };
+      </script>
     </head>
-    <body onload="window.print(); window.close();">
-      <div class="text-center">
-        <h3 style="margin:0;">TALLER AUTOMOTRIZ VARGAS</h3>
-        <p style="margin:2px 0;">RUC: 20512345678</p>
-        <p style="margin:2px 0;">Av. Las Flores 123 - Lima</p>
-        <div class="border-dashed"></div>
-        <h4 style="margin:4px 0;">${cobro.tipo_comprobante || 'VOUCHER'}: ${cobro.comprobante_numero || 'RI-0001'}</h4>
-        <p style="margin:2px 0;">Fecha: ${new Date().toLocaleDateString('es-PE')}</p>
-        <p style="margin:2px 0;">Cliente: ${cobro.cliente_nombre || 'Cliente General'}</p>
-        <p style="margin:2px 0;">Placa: ${cobro.placa || '—'}</p>
+    <body>
+      <div class="no-print">
+        <button class="btn-prn" onclick="window.print()">🖨️ Imprimir Ticket</button>
+        <button class="btn-cls" onclick="window.close()">✕ Cerrar</button>
       </div>
+
+      <div class="text-center">
+        <h2 style="margin:0;font-size:13px;font-weight:900;">INVERSIONES Y SERVICIOS VARGAS E.I.R.L.</h2>
+        <p style="margin:2px 0;">RUC: <strong>20608226066</strong></p>
+        <p style="margin:2px 0;">Jr. Reyna Farge N° 648 - Cajamarca</p>
+        <p style="margin:2px 0;">Tel: 931 163 369 · 976 864 137</p>
+        <div class="border-double"></div>
+        <h3 style="margin:3px 0;font-size:12px;">${(cobro.tipo_comprobante || 'RECIBO').toUpperCase()}: ${cobro.comprobante_numero || 'RI-0001'}</h3>
+        <p style="margin:2px 0;">Fecha: ${fechaStr}  Hora: ${horaStr}</p>
+        <div class="border-dashed"></div>
+      </div>
+
+      <div class="text-left" style="font-size:10px;">
+        <p style="margin:2px 0;"><strong>Cliente:</strong> ${cobro.cliente_nombre || 'Cliente General'}</p>
+        ${cobro.num_doc ? `<p style="margin:2px 0;"><strong>${cobro.tipo_doc || 'DOC'}:</strong> ${cobro.num_doc}</p>` : ''}
+        ${cobro.placa ? `<p style="margin:2px 0;"><strong>Vehículo / Placa:</strong> ${cobro.placa}</p>` : ''}
+        ${cobro.orden_numero ? `<p style="margin:2px 0;"><strong>Orden Servicio:</strong> OT-${String(cobro.orden_numero).padStart(4,'0')}</p>` : ''}
+      </div>
+
       <div class="border-dashed"></div>
       <table>
         <thead>
-          <tr><th style="text-align:left;">Desc</th><th>Cant</th><th style="text-align:right;">Total</th></tr>
+          <tr style="border-bottom:1px solid #000;">
+            <th style="text-align:left;padding-bottom:3px;">Descripción</th>
+            <th style="text-align:center;padding-bottom:3px;width:30px;">Cant</th>
+            <th style="text-align:right;padding-bottom:3px;width:55px;">Total</th>
+          </tr>
         </thead>
-        <tbody>${itemsHTML || '<tr><td colspan="3">Servicios de Taller Automotriz</td></tr>'}</tbody>
+        <tbody>
+          ${itemsHTML || '<tr><td colspan="3" style="text-align:center;padding:4px 0;">Servicios de Mantenimiento y Reparación</td></tr>'}
+        </tbody>
       </table>
       <div class="border-dashed"></div>
-      <p class="text-right"><strong>TOTAL: S/ ${parseFloat(cobro.monto_neto !== null && cobro.monto_neto !== undefined ? cobro.monto_neto : cobro.monto_total || 0).toFixed(2)}</strong></p>
-      <p class="text-right">Método: ${cobro.metodo_pago || 'Efectivo'}</p>
+
+      ${hasAjuste ? `
+      <div style="font-size:10px;">
+        <div style="display:flex;justify-content:space-between;margin:2px 0;">
+          <span>Subtotal estimado:</span>
+          <span>S/ ${totalOriginal.toFixed(2)}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin:2px 0;">
+          <span>${cobro.descuento_tipo && cobro.descuento_tipo.startsWith('Cargo') ? 'Recargo adicional:' : 'Descuento aplicado:'}</span>
+          <span>S/ ${parseFloat(cobro.descuento_realizado || 0).toFixed(2)}</span>
+        </div>
+      </div>
       <div class="border-dashed"></div>
-      <div class="text-center">
-        <p style="margin:4px 0;">¡Gracias por su preferencia!</p>
-        <p style="margin:2px 0;font-size:10px;">Conserve este ticket como garantía</p>
+      ` : ''}
+
+      <div style="font-size:13px;font-weight:900;display:flex;justify-content:space-between;margin:4px 0;">
+        <span>TOTAL A PAGAR:</span>
+        <span>S/ ${totalNeto.toFixed(2)}</span>
+      </div>
+
+      <div style="font-size:10px;margin-top:4px;">
+        <p style="margin:2px 0;"><strong>Medio de Pago:</strong> ${cobro.metodo_pago || 'Efectivo'}</p>
+        <p style="margin:2px 0;"><strong>Estado:</strong> CANCELADO / PAGADO</p>
+      </div>
+
+      <div class="border-double"></div>
+      <div class="text-center" style="font-size:10px;margin-top:6px;">
+        <p style="margin:2px 0;font-weight:bold;">¡GRACIAS POR SU PREFERENCIA!</p>
+        <p style="margin:2px 0;color:#333;">Conserve este ticket como constancia</p>
+        <p style="margin:4px 0 0 0;font-size:9px;">Taller Automotriz Vargas · Cajamarca</p>
       </div>
     </body>
     </html>

@@ -12,6 +12,103 @@ let currentCobro = null;
 let activePagadorIndex = 1;
 let currentItems = [];
 
+// ─── Paginación y Filtros ─────────────────────────────────────
+let currentPage = 1;
+const itemsPerPage = 15;
+
+function getFechaHoyPeru() {
+  try {
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/Lima',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    }).format(new Date()); // Retorna "YYYY-MM-DD"
+  } catch (_) {
+    return new Date().toISOString().slice(0, 10);
+  }
+}
+
+function getFechaCobroStr(c) {
+  if (c.fecha_cobro_str) return c.fecha_cobro_str;
+  if (c.fecha_cobro) {
+    if (typeof c.fecha_cobro === 'string') {
+      return c.fecha_cobro.split('T')[0];
+    }
+    return new Date(c.fecha_cobro).toISOString().slice(0, 10);
+  }
+  if (c.updated_at) {
+    try {
+      return new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'America/Lima',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+      }).format(new Date(c.updated_at));
+    } catch (_) {
+      return new Date(c.updated_at).toISOString().slice(0, 10);
+    }
+  }
+  return '';
+}
+
+function normalizarMetodo(metodo) {
+  const m = (metodo || '').toLowerCase();
+  if (m.includes('yape') || m.includes('plin') || m.includes('billetera')) return 'Yape/Plin';
+  if (m.includes('tarjeta')) return 'Tarjeta';
+  if (m.includes('transf') || m.includes('banc')) return 'Transferencia';
+  return 'Efectivo';
+}
+
+function getFilteredCobros() {
+  const q = (document.getElementById('search-cobros')?.value || '').toLowerCase().trim();
+  if (!q) return cobrosList;
+  return cobrosList.filter(c =>
+    c.cliente_nombre?.toLowerCase().includes(q) ||
+    c.placa?.toLowerCase().includes(q) ||
+    String(c.id).includes(q) ||
+    String(c.orden_numero).includes(q) ||
+    c.comprobante_numero?.toLowerCase().includes(q) ||
+    c.comprobante2_numero?.toLowerCase().includes(q)
+  );
+}
+
+function getPageCobros(lista) {
+  const total = lista.length;
+  const totalPages = Math.max(1, Math.ceil(total / itemsPerPage));
+  if (currentPage > totalPages) currentPage = totalPages;
+  if (currentPage < 1) currentPage = 1;
+  const start = (currentPage - 1) * itemsPerPage;
+  return lista.slice(start, start + itemsPerPage);
+}
+
+function renderPaginationBar(lista) {
+  const total = lista.length;
+  const totalPages = Math.max(1, Math.ceil(total / itemsPerPage));
+  if (total === 0) return '';
+  const start = (currentPage - 1) * itemsPerPage + 1;
+  const end = Math.min(currentPage * itemsPerPage, total);
+
+  return `
+    <div class="pagination-bar" style="display:flex;justify-content:space-between;align-items:center;padding:12px 20px;border-top:1px solid var(--slate-8);background:var(--slate-9);font-size:12px;flex-wrap:wrap;gap:10px;">
+      <span style="color:var(--slate-5);">
+        Mostrando <strong style="color:var(--dark);">${start}</strong> a <strong style="color:var(--dark);">${end}</strong> de <strong style="color:var(--dark);">${total}</strong> comprobantes
+      </span>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <button type="button" class="btn-ghost" id="btn-page-prev" ${currentPage <= 1 ? 'disabled style="opacity:0.4;cursor:not-allowed;"' : 'style="cursor:pointer;"'}>
+          ⬅️ Anterior
+        </button>
+        <span style="font-weight:800;color:var(--dark);padding:4px 8px;background:var(--white);border:1px solid var(--slate-8);border-radius:6px;font-size:11px;">
+          Página ${currentPage} de ${totalPages}
+        </span>
+        <button type="button" class="btn-ghost" id="btn-page-next" ${currentPage >= totalPages ? 'disabled style="opacity:0.4;cursor:not-allowed;"' : 'style="cursor:pointer;"'}>
+          Siguiente ➡️
+        </button>
+      </div>
+    </div>
+  `;
+}
+
 // ─── Contadores correlativos simulados (en memoria) ───────────
 let contBoleta = 1001;
 let contFactura = 1001;
@@ -63,16 +160,17 @@ function calcMetrics() {
   const pagados = cobrosList.filter(c => c.estado !== 'Pendiente');
   const byMethod = {};
   pagados.forEach(c => {
-    const m = c.metodo_pago || 'Efectivo';
-    byMethod[m] = (byMethod[m] || 0) + parseFloat(c.monto_total);
+    const m = normalizarMetodo(c.metodo_pago);
+    const monto = parseFloat(c.monto_neto !== null && c.monto_neto !== undefined ? c.monto_neto : c.monto_total);
+    byMethod[m] = (byMethod[m] || 0) + monto;
   });
   const totalPagado = Object.values(byMethod).reduce((a, b) => a + b, 0) || 1;
   const metodoPct = Object.entries(byMethod).map(([k, v]) => ({
     label: k, valor: v, pct: Math.round((v / totalPagado) * 100)
   })).sort((a, b) => b.pct - a.pct);
 
-  // Arqueo de Caja (Hoy)
-  const todayStr = new Date().toLocaleDateString('en-US');
+  // Arqueo de Caja (Hoy en Lima)
+  const todayStr = getFechaHoyPeru();
   let totalHoy = 0;
   const hoyMetodos = {
     'Efectivo': 0,
@@ -83,17 +181,12 @@ function calcMetrics() {
 
   cobrosList.forEach(c => {
     if (c.estado === 'Cancelado' || c.estado === 'Dividido') {
-      const rawDate = typeof c.fecha_cobro === 'string' ? c.fecha_cobro.split('T')[0] : '';
-      const cDateStr = rawDate ? new Date(rawDate + 'T12:00:00').toLocaleDateString('en-US') : new Date(c.fecha_cobro).toLocaleDateString('en-US');
+      const cDateStr = getFechaCobroStr(c);
       if (cDateStr === todayStr) {
-        const m = c.metodo_pago || 'Efectivo';
+        const m = normalizarMetodo(c.metodo_pago);
         const total = parseFloat(c.monto_neto !== null && c.monto_neto !== undefined ? c.monto_neto : c.monto_total);
         totalHoy += total;
-        if (hoyMetodos[m] !== undefined) {
-          hoyMetodos[m] += total;
-        } else {
-          hoyMetodos[m] = (hoyMetodos[m] || 0) + total;
-        }
+        hoyMetodos[m] = (hoyMetodos[m] || 0) + total;
       }
     }
   });
@@ -181,11 +274,11 @@ function renderPage() {
       }
       #modal-cobro-rapido .modal-body { overflow-y: auto; max-height: calc(100vh - 200px); }
       @media print {
-        body * { visibility:hidden !important; }
-        #modal-factura-electronica, #modal-factura-electronica * { visibility:visible !important; }
-        #modal-factura-electronica { position:fixed;inset:0;z-index:9999;background:#fff;overflow:auto; }
-        #modal-factura-electronica .no-print { display:none !important; }
-        #modal-factura-electronica .factura-doc { box-shadow:none;border:none;max-width:100%;border-radius:0; }
+        body > *:not(#print-area) { display: none !important; }
+        #print-area { display: block !important; position: absolute; left: 0; top: 0; width: 100%; }
+        #print-area, #print-area * { visibility: visible !important; }
+        #print-area .factura-doc { box-shadow:none;border:none;max-width:100%;border-radius:0;padding:20px; }
+        .no-print { display: none !important; }
       }
     </style>
 
@@ -201,11 +294,15 @@ function renderPage() {
         </div>
       </div>
       <div class="flex gap-2" style="flex-wrap:wrap;">
+        <button id="btn-ver-cuentas-qr" class="btn-secondary flex items-center gap-2" style="font-size:12px;padding:8px 12px;height:38px;color:#7c3aed;border-color:#d8b4fe;background:#faf5ff;">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect width="14" height="20" x="5" y="2" rx="2"/><line x1="12" x2="12.01" y1="18" y2="18"/></svg>
+          📱 Cuentas y QR Yape/Plin
+        </button>
         <button id="btn-exportar-cobros" class="btn-secondary flex items-center gap-2" style="font-size:12px;padding:8px 12px;height:38px;">
           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           Exportar Cobros (CSV)
         </button>
-        <input type="text" id="search-cobros" placeholder="🔍 Buscar por orden, cliente o placa..." class="form-input" style="width:300px;font-size:12px;" />
+        <input type="text" id="search-cobros" placeholder="🔍 Buscar por orden, cliente o placa..." class="form-input" style="width:280px;font-size:12px;" />
       </div>
     </div>
 
@@ -238,7 +335,7 @@ function renderPage() {
         <div>
           <p style="font-size:10px;font-weight:700;color:var(--slate-5);text-transform:uppercase;letter-spacing:.5px;">IGV 18% (Est.)</p>
           <p style="font-size:20px;font-weight:900;color:#7c3aed;line-height:1.1;margin-top:2px;font-family:monospace;">S/ ${igv.toLocaleString('es-PE',{minimumFractionDigits:2})}</p>
-          <p style="font-size:10px;color:var(--slate-5);">Base imponible declarable</p>
+          <p style="font-size:10px;color:var(--slate-5);Base imponible declarable</p>
         </div>
       </div>
       <div class="kpi-card" style="border-color:#bfdbfe;">
@@ -260,7 +357,7 @@ function renderPage() {
           <div style="font-size:20px;">💰</div>
           <div>
             <h3 style="font-size:13px;font-weight:900;color:var(--dark);margin:0;">Arqueo de Caja (Cierre de Hoy)</h3>
-            <p style="font-size:11px;color:var(--slate-5);margin:0;">Consolidado diario de cobros exitosos (Cancelados/Divididos)</p>
+            <p style="font-size:11px;color:var(--slate-5);margin:0;">Consolidado diario de cobros exitosos (Pagados / Divididos)</p>
           </div>
         </div>
         <div class="flex gap-3" style="flex-wrap:wrap;font-family:monospace;font-size:11px;font-weight:700;">
@@ -304,7 +401,7 @@ function renderPage() {
     </div>
     ` : ''}
 
-    <!-- Tabla -->
+    <!-- Tabla con Paginación -->
     <div class="card" style="overflow:hidden;">
       <div style="padding:14px 20px;border-bottom:1px solid var(--slate-8);display:flex;justify-content:space-between;align-items:center;">
         <span style="font-size:13px;font-weight:800;color:var(--dark);">Comprobantes y Cobros</span>
@@ -326,9 +423,12 @@ function renderPage() {
             </tr>
           </thead>
           <tbody id="tabla-cobros-body">
-            ${renderTableRows(cobrosList)}
+            ${renderTableRows(getPageCobros(cobrosList))}
           </tbody>
         </table>
+      </div>
+      <div id="cobros-pagination-bar">
+        ${renderPaginationBar(cobrosList)}
       </div>
     </div>
 
@@ -342,7 +442,7 @@ function renderPage() {
             <div class="modal-header-icon">
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>
             </div>
-            <span class="modal-title">Registrar Cobro Interno</span>
+            <span class="modal-title">Registrar Cobro / Liquidación en Caja</span>
           </div>
           <button class="modal-close" id="btn-close-cobro-x">
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
@@ -363,6 +463,17 @@ function renderPage() {
                   <span>📝</span> <span>Reporte del Técnico / Bahía:</span>
                 </strong>
                 <span id="cobro-rapido-nota-text" style="line-height:1.4; display:block; white-space:pre-line; color:#78350f;"></span>
+              </div>
+            </div>
+
+            <!-- Desglose de Servicios y Repuestos -->
+            <div id="cobro-rapido-items-container" style="background:var(--white);border:1px solid var(--slate-8);border-radius:var(--radius-md);overflow:hidden;">
+              <div style="padding:8px 12px;background:var(--slate-9);border-bottom:1px solid var(--slate-8);display:flex;justify-content:space-between;align-items:center;">
+                <span style="font-size:11px;font-weight:800;color:var(--dark);text-transform:uppercase;letter-spacing:.5px;">📋 Desglose de Mano de Obra y Repuestos</span>
+                <span id="cobro-items-count" style="font-size:10px;color:var(--slate-5);font-weight:700;">—</span>
+              </div>
+              <div id="cobro-rapido-items-list" style="max-height:160px;overflow-y:auto;padding:6px 12px;font-size:11px;">
+                <p style="text-align:center;color:var(--slate-5);padding:8px;margin:0;">Cargando desglose...</p>
               </div>
             </div>
 
@@ -454,7 +565,7 @@ function renderPage() {
           </div>
           <div class="modal-footer">
             <button type="button" class="btn-ghost" id="btn-close-cobro-cancel">Cancelar</button>
-            <button type="submit" class="btn-primary">Confirmar Pago</button>
+            <button type="submit" class="btn-primary" style="font-weight:800;">💳 Confirmar Pago y Liquidar</button>
           </div>
         </form>
       </div>
@@ -469,8 +580,8 @@ function renderPage() {
               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="white" stroke-width="2"><path d="M12 2a10 10 0 110 20A10 10 0 0112 2z"/><path d="M12 8v4l3 3"/></svg>
             </div>
             <div>
-              <span style="font-size:14px;font-weight:800;color:white;display:block;">Portal de Pago del Cliente</span>
-              <span style="font-size:10px;color:rgba(255,255,255,0.55);">Taller Automotriz Vargas · Simulación auto-liquidada</span>
+              <span style="font-size:14px;font-weight:800;color:white;display:block;">📱 Medios de Pago: QR Yape/Plin y Cuentas Bancarias</span>
+              <span style="font-size:10px;color:rgba(255,255,255,0.7);">Inversiones y Servicios Vargas E.I.R.L. · RUC 20608226066</span>
             </div>
           </div>
           <button class="modal-close" id="btn-close-portal-x" style="color:rgba(255,255,255,0.6);">
@@ -714,9 +825,16 @@ function renderPage() {
     const printArea = document.getElementById('print-area');
     const docContent = document.getElementById('factura-doc-content');
     if (printArea && docContent) {
-      printArea.innerHTML = docContent.innerHTML;
-      window.print();
-      printArea.innerHTML = '';
+      printArea.innerHTML = `<div class="factura-doc">${docContent.innerHTML}</div>`;
+      const onAfter = () => {
+        printArea.innerHTML = '';
+        window.removeEventListener('afterprint', onAfter);
+      };
+      window.addEventListener('afterprint', onAfter);
+      setTimeout(() => {
+        window.print();
+        setTimeout(() => { printArea.innerHTML = ''; }, 2500);
+      }, 150);
     } else {
       window.print();
     }
@@ -725,10 +843,14 @@ function renderPage() {
   const btnTicket = document.getElementById('btn-imprimir-ticket');
   if (btnTicket) {
     btnTicket.addEventListener('click', () => {
-      if (currentCobro) window.imprimirTicketTermico(currentCobro);
+      if (currentCobro) {
+        window.imprimirTicketTermico({ ...currentCobro, items: currentItems });
+      }
     });
   }
   document.getElementById('btn-enviar-whatsapp').addEventListener('click', enviarComprobantePorWhatsApp);
+  document.getElementById('btn-ver-cuentas-qr')?.addEventListener('click', () => abrirPortalPago(null));
+  attachPaginationEvents();
 
 function enviarComprobantePorWhatsApp() {
   if (!currentCobro) return;
@@ -770,39 +892,7 @@ function enviarComprobantePorWhatsApp() {
     const portal  = e.target.closest('.btn-abrir-portal');
     const factura = e.target.closest('.btn-ver-factura');
     if (rapido) abrirCobroRapido(rapido.dataset.id);
-    else if (portal) {
-      const cId = portal.dataset.id;
-      const c = cobrosList.find(item => item.id == cId);
-      if (c) {
-        const payUrl = `https://taller-vargas.pe/pagos/OT-${String(c.orden_numero).padStart(4,'0')}`;
-        navigator.clipboard.writeText(`Estimado(a) ${c.cliente_nombre}, puede pagar su orden de servicio ingresando a su portal de pagos aquí: ${payUrl}`).then(() => {
-          const toast = document.createElement('div');
-          toast.style.position = 'fixed';
-          toast.style.bottom = '24px';
-          toast.style.right = '24px';
-          toast.style.background = 'var(--dark)';
-          toast.style.color = '#fff';
-          toast.style.padding = '12px 20px';
-          toast.style.borderRadius = '8px';
-          toast.style.boxShadow = '0 10px 25px -5px rgba(0,0,0,0.3)';
-          toast.style.zIndex = '9999';
-          toast.style.fontSize = '12px';
-          toast.style.fontWeight = '700';
-          toast.style.display = 'flex';
-          toast.style.alignItems = 'center';
-          toast.style.gap = '8px';
-          toast.style.border = '1px solid var(--brand)';
-          toast.innerHTML = `<span>🔗 ¡Enlace de pago copiado al portapapeles!</span>`;
-          document.body.appendChild(toast);
-          setTimeout(() => {
-            toast.style.opacity = '0';
-            toast.style.transition = 'opacity 0.5s ease';
-            setTimeout(() => toast.remove(), 500);
-          }, 3000);
-        });
-      }
-      abrirPortalPago(cId);
-    }
+    else if (portal) abrirPortalPago(portal.dataset.id);
     else if (factura) abrirFactura(factura.dataset.id);
   });
 
@@ -863,23 +953,25 @@ function renderTableRows(cobros) {
     const dateStr = safeFormatDate(c.fecha_emision, { day:'2-digit', month:'short', year:'numeric' });
 
     let badge = '';
-    if (c.estado === 'Cancelado') badge = `<span class="badge badge-emerald">✓ Cancelado</span>`;
-    else if (c.estado === 'Dividido') badge = `<span class="badge badge-purple">÷ Dividido</span>`;
+    if (c.estado === 'Cancelado') badge = `<span class="badge badge-emerald">✓ Pagado</span>`;
+    else if (c.estado === 'Dividido') badge = `<span class="badge badge-purple">÷ Pagado (Dividido)</span>`;
     else badge = `<span class="badge badge-amber" style="animation:pulse-badge 1.5s ease-in-out infinite alternate;">⏳ Pendiente</span>`;
 
     let actions = '';
     if (!isPaid) {
       actions = `
-        <div class="flex justify-end gap-1">
-          <button class="btn-icon btn-abrir-portal" data-id="${c.id}" title="Portal de Pago Cliente" style="color:#7c3aed;font-size:10px;display:flex;align-items:center;gap:3px;padding:5px 8px;border-radius:6px;background:#faf5ff;border:1px solid #e9d5ff;">
-            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
-            Link
+        <div class="flex justify-end gap-2 items-center">
+          <button class="btn-icon btn-abrir-portal" data-id="${c.id}" title="Ver QR y Cuentas Bancarias" style="color:#7c3aed;font-size:11px;font-weight:700;display:flex;align-items:center;gap:4px;padding:6px 10px;border-radius:6px;background:#faf5ff;border:1px solid #e9d5ff;cursor:pointer;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect width="14" height="20" x="5" y="2" rx="2"/><line x1="12" x2="12.01" y1="18" y2="18"/></svg>
+            📱 QR / Cuentas
           </button>
-          <button class="btn-success btn-cobro-rapido" data-id="${c.id}" style="font-size:11px;padding:5px 10px;">Cobrar</button>
+          <button class="btn-success btn-cobro-rapido" data-id="${c.id}" style="font-size:12px;padding:6px 14px;font-weight:700;display:flex;align-items:center;gap:4px;box-shadow:0 2px 6px rgba(16,185,129,0.3);cursor:pointer;">
+            💳 Cobrar
+          </button>
         </div>`;
     } else {
       actions = `
-        <button class="btn-icon btn-ver-factura" data-id="${c.id}" title="Ver Comprobante" style="color:var(--brand);font-size:10px;display:flex;align-items:center;gap:3px;padding:5px 10px;border-radius:6px;background:#eff6ff;border:1px solid #bfdbfe;">
+        <button class="btn-icon btn-ver-factura" data-id="${c.id}" title="Ver Comprobante" style="color:var(--brand);font-size:11px;font-weight:700;display:flex;align-items:center;gap:4px;padding:6px 12px;border-radius:6px;background:#eff6ff;border:1px solid #bfdbfe;cursor:pointer;">
           <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
           Ver Comprobante
         </button>`;
@@ -927,17 +1019,38 @@ function renderTableRows(cobros) {
   }).join('');
 }
 
-// ── FILTRO ───────────────────────────────────────────────
+// ── FILTRO Y PAGINACIÓN ──────────────────────────────────
 
 function filtrarCobros() {
-  const q = document.getElementById('search-cobros').value.toLowerCase().trim();
-  const f = cobrosList.filter(c =>
-    c.cliente_nombre?.toLowerCase().includes(q) ||
-    c.placa?.toLowerCase().includes(q) ||
-    String(c.id).includes(q) ||
-    String(c.orden_numero).includes(q)
-  );
-  document.getElementById('tabla-cobros-body').innerHTML = renderTableRows(f);
+  currentPage = 1;
+  updateTableAndPagination();
+}
+
+function updateTableAndPagination() {
+  const filtered = getFilteredCobros();
+  const pageItems = getPageCobros(filtered);
+  const tbody = document.getElementById('tabla-cobros-body');
+  if (tbody) tbody.innerHTML = renderTableRows(pageItems);
+  const pagBar = document.getElementById('cobros-pagination-bar');
+  if (pagBar) pagBar.innerHTML = renderPaginationBar(filtered);
+  attachPaginationEvents();
+}
+
+function attachPaginationEvents() {
+  document.getElementById('btn-page-prev')?.addEventListener('click', () => {
+    if (currentPage > 1) {
+      currentPage--;
+      updateTableAndPagination();
+    }
+  });
+  document.getElementById('btn-page-next')?.addEventListener('click', () => {
+    const filtered = getFilteredCobros();
+    const totalPages = Math.ceil(filtered.length / itemsPerPage);
+    if (currentPage < totalPages) {
+      currentPage++;
+      updateTableAndPagination();
+    }
+  });
 }
 
 // ── MODAL COBRO RÁPIDO ────────────────────────────────────
@@ -951,6 +1064,12 @@ function abrirCobroRapido(id) {
   document.getElementById('cobro-rapido-monto').textContent = `S/ ${parseFloat(c.monto_total).toFixed(2)}`;
   document.getElementById('cobro-rapido-cliente').textContent = `${c.cliente_nombre} | ${c.tipo_doc}: ${c.num_doc}`;
 
+  // Reset y carga de desglose de ítems
+  const itemsContainer = document.getElementById('cobro-rapido-items-list');
+  const itemsCountEl = document.getElementById('cobro-items-count');
+  if (itemsContainer) itemsContainer.innerHTML = '<p style="text-align:center;color:var(--slate-5);padding:8px;margin:0;">Cargando desglose de la orden...</p>';
+  if (itemsCountEl) itemsCountEl.textContent = '...';
+
   // Mostrar nota técnica / reporte del mecánico si existe
   const notaBox = document.getElementById('cobro-rapido-nota-box');
   const notaText = document.getElementById('cobro-rapido-nota-text');
@@ -961,6 +1080,58 @@ function abrirCobroRapido(id) {
     } else {
       notaBox.classList.add('hidden');
     }
+  }
+
+  // Cargar desglose de la orden vía getOrden
+  if (c.orden_id) {
+    getOrden(c.orden_id).then(ord => {
+      const items = ord.items || [];
+      if (itemsCountEl) itemsCountEl.textContent = `${items.length} ítem${items.length !== 1 ? 's' : ''}`;
+      if (items.length === 0) {
+        if (itemsContainer) itemsContainer.innerHTML = '<p style="text-align:center;color:var(--slate-5);padding:8px;margin:0;">Sin desglose de ítems registrado</p>';
+      } else {
+        if (itemsContainer) {
+          itemsContainer.innerHTML = `
+            <table style="width:100%;border-collapse:collapse;font-size:11px;">
+              <thead>
+                <tr style="border-bottom:1px solid var(--slate-8);color:var(--slate-5);font-size:10px;text-align:left;">
+                  <th style="padding:4px 0;">Concepto / Ítem</th>
+                  <th style="text-align:center;padding:4px 0;">Tipo</th>
+                  <th style="text-align:center;padding:4px 0;">Cant</th>
+                  <th style="text-align:right;padding:4px 0;">Subtotal</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${items.map(it => {
+                  const isAlmacen = it.tipo === 'almacen';
+                  const isLabor = it.tipo === 'mano_obra';
+                  const tag = isLabor ? '🔧 M. Obra' : isAlmacen ? '📦 Almacén' : '🛒 Externo';
+                  const sub = parseFloat(it.subtotal || (it.cantidad * it.precio_unitario) || 0);
+                  return `
+                    <tr style="border-bottom:1px dashed var(--slate-8);">
+                      <td style="padding:5px 0;font-weight:600;color:var(--dark);">${it.descripcion}</td>
+                      <td style="text-align:center;padding:5px 0;font-size:10px;color:var(--slate-5);">${tag}</td>
+                      <td style="text-align:center;padding:5px 0;font-family:monospace;">${it.cantidad}</td>
+                      <td style="text-align:right;padding:5px 0;font-family:monospace;font-weight:700;color:var(--dark);">S/ ${sub.toFixed(2)}</td>
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
+          `;
+        }
+      }
+
+      // Check note from mechanic
+      const notaMec = ord.nota_mecanico || ord.nota_interna || c.nota_interna;
+      if (notaMec && notaMec.trim() && notaBox && notaText) {
+        notaText.textContent = notaMec;
+        notaBox.classList.remove('hidden');
+      }
+    }).catch(err => {
+      console.error("Error al cargar orden para cobro:", err);
+      if (itemsContainer) itemsContainer.innerHTML = '<p style="text-align:center;color:var(--slate-5);padding:8px;margin:0;">No se pudo cargar el desglose</p>';
+    });
   }
   document.getElementById('cobro-descuento-tipo').value = '';
   const descValInput = document.getElementById('cobro-descuento-valor');
@@ -1085,68 +1256,144 @@ let portalCobroId = null;
 let portalTab = 'yape';
 
 function abrirPortalPago(id) {
-  const c = cobrosList.find(item => item.id == id);
-  if (!c) return;
-  portalCobroId = id;
+  portalCobroId = id ? parseInt(id, 10) : null;
   portalTab = 'yape';
-  document.getElementById('portal-monto').textContent = `S/ ${parseFloat(c.monto_total).toFixed(2)}`;
-  document.getElementById('portal-cliente').textContent = `Para: ${c.cliente_nombre}`;
+  
+  const c = portalCobroId ? cobrosList.find(item => item.id == portalCobroId) : null;
+  const portalMontoEl = document.getElementById('portal-monto');
+  const portalClienteEl = document.getElementById('portal-cliente');
+  const portalFooterBtn = document.getElementById('btn-portal-confirmar');
+
+  if (c) {
+    const total = parseFloat(c.monto_neto !== null && c.monto_neto !== undefined ? c.monto_neto : c.monto_total);
+    if (portalMontoEl) portalMontoEl.textContent = `S/ ${total.toFixed(2)}`;
+    if (portalClienteEl) portalClienteEl.textContent = `Orden OT-${String(c.orden_numero).padStart(4,'0')} · ${c.cliente_nombre}`;
+    if (portalFooterBtn) {
+      portalFooterBtn.style.display = 'flex';
+      portalFooterBtn.textContent = '✅ Confirmar Pago y Liquidar';
+    }
+  } else {
+    if (portalMontoEl) portalMontoEl.textContent = 'Consulta General';
+    if (portalClienteEl) portalClienteEl.textContent = 'Cuentas oficiales para recepción de pagos';
+    if (portalFooterBtn) portalFooterBtn.style.display = 'none';
+  }
+
   // Resetear tabs
   document.querySelectorAll('.portal-tab').forEach((t, i) => {
     t.classList.remove('active');
     t.style.color = 'var(--slate-5)';
     t.style.borderBottomColor = 'transparent';
-    if (i === 0) { t.classList.add('active'); t.style.color = 'var(--dark)'; t.style.borderBottomColor = 'var(--brand)'; }
+    if (i === 0) { 
+      t.classList.add('active'); 
+      t.style.color = 'var(--dark)'; 
+      t.style.borderBottomColor = 'var(--brand)'; 
+    }
   });
   renderPortalTab('yape');
-  document.getElementById('modal-portal-pago').classList.add('active');
+  document.getElementById('modal-portal-pago')?.classList.add('active');
 }
 
 function renderPortalTab(tab) {
   portalTab = tab;
   const content = document.getElementById('portal-content');
+  if (!content) return;
+
+  const c = portalCobroId ? cobrosList.find(item => item.id == portalCobroId) : null;
+  const total = c ? parseFloat(c.monto_neto !== null && c.monto_neto !== undefined ? c.monto_neto : c.monto_total).toFixed(2) : '';
+
   if (tab === 'yape') {
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=YAPE_VARGAS_931163369${total ? '_S_' + total : ''}`;
     content.innerHTML = `
       <div style="text-align:center;">
-        <p style="font-size:12px;color:var(--slate-5);margin-bottom:16px;font-weight:600;">Escanea el código QR con Yape o Plin</p>
-        ${renderQRSimulado()}
-        <p style="font-size:11px;font-weight:800;color:var(--dark);margin-top:12px;">Inversiones y Servicios Vargas E.I.R.L.</p>
-        <p style="font-size:10px;color:var(--slate-5);margin-bottom:16px;">Celular Yape: <strong>931 163 369</strong></p>
-        <button class="btn-primary w-full" id="btn-simular-escaneo" style="justify-content:center;font-size:13px;margin-top:4px;">
-          📱 Simular Escaneo de QR
-        </button>
-      </div>`;
-    document.getElementById('btn-simular-escaneo').addEventListener('click', () => {
-      const btn = document.getElementById('btn-simular-escaneo');
-      btn.innerHTML = '⏳ Procesando pago...';
-      btn.disabled = true;
-      setTimeout(() => {
-        btn.innerHTML = '✅ ¡Pago verificado por Yape!';
-        btn.style.background = '#059669';
-        document.getElementById('btn-portal-confirmar').textContent = '✅ Confirmar y Liquidar';
-      }, 2000);
+        <div style="display:inline-flex;align-items:center;gap:6px;background:#f3e8ff;padding:4px 12px;border-radius:99px;margin-bottom:12px;">
+          <span style="font-size:12px;">📱</span>
+          <span style="font-size:11px;font-weight:800;color:#6b21a8;">Billeteras Digitales: Yape & Plin</span>
+        </div>
+        <p style="font-size:12px;color:var(--slate-5);margin:0 0 12px;font-weight:600;">Escanea el código QR desde tu app Yape o Plin</p>
+        
+        <div style="display:inline-block;padding:12px;background:#fff;border:3px solid #e9d5ff;border-radius:16px;box-shadow:var(--shadow-md);margin-bottom:12px;">
+          <img src="${qrUrl}" alt="QR Yape Plin Taller Vargas" style="width:160px;height:160px;display:block;" />
+        </div>
+
+        <h3 style="font-size:13px;font-weight:900;color:var(--dark);margin:0;">Inversiones y Servicios Vargas E.I.R.L.</h3>
+        <p style="font-size:11px;color:var(--slate-5);margin:2px 0 12px;">RUC: 20608226066</p>
+
+        <div style="background:#faf5ff;border:1.5px solid #d8b4fe;border-radius:10px;padding:12px;max-width:340px;margin:0 auto 16px;display:flex;align-items:center;justify-content:space-between;gap:8px;">
+          <div style="text-align:left;">
+            <p style="font-size:10px;color:#7c3aed;font-weight:800;text-transform:uppercase;margin:0;">Número de Celular Yape / Plin</p>
+            <p style="font-size:17px;font-weight:900;font-family:monospace;color:#581c87;margin:2px 0 0;">931 163 369</p>
+          </div>
+          <button type="button" class="btn-secondary" onclick="navigator.clipboard.writeText('931163369').then(()=>{this.textContent='✅ ¡Copiado!';setTimeout(()=>this.textContent='📋 Copiar',1500)})" style="font-size:11px;font-weight:700;padding:6px 12px;color:#6b21a8;border-color:#c084fc;background:#fff;cursor:pointer;">
+            📋 Copiar
+          </button>
+        </div>
+
+        <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
+          <button type="button" class="btn-success" id="btn-wa-yape" style="font-size:12px;display:inline-flex;align-items:center;gap:6px;background:#22c55e;border-color:#22c55e;color:#fff;cursor:pointer;padding:8px 16px;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="white" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/></svg>
+            📲 Enviar Yape por WhatsApp
+          </button>
+        </div>
+      </div>
+    `;
+
+    document.getElementById('btn-wa-yape')?.addEventListener('click', () => {
+      const msg = `*TALLER AUTOMOTRIZ VARGAS*\n*Inversiones y Servicios Vargas E.I.R.L.*\n\n📱 *Pago vía Yape o Plin:*\n• *Número:* 931 163 369\n• *Titular:* Inversiones y Servicios Vargas E.I.R.L.\n${total ? `• *Monto a pagar:* S/ ${total}\n` : ''}\nPor favor remítanos la captura o constancia de su pago por este medio. ¡Muchas gracias!`;
+      const tel = c && c.cliente_telefono ? String(c.cliente_telefono).replace(/[^0-9]/g, '') : '';
+      const waUrl = tel ? `https://wa.me/51${tel}?text=${encodeURIComponent(msg)}` : `https://wa.me/?text=${encodeURIComponent(msg)}`;
+      window.open(waUrl, '_blank');
     });
+
   } else {
+    // Banco Tab
     content.innerHTML = `
-      <p style="font-size:12px;color:var(--slate-5);margin-bottom:16px;text-align:center;font-weight:600;">Transferencia a cualquiera de estas cuentas del taller</p>
+      <p style="font-size:12px;color:var(--slate-5);margin-bottom:14px;text-align:center;font-weight:600;">Cuentas bancarias oficiales de Inversiones y Servicios Vargas E.I.R.L.</p>
       <div style="display:flex;flex-direction:column;gap:10px;">
         ${[
-          { banco:'BCP',      color:'#003087', cci:'002-100-123456789-01', cuenta:'123-456789' },
-          { banco:'BBVA',     color:'#004481', cci:'011-100-234567890-90', cuenta:'234-567890' },
-          { banco:'Interbank', color:'#048236', cci:'003-100-345678901-80', cuenta:'345-678901' },
+          { banco:'BCP (Banco de Crédito)', color:'#003087', cci:'002-245-002678910012-34', cuenta:'245-2678910-0-12', tipo:'Cta. Corriente Soles' },
+          { banco:'BBVA Perú',              color:'#004481', cci:'011-285-000100045678-75', cuenta:'0011-0285-0100045678', tipo:'Cta. Corriente Soles' },
+          { banco:'Interbank',              color:'#048236', cci:'003-898-003001234567-41', cuenta:'898-3001234567', tipo:'Cta. Empresarial Soles' },
+          { banco:'Banco de la Nación',     color:'#8B0000', cci:'018-000-000000123456-02', cuenta:'00-000-123456', tipo:'Cta. Corriente Soles' },
         ].map(b => `
-          <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--white);border:1px solid var(--slate-8);border-radius:var(--radius-md);border-left:4px solid ${b.color};">
-            <div>
-              <p style="font-size:12px;font-weight:900;color:${b.color};">${b.banco}</p>
-              <p style="font-size:11px;font-family:monospace;color:var(--slate-5);">Cta: ${b.cuenta}</p>
-              <p style="font-size:10px;font-family:monospace;color:var(--slate-5);">CCI: ${b.cci}</p>
+          <div style="padding:12px 14px;background:var(--white);border:1px solid var(--slate-8);border-radius:var(--radius-md);border-left:4px solid ${b.color};">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">
+              <div>
+                <span style="font-size:12px;font-weight:900;color:${b.color};">${b.banco}</span>
+                <span style="font-size:10px;color:var(--slate-5);margin-left:6px;">(${b.tipo})</span>
+              </div>
+              <span style="font-size:9px;background:var(--slate-9);color:var(--slate-4);padding:2px 6px;border-radius:4px;font-weight:700;">RUC: 20608226066</span>
             </div>
-            <button onclick="navigator.clipboard.writeText('${b.cci}').then(()=>{this.textContent='✅';setTimeout(()=>this.textContent='Copiar CCI',1500)})" style="font-size:11px;font-weight:700;color:${b.color};background:transparent;border:1px solid ${b.color};padding:5px 10px;border-radius:6px;cursor:pointer;">Copiar CCI</button>
+            
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;background:#f8fafc;padding:4px 8px;border-radius:6px;">
+              <span style="font-size:11px;font-family:monospace;color:var(--dark);"><strong>Cta:</strong> ${b.cuenta}</span>
+              <button onclick="navigator.clipboard.writeText('${b.cuenta}').then(()=>{this.textContent='✅';setTimeout(()=>this.textContent='Copiar Cta',1500)})" style="font-size:10px;font-weight:700;color:${b.color};background:#fff;border:1px solid ${b.color};padding:3px 8px;border-radius:4px;cursor:pointer;">Copiar Cta</button>
+            </div>
+
+            <div style="display:flex;justify-content:space-between;align-items:center;background:#f8fafc;padding:4px 8px;border-radius:6px;">
+              <span style="font-size:10px;font-family:monospace;color:var(--slate-5);"><strong>CCI:</strong> ${b.cci}</span>
+              <button onclick="navigator.clipboard.writeText('${b.cci}').then(()=>{this.textContent='✅';setTimeout(()=>this.textContent='Copiar CCI',1500)})" style="font-size:10px;font-weight:700;color:${b.color};background:#fff;border:1px solid ${b.color};padding:3px 8px;border-radius:4px;cursor:pointer;">Copiar CCI</button>
+            </div>
           </div>`).join('')}
       </div>
-      <div style="margin-top:14px;background:#fef3c7;border:1px solid #fde68a;border-radius:var(--radius-sm);padding:10px 12px;">
-        <p style="font-size:11px;color:#92400e;font-weight:700;">⚠️ Tras realizar la transferencia, comunícate con el taller para confirmar el comprobante de pago.</p>
-      </div>`;
+
+      <div style="margin-top:14px;display:flex;justify-content:center;">
+        <button type="button" class="btn-success" id="btn-wa-bancos" style="font-size:12px;display:inline-flex;align-items:center;gap:6px;background:#22c55e;border-color:#22c55e;color:#fff;width:100%;justify-content:center;padding:10px;cursor:pointer;">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="white" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/></svg>
+          📲 Enviar Cuentas Bancarias por WhatsApp
+        </button>
+      </div>
+
+      <div style="margin-top:10px;background:#fef3c7;border:1px solid #fde68a;border-radius:var(--radius-sm);padding:8px 12px;font-size:11px;color:#92400e;text-align:center;">
+        ⚠️ Tras efectuar la transferencia, envíenos el comprobante para liquidar su orden.
+      </div>
+    `;
+
+    document.getElementById('btn-wa-bancos')?.addEventListener('click', () => {
+      const msg = `*TALLER AUTOMOTRIZ VARGAS*\n*Inversiones y Servicios Vargas E.I.R.L.*\n*RUC:* 20608226066\n${total ? `*Monto a Pagar:* S/ ${total}\n\n` : '\n'}🏦 *Cuentas Bancarias Oficiales (Soles):*\n\n• *BCP:*\nCta: 245-2678910-0-12\nCCI: 002-245-002678910012-34\n\n• *BBVA:*\nCta: 0011-0285-0100045678\nCCI: 011-285-000100045678-75\n\n• *Interbank:*\nCta: 898-3001234567\nCCI: 003-898-003001234567-41\n\n• *Banco de la Nación:*\nCta: 00-000-123456\nCCI: 018-000-000000123456-02\n\nPor favor envíenos la constancia de su depósito para liquidar la entrega de su vehículo.`;
+      const tel = c && c.cliente_telefono ? String(c.cliente_telefono).replace(/[^0-9]/g, '') : '';
+      const waUrl = tel ? `https://wa.me/51${tel}?text=${encodeURIComponent(msg)}` : `https://wa.me/?text=${encodeURIComponent(msg)}`;
+      window.open(waUrl, '_blank');
+    });
   }
 }
 

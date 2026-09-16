@@ -40,15 +40,28 @@ router.get('/', requiereToken, soloAdmin, async (_req, res) => {
     // Sincronización automática de respaldo: asegurar que toda orden en 'Finalizado' tenga su cobro
     await query(`
       INSERT INTO cobros (orden_id, cliente_id, monto_total, estado, fecha_emision)
-      SELECT os.id, os.cliente_id, COALESCE(os.total_estimado, 0.00), 'Pendiente', CURRENT_DATE
+      SELECT os.id, os.cliente_id, COALESCE(os.total_estimado, 0.00), 'Pendiente', (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date
       FROM ordenes_servicio os
       WHERE os.estado = 'Finalizado'
         AND os.id NOT IN (SELECT orden_id FROM cobros WHERE orden_id IS NOT NULL)
       ON CONFLICT (orden_id) DO NOTHING
     `);
 
+    // Sincronizar monto_total de cobros pendientes si la orden fue recalculada
+    await query(`
+      UPDATE cobros c
+      SET monto_total = COALESCE(os.total_estimado, 0.00)
+      FROM ordenes_servicio os
+      WHERE c.orden_id = os.id
+        AND c.estado = 'Pendiente'
+        AND c.monto_total <> COALESCE(os.total_estimado, 0.00)
+    `);
+
     const result = await query(`
-      SELECT co.*, c.nombre AS cliente_nombre, c.tipo_doc, c.num_doc, c.telefono AS cliente_telefono,
+      SELECT co.*, 
+             to_char(co.fecha_emision, 'YYYY-MM-DD') AS fecha_emision_str,
+             to_char(co.fecha_cobro, 'YYYY-MM-DD') AS fecha_cobro_str,
+             c.nombre AS cliente_nombre, c.tipo_doc, c.num_doc, c.telefono AS cliente_telefono,
              os.id AS orden_numero, v.placa, os.nota_interna, os.falla_reportada, m.nombre AS mecanico_nombre
       FROM cobros co
       LEFT JOIN clientes c ON co.cliente_id = c.id
@@ -123,11 +136,20 @@ router.get('/stats', requiereToken, soloAdmin, async (_req, res) => {
   try {
     await query(`
       INSERT INTO cobros (orden_id, cliente_id, monto_total, estado, fecha_emision)
-      SELECT os.id, os.cliente_id, COALESCE(os.total_estimado, 0.00), 'Pendiente', CURRENT_DATE
+      SELECT os.id, os.cliente_id, COALESCE(os.total_estimado, 0.00), 'Pendiente', (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date
       FROM ordenes_servicio os
       WHERE os.estado = 'Finalizado'
         AND os.id NOT IN (SELECT orden_id FROM cobros WHERE orden_id IS NOT NULL)
       ON CONFLICT (orden_id) DO NOTHING
+    `);
+
+    await query(`
+      UPDATE cobros c
+      SET monto_total = COALESCE(os.total_estimado, 0.00)
+      FROM ordenes_servicio os
+      WHERE c.orden_id = os.id
+        AND c.estado = 'Pendiente'
+        AND c.monto_total <> COALESCE(os.total_estimado, 0.00)
     `);
 
     const result = await query(`
@@ -135,7 +157,7 @@ router.get('/stats', requiereToken, soloAdmin, async (_req, res) => {
         COALESCE(SUM(monto_total) FILTER (WHERE estado = 'Pendiente'), 0) AS por_cobrar,
         COALESCE(SUM(COALESCE(monto_neto, monto_total)) FILTER (WHERE estado IN ('Cancelado', 'Dividido')), 0) AS ingresos
       FROM cobros
-      WHERE DATE_TRUNC('month', fecha_emision) = DATE_TRUNC('month', CURRENT_DATE)
+      WHERE DATE_TRUNC('month', fecha_emision) = DATE_TRUNC('month', (CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date)
     `);
     res.json(result.rows[0]);
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -162,7 +184,8 @@ router.patch('/:id/cobrar', requiereToken, soloAdmin, async (req, res) => {
            descuento_valor=$5,
            descuento_realizado=$6,
            monto_neto=$7,
-           fecha_cobro=CURRENT_DATE
+           fecha_cobro=(CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date,
+           updated_at=NOW()
        WHERE id=$8 RETURNING *`,
       [
         metodo_pago,
@@ -237,7 +260,8 @@ router.patch('/:id/dividir', requiereToken, soloAdmin, async (req, res) => {
            descuento_valor=$11,
            descuento_realizado=$12,
            monto_neto=$13,
-           fecha_cobro=CURRENT_DATE
+           fecha_cobro=(CURRENT_TIMESTAMP AT TIME ZONE 'America/Lima')::date,
+           updated_at=NOW()
        WHERE id=$14 RETURNING *`,
       [
         metodo_pago,
