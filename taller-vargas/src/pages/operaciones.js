@@ -1,5 +1,5 @@
 import {
-  getOrdenes, cambiarEstado, getMecanicos,
+  getOrdenesActivas, cambiarEstado, getMecanicos,
   getMecanicosStats, createMecanico, updateMecanico, patchOrdenMecanico
 } from '../api.js';
 import * as TallerModule from './taller.js';
@@ -83,7 +83,7 @@ async function cargarDatos() {
     </div>`;
   try {
     const [ords, mecs, stats] = await Promise.all([
-      getOrdenes(),
+      getOrdenesActivas(),
       getMecanicos(),
       getMecanicosStats(),
     ]);

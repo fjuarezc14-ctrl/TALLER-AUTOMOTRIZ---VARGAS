@@ -47,6 +47,15 @@ router.use(requiereToken);
 
 router.get("/", async (req, res) => {
   try {
+    if (req.query.activas === 'true') {
+      const sqlActivas = `
+        SELECT * FROM v_ordenes_completas 
+        WHERE estado NOT IN ('Entregado', 'No realizo servicio')
+        ORDER BY id DESC
+      `;
+      return res.json((await query(sqlActivas)).rows);
+    }
+
     const limit = parseInt(req.query.limit, 10);
     const offset = parseInt(req.query.offset, 10);
     let sql = "SELECT * FROM v_ordenes_completas ORDER BY id DESC";

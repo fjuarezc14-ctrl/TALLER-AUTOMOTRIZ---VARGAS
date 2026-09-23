@@ -16,6 +16,7 @@ import archivosRouter   from "./routes/archivos.js";
 import dashboardRouter  from "./routes/dashboard.js";
 import authRouter       from "./routes/auth.js";
 import usuariosRouter   from "./routes/usuarios.js";
+import buscarRouter     from "./routes/buscar.js";
 
 // Redefinir la vista v_ordenes_completas para incluir la columna diagnostico y cliente_telefono
 async function runDbMigrations() {
@@ -56,7 +57,14 @@ async function runDbMigrations() {
       CREATE INDEX IF NOT EXISTS idx_ordenes_cliente_id ON ordenes_servicio(cliente_id);
       CREATE INDEX IF NOT EXISTS idx_ordenes_vehiculo_id ON ordenes_servicio(vehiculo_id);
       CREATE INDEX IF NOT EXISTS idx_ordenes_fecha_ingreso ON ordenes_servicio(fecha_ingreso DESC);
+      CREATE INDEX IF NOT EXISTS idx_ordenes_estado ON ordenes_servicio(estado);
       CREATE INDEX IF NOT EXISTS idx_cobros_cliente_id ON cobros(cliente_id);
+      CREATE INDEX IF NOT EXISTS idx_cobros_fecha_cobro ON cobros(fecha_cobro);
+      CREATE INDEX IF NOT EXISTS idx_cobros_estado ON cobros(estado);
+      CREATE INDEX IF NOT EXISTS idx_cobros_fecha_emision ON cobros(fecha_emision);
+      CREATE INDEX IF NOT EXISTS idx_almacen_categoria ON almacen(categoria);
+      CREATE INDEX IF NOT EXISTS idx_almacen_stock ON almacen(stock);
+      CREATE INDEX IF NOT EXISTS idx_almacen_stock_min ON almacen(stock_min);
     `);
     await query(`
       CREATE VIEW v_ordenes_completas AS
@@ -161,6 +169,7 @@ app.use("/api/almacen",    almacenRouter);
 app.use("/api/cobros",     cobrosRouter);
 app.use("/api/archivos",   archivosRouter);
 app.use("/api/usuarios",   usuariosRouter);
+app.use("/api/buscar",     buscarRouter);
 
 app.use((_req, res) => res.status(404).json({ error: "Ruta no encontrada" }));
 app.use((err, _req, res, next) => {

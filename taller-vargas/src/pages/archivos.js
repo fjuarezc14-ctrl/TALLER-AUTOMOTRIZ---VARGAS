@@ -1,9 +1,7 @@
-import { getArchivos, createArchivo, deleteArchivo, getClientes, getVehiculos, BASE_URL } from '../api.js';
+import { getArchivos, createArchivo, deleteArchivo, BASE_URL } from '../api.js';
 
 let containerElement = null;
 let archivosList     = [];
-let clientesList     = [];
-let vehiculosList    = [];
 
 // Filtros activos
 let filtros = { q: '', tipo: 'todos', fechaInicio: '', fechaFin: '' };
@@ -15,9 +13,7 @@ export async function init(container) {
   root.innerHTML = renderSkeleton();
 
   try {
-    [archivosList, clientesList, vehiculosList] = await Promise.all([
-      getArchivos(), getClientes(), getVehiculos()
-    ]);
+    archivosList = await getArchivos();
     renderArchivos();
   } catch (err) {
     root.innerHTML = renderError(err.message);
@@ -25,9 +21,7 @@ export async function init(container) {
 }
 
 async function cargarDatos() {
-  [archivosList, clientesList, vehiculosList] = await Promise.all([
-    getArchivos(), getClientes(), getVehiculos()
-  ]);
+  archivosList = await getArchivos();
   renderArchivos();
 }
 

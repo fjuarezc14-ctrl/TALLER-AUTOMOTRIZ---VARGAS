@@ -1,5 +1,5 @@
 import { 
-  getAlmacen, getAlmacenMecanico, createProducto, updateProducto, 
+  getAlmacen, createProducto, updateProducto, 
   deleteProducto, ajustarStock, getMecanicos, crearSolicitudMecanico,
   getSolicitudesMecanico, confirmarSolicitudMecanico, eliminarSolicitudMecanico
 } from '../api.js';
@@ -14,6 +14,7 @@ let mecanicosList = [];
 let solicitudesList = [];
 let knownPendingIds = new Set();
 let pollingInterval = null;
+let almacenLimiteVisible = 50;
 
 export async function init(container) {
   containerElement = container;
@@ -33,14 +34,13 @@ async function cargarDatos() {
     </div>`;
 
   try {
-    const [pAdmin, pMec, mecs, sols] = await Promise.all([
+    const [pAdmin, mecs, sols] = await Promise.all([
       getAlmacen(),
-      getAlmacenMecanico(),
       getMecanicos(),
       getSolicitudesMecanico()
     ]);
     productosAdmin = pAdmin;
-    productosMecanico = pMec;
+    productosMecanico = pAdmin.filter(p => p.stock > 0);
     mecanicosList = mecs;
     solicitudesList = sols;
     // Guardar ids ya conocidos para no hacer sonar la campana con los históricos
@@ -151,11 +151,33 @@ function renderPage() {
   if (activeTab === 'admin') {
     const btnNew = document.getElementById('btn-nuevo-producto-header');
     if (btnNew) btnNew.addEventListener('click', () => abrirModalProducto());
-    document.getElementById('search-almacen').addEventListener('input', debounce(filtrarAlmacen, 300));
+    document.getElementById('search-almacen').addEventListener('input', debounce(filtrarAlmacen, 150));
+    const btnLoadMore = document.getElementById('btn-cargar-mas-almacen');
+    if (btnLoadMore) {
+      btnLoadMore.addEventListener('click', () => {
+        almacenLimiteVisible += 50;
+        const q = (document.getElementById('search-almacen')?.value || '').toLowerCase().trim();
+        const baseList = window.autoFilterStockAlert
+          ? productosAdmin.filter(p => p.stock <= p.stock_min)
+          : productosAdmin;
+        const targetList = q
+          ? baseList.filter(p => p.codigo.toLowerCase().includes(q) || p.descripcion.toLowerCase().includes(q) || p.categoria.toLowerCase().includes(q))
+          : baseList;
+        const slice = targetList.slice(0, almacenLimiteVisible);
+        document.getElementById('tabla-almacen-body').innerHTML = renderAdminTableRows(slice);
+        const counter = document.getElementById('almacen-mostrando-count');
+        if (counter) counter.textContent = slice.length;
+        if (almacenLimiteVisible >= targetList.length) {
+          const loadCont = document.getElementById('almacen-load-more-container');
+          if (loadCont) loadCont.style.display = 'none';
+        }
+      });
+    }
     const btnClearFilter = document.getElementById('btn-clear-stock-filter');
     if (btnClearFilter) {
       btnClearFilter.addEventListener('click', () => {
         window.autoFilterStockAlert = false;
+        almacenLimiteVisible = 50;
         renderPage();
       });
     }
@@ -216,6 +238,7 @@ function renderAdminView(total, bajo, critico, valorCosto, valorVenta) {
   const listToRender = window.autoFilterStockAlert
     ? productosAdmin.filter(p => p.stock <= p.stock_min)
     : productosAdmin;
+  const sliceToRender = listToRender.slice(0, almacenLimiteVisible);
 
   return `
     <!-- KPI Cards -->
@@ -275,7 +298,7 @@ function renderAdminView(total, bajo, critico, valorCosto, valorVenta) {
           </span>
         ` : ''}
       </div>
-      <input type="text" id="search-almacen" placeholder="🔍 Buscar por código o descripción..." class="form-input" style="width:290px;font-size:12px;" />
+      <input type="text" id="search-almacen" placeholder="🔍 Buscar por código, descripción o categoría..." class="form-input" style="width:290px;font-size:12px;" />
     </div>
 
     <!-- Tabla -->
@@ -294,9 +317,14 @@ function renderAdminView(total, bajo, critico, valorCosto, valorVenta) {
             </tr>
           </thead>
           <tbody id="tabla-almacen-body">
-            ${renderAdminTableRows(listToRender)}
+            ${renderAdminTableRows(sliceToRender)}
           </tbody>
         </table>
+      </div>
+      <div id="almacen-load-more-container" style="${almacenLimiteVisible >= listToRender.length ? 'display:none;' : ''} text-align:center;padding:12px;background:var(--slate-9);border-top:1px solid var(--slate-8);">
+        <button id="btn-cargar-mas-almacen" class="btn-ghost" style="font-weight:800;font-size:12px;padding:8px 24px;border-radius:8px;background:var(--white);border:1px solid var(--slate-7);cursor:pointer;box-shadow:var(--shadow-sm);">
+          ⬇️ Cargar 50 repuestos más (Mostrando <span id="almacen-mostrando-count">${sliceToRender.length}</span> de ${listToRender.length})
+        </button>
       </div>
     </div>
   `;
@@ -617,16 +645,35 @@ function renderMecanicoTableRows(productos) {
 // ── FILTROS ────────────────────────────────────────────────
 
 function filtrarAlmacen() {
-  const q = document.getElementById('search-almacen').value.toLowerCase().trim();
+  const q = (document.getElementById('search-almacen')?.value || '').toLowerCase().trim();
   const baseList = window.autoFilterStockAlert
     ? productosAdmin.filter(p => p.stock <= p.stock_min)
     : productosAdmin;
+  const loadMoreCont = document.getElementById('almacen-load-more-container');
+
+  if (!q) {
+    const slice = baseList.slice(0, almacenLimiteVisible);
+    document.getElementById('tabla-almacen-body').innerHTML = renderAdminTableRows(slice);
+    if (loadMoreCont) {
+      loadMoreCont.style.display = almacenLimiteVisible >= baseList.length ? 'none' : '';
+      const counter = document.getElementById('almacen-mostrando-count');
+      if (counter) counter.textContent = slice.length;
+    }
+    return;
+  }
+
   const filtrados = baseList.filter(p =>
     p.codigo.toLowerCase().includes(q) ||
     p.descripcion.toLowerCase().includes(q) ||
     p.categoria.toLowerCase().includes(q)
   );
-  document.getElementById('tabla-almacen-body').innerHTML = renderAdminTableRows(filtrados);
+  const slice = filtrados.slice(0, Math.max(50, almacenLimiteVisible));
+  document.getElementById('tabla-almacen-body').innerHTML = renderAdminTableRows(slice);
+  if (loadMoreCont) {
+    loadMoreCont.style.display = slice.length >= filtrados.length ? 'none' : '';
+    const counter = document.getElementById('almacen-mostrando-count');
+    if (counter) counter.textContent = slice.length;
+  }
 }
 
 function filtrarMecanico() {

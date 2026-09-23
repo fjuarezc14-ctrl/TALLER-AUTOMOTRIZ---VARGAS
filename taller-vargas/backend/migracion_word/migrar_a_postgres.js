@@ -363,12 +363,12 @@ async function migrar() {
         vehId,
         cliId,
         mecId,
-        'Finalizado',
+        'Entregado',
         o.kilometraje ? String(sanitizarKm(o.kilometraje) || o.kilometraje).substring(0, 45) : null,
         (o.fallaReportada || 'Mantenimiento preventivo / correctivo').substring(0, 1000),
         o.totalEstimado || 0,
         fechaIngresoSql,
-        fechaEntregaSql,
+        fechaEntregaSql || fechaIngresoSql,
         lineasNota.join('\n')
       ]);
 
@@ -411,11 +411,11 @@ async function migrar() {
         ordenId,
         cliId,
         o.totalEstimado || 0,
-        o.estadoPago === 'PAGADO' ? 'Cancelado' : 'Pendiente',
+        'Cancelado',
         'Efectivo',
         o.tipoDocumento === 'PROFORMA' ? 'Proforma' : 'Nota',
         fechaIngresoSql,
-        fechaCobroSql
+        fechaCobroSql || fechaEntregaSql || fechaIngresoSql
       ]);
 
       if ((idx + 1) % 1000 === 0 || idx + 1 === totalOrdenes) {

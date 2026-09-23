@@ -1,5 +1,5 @@
 import { navigate } from './router.js';
-import { getAlertasStock, getOrdenes, logout } from './api.js';
+import { getAlertasStock, getOrdenes, logout, buscarGlobal } from './api.js';
 import { debounce } from './utils.js';
 import { createIcons, icons } from 'lucide';
 import { store } from './store.js';
@@ -441,31 +441,8 @@ window.alert = function(message) {
 };
 
 // ── Buscador Global Predictivo Multientidad (Fase 4) ────────────────────
-let globalSearchCache = {
-  vehiculos: [],
-  clientes: [],
-  ordenes: [],
-  lastFetch: 0
-};
 let selectedSearchIndex = -1;
-
-async function fetchGlobalSearchData() {
-  try {
-    const [v, c, o] = await Promise.all([
-      store.getVehiculos().catch(() => []),
-      store.getClientes().catch(() => []),
-      getOrdenes().catch(() => [])
-    ]);
-    globalSearchCache = {
-      vehiculos: v || [],
-      clientes: c || [],
-      ordenes: o || []
-    };
-  } catch (e) {
-    console.error('Error al precargar datos para buscador global:', e);
-  }
-}
-
+let currentSearchSeq = 0;
 
 function initGlobalSearch() {
   const searchInput = document.getElementById('global-search-input');
@@ -473,107 +450,104 @@ function initGlobalSearch() {
   
   if (!searchInput || !resultsContainer) return;
   
-  searchInput.addEventListener('focus', fetchGlobalSearchData);
-  
-  const ejecutarBusqueda = () => {
+  const ejecutarBusqueda = async () => {
     const query = searchInput.value.trim().toUpperCase();
-    if (!query) {
+    if (!query || query.length < 2) {
       resultsContainer.classList.add('hidden');
       resultsContainer.innerHTML = '';
       return;
     }
-    
-    // 1. Coincidencias en Vehículos
-    const vehMatches = (globalSearchCache.vehiculos || []).filter(v => 
-      (v.placa && v.placa.toUpperCase().includes(query)) ||
-      (v.marca_modelo && v.marca_modelo.toUpperCase().includes(query)) ||
-      (v.vin && v.vin.toUpperCase().includes(query)) ||
-      (v.cliente_nombre && v.cliente_nombre.toUpperCase().includes(query))
-    ).slice(0, 4).map(v => ({
-      tipo: 'vehiculo',
-      badge: '🚗 VEHÍCULO',
-      badgeColor: 'var(--brand)',
-      titulo: `${v.placa} · ${v.marca_modelo || ''}`,
-      subtitulo: `👤 ${v.cliente_nombre || 'Sin cliente asignado'}${v.anio ? ' · ' + v.anio : ''}`,
-      actionUrl: `/vehiculos?abrir=${v.id}`,
-      id: v.id
-    }));
 
-    // 2. Coincidencias en Clientes
-    const cliMatches = (globalSearchCache.clientes || []).filter(c => 
-      (c.nombre && c.nombre.toUpperCase().includes(query)) ||
-      (c.num_doc && c.num_doc.toUpperCase().includes(query)) ||
-      (c.telefono && c.telefono.includes(query)) ||
-      (c.correo && c.correo.toUpperCase().includes(query))
-    ).slice(0, 4).map(c => ({
-      tipo: 'cliente',
-      badge: '👤 CLIENTE',
-      badgeColor: '#2563eb',
-      titulo: c.nombre,
-      subtitulo: `${c.tipo_doc || 'DOC'}: ${c.num_doc || '—'} · 📞 ${c.telefono || '—'}`,
-      actionUrl: `/clientes?abrir=${c.id}`,
-      id: c.id
-    }));
-
-    // 3. Coincidencias en Órdenes de Servicio
-    const ordMatches = (globalSearchCache.ordenes || []).filter(o => 
-      o.id.toString().includes(query.replace('OS-', '').replace('OS', '')) ||
-      (o.placa && o.placa.toUpperCase().includes(query)) ||
-      (o.cliente && o.cliente.toUpperCase().includes(query)) ||
-      (o.falla_reportada && o.falla_reportada.toUpperCase().includes(query))
-    ).slice(0, 4).map(o => ({
-      tipo: 'orden',
-      badge: `📋 ORDEN #${o.id}`,
-      badgeColor: '#10b981',
-      titulo: `OS-${o.id} · ${o.placa || 'Sin placa'}`,
-      subtitulo: `${o.cliente || '—'} · Estado: ${o.estado || '—'}${o.total_estimado ? ' · S/ ' + parseFloat(o.total_estimado).toFixed(2) : ''}`,
-      actionUrl: `/ordenes?abrir=${o.id}`,
-      id: o.id
-    }));
-
-    const allMatches = [...vehMatches, ...cliMatches, ...ordMatches].slice(0, 9);
-    
-    if (allMatches.length === 0) {
-      resultsContainer.innerHTML = `<div style="padding:12px 14px;font-size:11px;color:var(--slate-5);text-align:center;">⚠️ Sin coincidencias para "<strong>${query}</strong>"</div>`;
-      resultsContainer.classList.remove('hidden');
-      selectedSearchIndex = -1;
-      return;
-    }
-    
-    selectedSearchIndex = -1;
-    resultsContainer.innerHTML = allMatches.map((m, index) => `
-      <div class="search-result-item" data-url="${m.actionUrl}" data-index="${index}" style="padding:9px 12px;border-bottom:1px solid var(--slate-8);cursor:pointer;display:flex;justify-content:space-between;align-items:center;transition:background 0.1s;background:var(--white);">
-        <div style="min-width:0;flex:1;padding-right:8px;">
-          <div style="display:flex;align-items:center;gap:6px;margin-bottom:2px;">
-            <span style="font-size:9px;font-weight:800;padding:1px 6px;border-radius:4px;background:var(--slate-9);color:${m.badgeColor};border:1px solid var(--slate-8);letter-spacing:0.5px;">${m.badge}</span>
-            <span style="font-size:12px;font-weight:700;color:var(--dark);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${m.titulo}</span>
-          </div>
-          <div style="font-size:11px;color:var(--slate-5);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-            ${m.subtitulo}
-          </div>
-        </div>
-        <div style="font-size:11px;color:var(--slate-4);flex-shrink:0;">
-          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M9 5l7 7-7 7"/></svg>
-        </div>
-      </div>
-    `).join('');
+    const thisSeq = ++currentSearchSeq;
+    resultsContainer.innerHTML = `
+      <div style="padding:12px 14px;font-size:12px;color:var(--slate-5);display:flex;align-items:center;gap:8px;">
+        <div class="w-4 h-4 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+        Buscando "${query}"...
+      </div>`;
     resultsContainer.classList.remove('hidden');
-    
-    resultsContainer.querySelectorAll('.search-result-item').forEach(item => {
-      item.addEventListener('click', () => {
-        const url = item.dataset.url;
-        navigate(url);
-        searchInput.value = '';
-        resultsContainer.classList.add('hidden');
+
+    try {
+      const data = await buscarGlobal(query);
+      if (thisSeq !== currentSearchSeq) return;
+
+      const vehMatches = (data.vehiculos || []).map(v => ({
+        tipo: 'vehiculo',
+        badge: '🚗 VEHÍCULO',
+        badgeColor: 'var(--brand)',
+        titulo: `${v.placa} · ${v.marca_modelo || ''}`,
+        subtitulo: `👤 ${v.cliente_nombre || 'Sin cliente asignado'}${v.anio ? ' · ' + v.anio : ''}`,
+        actionUrl: `/vehiculos?abrir=${v.id}`,
+        id: v.id
+      }));
+
+      const cliMatches = (data.clientes || []).map(c => ({
+        tipo: 'cliente',
+        badge: '👤 CLIENTE',
+        badgeColor: '#2563eb',
+        titulo: c.nombre,
+        subtitulo: `${c.tipo_doc || 'DOC'}: ${c.num_doc || '—'} · 📞 ${c.telefono || '—'}`,
+        actionUrl: `/clientes?abrir=${c.id}`,
+        id: c.id
+      }));
+
+      const ordMatches = (data.ordenes || []).map(o => ({
+        tipo: 'orden',
+        badge: `📋 ORDEN #${o.id}`,
+        badgeColor: '#10b981',
+        titulo: `OS-${o.id} · ${o.placa || 'Sin placa'}`,
+        subtitulo: `${o.cliente || '—'} · Estado: ${o.estado || '—'}${o.total_estimado ? ' · S/ ' + parseFloat(o.total_estimado).toFixed(2) : ''}`,
+        actionUrl: `/ordenes?abrir=${o.id}`,
+        id: o.id
+      }));
+
+      const allMatches = [...vehMatches, ...cliMatches, ...ordMatches];
+
+      if (allMatches.length === 0) {
+        resultsContainer.innerHTML = `<div style="padding:12px 14px;font-size:11px;color:var(--slate-5);text-align:center;">⚠️ Sin coincidencias para "<strong>${query}</strong>"</div>`;
+        resultsContainer.classList.remove('hidden');
+        selectedSearchIndex = -1;
+        return;
+      }
+
+      selectedSearchIndex = -1;
+      resultsContainer.innerHTML = allMatches.map((m, index) => `
+        <div class="search-result-item" data-url="${m.actionUrl}" data-index="${index}" style="padding:9px 12px;border-bottom:1px solid var(--slate-8);cursor:pointer;display:flex;justify-content:space-between;align-items:center;transition:background 0.1s;background:var(--white);">
+          <div style="min-width:0;flex:1;padding-right:8px;">
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:2px;">
+              <span style="font-size:9px;font-weight:800;padding:1px 6px;border-radius:4px;background:var(--slate-9);color:${m.badgeColor};border:1px solid var(--slate-8);letter-spacing:0.5px;">${m.badge}</span>
+              <span style="font-size:12px;font-weight:700;color:var(--dark);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${m.titulo}</span>
+            </div>
+            <div style="font-size:11px;color:var(--slate-5);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+              ${m.subtitulo}
+            </div>
+          </div>
+          <div style="font-size:11px;color:var(--slate-4);flex-shrink:0;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M9 5l7 7-7 7"/></svg>
+          </div>
+        </div>
+      `).join('');
+      resultsContainer.classList.remove('hidden');
+
+      resultsContainer.querySelectorAll('.search-result-item').forEach(item => {
+        item.addEventListener('click', () => {
+          const url = item.dataset.url;
+          navigate(url);
+          searchInput.value = '';
+          resultsContainer.classList.add('hidden');
+        });
+
+        item.addEventListener('mouseenter', () => {
+          highlightSearchItem(parseInt(item.dataset.index, 10));
+        });
       });
-      
-      item.addEventListener('mouseenter', () => {
-        highlightSearchItem(parseInt(item.dataset.index, 10));
-      });
-    });
+    } catch (err) {
+      if (thisSeq !== currentSearchSeq) return;
+      resultsContainer.innerHTML = `<div style="padding:12px 14px;font-size:11px;color:#ef4444;text-align:center;">Error al buscar: ${err.message}</div>`;
+      resultsContainer.classList.remove('hidden');
+    }
   };
 
-  searchInput.addEventListener('input', debounce(ejecutarBusqueda, 200));
+  searchInput.addEventListener('input', debounce(ejecutarBusqueda, 180));
   
   searchInput.addEventListener('keydown', (e) => {
     const items = resultsContainer.querySelectorAll('.search-result-item');

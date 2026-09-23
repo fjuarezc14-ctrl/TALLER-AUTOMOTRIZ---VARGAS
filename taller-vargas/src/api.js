@@ -104,9 +104,10 @@ export const patchOrdenMecanico = (id, mid)  => request(`/ordenes/${id}/mecanico
 
 
 // ── Órdenes de Servicio ──────────────────────────────────
-export const getOrdenes     = ()         => request('/ordenes');
-export const getOrdenesEnProceso = ()    => request('/ordenes/proceso');
-export const getOrden       = (id)       => request(`/ordenes/${id}`);
+export const getOrdenes           = ()         => request('/ordenes');
+export const getOrdenesActivas     = ()         => request('/ordenes?activas=true');
+export const getOrdenesEnProceso   = ()         => request('/ordenes/proceso');
+export const getOrden             = (id)       => request(`/ordenes/${id}`);
 export const createOrden    = (data)     => request('/ordenes', { method: 'POST', body: data });
 export const updateOrden    = (id, data) => request(`/ordenes/${id}`, { method: 'PUT', body: data });
 export const cambiarEstado  = (id, data) => request(`/ordenes/${id}/estado`, { method: 'PATCH', body: data });
@@ -161,3 +162,7 @@ export const getUsuarios    = ()         => request('/usuarios');
 export const createUsuario  = (data)     => request('/usuarios', { method: 'POST', body: data });
 export const updateUsuario  = (id, data) => request(`/usuarios/${id}`, { method: 'PUT', body: data });
 export const deleteUsuario  = (id)       => request(`/usuarios/${id}`, { method: 'DELETE' });
+
+// ── Buscador Global Predictivo ───────────────────────────
+export const buscarGlobal   = (q)        => request(`/buscar?q=${encodeURIComponent(q)}`);
+

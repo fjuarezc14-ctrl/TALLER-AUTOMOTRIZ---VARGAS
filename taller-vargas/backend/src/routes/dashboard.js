@@ -35,7 +35,7 @@ router.get("/", async (_req, res) => {
       query(`
         SELECT 
           COALESCE(SUM(monto_total) FILTER(WHERE estado IN ('Cancelado', 'Dividido') AND fecha_cobro >= DATE_TRUNC('month', CURRENT_DATE)), 0) AS cobrados_mes, 
-          COALESCE(SUM(monto_total) FILTER(WHERE estado = 'Pendiente'), 0) AS pendientes_total 
+          COALESCE(SUM(monto_total) FILTER(WHERE estado = 'Pendiente' AND fecha_emision >= CURRENT_DATE - INTERVAL '90 days'), 0) AS pendientes_total 
         FROM cobros
       `),
       // 4. Últimas 5 órdenes de servicio

@@ -75,6 +75,23 @@ export async function init(container) {
   try {
     [clientesList, crmStats] = await Promise.all([getClientes(), getClientesCrmStats().catch(() => ({}))]);
     renderCRM();
+
+    // Auto-seleccionar cliente si viene en la URL (Buscador Predictivo Global)
+    const params = new URLSearchParams(window.location.search);
+    const abrirId = params.get('abrir');
+    if (abrirId) {
+      const idNum = parseInt(abrirId, 10);
+      const targetC = clientesList.find(c => c.id === idNum);
+      if (targetC) {
+        clienteSelId = idNum;
+        const listaEl = document.getElementById('crm-lista');
+        if (listaEl) {
+          listaEl.innerHTML = renderListaClientes(clientesList);
+          bindListaItems();
+        }
+        renderFicha(targetC);
+      }
+    }
   } catch (err) {
     root.innerHTML = renderError(err.message);
   }
