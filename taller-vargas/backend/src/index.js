@@ -46,10 +46,17 @@ async function runDbMigrations() {
       ALTER TABLE cobros ADD COLUMN IF NOT EXISTS comprobante_numero VARCHAR(50) DEFAULT NULL;
       ALTER TABLE cobros ADD COLUMN IF NOT EXISTS comprobante2_numero VARCHAR(50) DEFAULT NULL;
     `);
-    // Crear índices para optimizar búsquedas por placa de vehículos y documento de clientes
+    // Crear índices para optimizar búsquedas, relaciones y paginación
     await query(`
       CREATE INDEX IF NOT EXISTS idx_clientes_num_doc ON clientes(num_doc);
+      CREATE INDEX IF NOT EXISTS idx_clientes_nombre ON clientes(nombre);
       CREATE INDEX IF NOT EXISTS idx_vehiculos_placa ON vehiculos(placa);
+      CREATE INDEX IF NOT EXISTS idx_vehiculos_cliente_id ON vehiculos(cliente_id);
+      CREATE INDEX IF NOT EXISTS idx_vehiculos_ultima_visita ON vehiculos(ultima_visita DESC NULLS LAST);
+      CREATE INDEX IF NOT EXISTS idx_ordenes_cliente_id ON ordenes_servicio(cliente_id);
+      CREATE INDEX IF NOT EXISTS idx_ordenes_vehiculo_id ON ordenes_servicio(vehiculo_id);
+      CREATE INDEX IF NOT EXISTS idx_ordenes_fecha_ingreso ON ordenes_servicio(fecha_ingreso DESC);
+      CREATE INDEX IF NOT EXISTS idx_cobros_cliente_id ON cobros(cliente_id);
     `);
     await query(`
       CREATE VIEW v_ordenes_completas AS

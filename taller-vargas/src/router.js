@@ -133,15 +133,13 @@ export async function navigate(path = '/') {
     </div>`;
 
   try {
+    // Actualizar URL y breadcrumb antes de inicializar para que los módulos lean query params (?abrir=ID, ?q=...)
+    history.pushState({ path }, '', path);
+    updateBreadcrumb(path);
+
     const module = await loader();
     currentModule = module;
     await module.init(main);
-    
-    // Actualizar URL sin recargar
-    history.pushState({ path }, '', path);
-    
-    // Actualizar breadcrumb
-    updateBreadcrumb(path);
   } catch (err) {
     console.error('[Router] Error cargando módulo:', err);
     main.innerHTML = `

@@ -12,6 +12,7 @@ let crmStats         = {};
 let filtroActivo     = 'todos';
 let clienteSelId     = null;
 let historialCache   = {};
+let limiteClientes   = 50;
 
 // ─── Segmentación ─────────────────────────────────────────────
 function segmento(c) {
@@ -221,7 +222,8 @@ function renderListaClientes(lista) {
     return `<div style="padding:40px 16px;text-align:center;color:var(--slate-5);font-size:13px;">Sin resultados</div>`;
   }
 
-  return filtrados.map(c => {
+  const visibles = filtrados.slice(0, limiteClientes);
+  const itemsHtml = visibles.map(c => {
     const seg   = segmento(c);
     const color = SEG_COLOR[seg];
     const vCount= Array.isArray(c.vehiculos_detalle) ? c.vehiculos_detalle.filter(v=>v&&v.placa).length : 0;
@@ -248,6 +250,18 @@ function renderListaClientes(lista) {
         </div>
       </div>`;
   }).join('');
+
+  const masHtml = filtrados.length > limiteClientes ? `
+    <div style="padding:12px 16px;text-align:center;">
+      <button id="btn-cargar-mas-clientes" class="btn-ghost" style="font-size:12px;width:100%;border:1px dashed var(--slate-7);padding:8px 12px;border-radius:8px;font-weight:700;cursor:pointer;">
+        Mostrando ${visibles.length} de ${filtrados.length} · Cargar 50 más...
+      </button>
+    </div>` : `
+    <div style="padding:10px 16px;text-align:center;font-size:11px;color:var(--slate-5);">
+      Mostrando ${filtrados.length} cliente${filtrados.length!==1?'s':''}
+    </div>`;
+
+  return itemsHtml + masHtml;
 }
 
 // ─── Ficha vacía ──────────────────────────────────────────────
@@ -606,6 +620,7 @@ function renderModalCliente() {
 function bindEventsCRM() {
   // Search con debounce para no filtrar en cada tecla
   const onCrmSearch = debounce(() => {
+    limiteClientes = 50;
     document.getElementById('crm-lista').innerHTML = renderListaClientes(clientesList);
     bindListaItems();
   }, 300);
@@ -615,6 +630,7 @@ function bindEventsCRM() {
   document.querySelectorAll('.crm-filtro-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       filtroActivo = btn.dataset.filtro;
+      limiteClientes = 50;
       document.querySelectorAll('.crm-filtro-btn').forEach(b => {
         const f = b.dataset.filtro;
         const c = f === 'todos' ? 'var(--slate-7)' : SEG_COLOR[f] || 'var(--slate-7)';
@@ -644,6 +660,12 @@ function bindEventsCRM() {
 }
 
 function bindListaItems() {
+  document.getElementById('btn-cargar-mas-clientes')?.addEventListener('click', () => {
+    limiteClientes += 50;
+    document.getElementById('crm-lista').innerHTML = renderListaClientes(clientesList);
+    bindListaItems();
+  });
+
   document.querySelectorAll('.crm-item').forEach(el => {
     el.addEventListener('click', async () => {
       const id = parseInt(el.dataset.id);

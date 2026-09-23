@@ -1,0 +1,11 @@
+# Excluir documentos Word pesados y reporte HTML local de la carpeta de migración
+migracion_word/CLIENTES - EMPRESAS/
+migracion_word/CLIENTES - PERSONAS/
+migracion_word/*.docx
+migracion_word/*.html
+migracion_word/Thumbs.db
+
+# Logs y SO
+.DS_Store
+Thumbs.db
+*.log

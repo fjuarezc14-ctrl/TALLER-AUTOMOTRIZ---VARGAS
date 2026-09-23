@@ -93,7 +93,18 @@ async function cargarDatos() {
     const params = new URLSearchParams(window.location.search);
     const abrirId = params.get('abrir');
     if (abrirId) {
-      setTimeout(() => verDetalleOrden(abrirId), 100);
+      const cleanId = parseInt(String(abrirId).replace(/\D/g, ''), 10);
+      if (!isNaN(cleanId)) {
+        const targetOrd = ordenesList.find(o => o.id === cleanId);
+        if (targetOrd) {
+          const sInput = document.getElementById('search-ordenes');
+          if (sInput) {
+            sInput.value = `OS-${targetOrd.id}`;
+            actualizarTablaOrdenes();
+          }
+        }
+        setTimeout(() => verDetalleOrden(cleanId), 150);
+      }
     } else {
       const qParam = params.get('q');
       if (qParam) {
@@ -1744,6 +1755,10 @@ function renderModales() {
           <div style="border-top:1px dashed var(--slate-8);padding-top:10px;">
             <span style="font-size:10px;font-weight:700;color:var(--slate-5);text-transform:uppercase;">Falla / Diagnóstico</span>
             <p id="det-falla" style="font-size:13px;color:var(--dark);margin-top:4px;font-style:italic;background:var(--slate-9);padding:10px;border-radius:6px;border:1px solid var(--slate-8);"></p>
+            <div id="det-nota-wrapper" class="hidden" style="margin-top:8px;background:#fefce8;border:1px solid #fef08a;color:#854d0e;padding:10px 14px;border-radius:var(--radius-md);">
+              <span style="font-size:10px;font-weight:800;text-transform:uppercase;display:block;">💡 Próximo Mantenimiento / Observaciones</span>
+              <p id="det-nota" style="font-size:12px;margin-top:3px;margin-bottom:0;white-space:pre-line;"></p>
+            </div>
           </div>
 
           <!-- Listado de costos asignados -->
@@ -3305,12 +3320,15 @@ async function verDetalleOrden(id) {
     const o = await getOrden(id);
     
     document.getElementById('det-id-label').textContent = o.id;
-    document.getElementById('det-cliente').textContent = o.cliente;
+    document.getElementById('det-cliente').textContent = o.cliente || '—';
     document.getElementById('det-cliente-tel').textContent = `Teléfono: ${o.cliente_telefono || '—'}`;
-    document.getElementById('det-vehiculo').textContent = o.vehiculo;
-    document.getElementById('det-placa').textContent = o.placa;
-    document.getElementById('det-km').textContent = `${o.kilometraje.toLocaleString()} Km`;
-    document.getElementById('det-combustible').textContent = `Combustible: ${o.nivel_combustible}`;
+    document.getElementById('det-vehiculo').textContent = o.vehiculo || '—';
+    document.getElementById('det-placa').textContent = o.placa || '—';
+    
+    const kmClean = o.kilometraje ? `${o.kilometraje}`.replace(/km/i, '').trim() : '';
+    const kmNum = parseInt(kmClean, 10);
+    document.getElementById('det-km').textContent = kmClean ? `${!isNaN(kmNum) ? kmNum.toLocaleString() : kmClean} Km` : '—';
+    document.getElementById('det-combustible').textContent = `Combustible: ${o.nivel_combustible || '—'}`;
     document.getElementById('det-mecanico').textContent = o.mecanico || 'Sin asignar';
     
     const badge = document.getElementById('det-estado');
@@ -3327,6 +3345,17 @@ async function verDetalleOrden(id) {
     badge.className = badgeMap[o.estado] || 'badge badge-slate';
 
     document.getElementById('det-falla').textContent = o.falla_reportada || '—';
+
+    // Nota interna / Próximo Mantenimiento
+    const notaWrapper = document.getElementById('det-nota-wrapper');
+    if (notaWrapper) {
+      if (o.nota_interna && o.nota_interna.trim()) {
+        document.getElementById('det-nota').textContent = o.nota_interna;
+        notaWrapper.classList.remove('hidden');
+      } else {
+        notaWrapper.classList.add('hidden');
+      }
+    }
 
     // Conductor info
     const condWrapper = document.getElementById('det-conductor-wrapper');
@@ -3377,12 +3406,13 @@ async function verDetalleOrden(id) {
 
     // Cargar Items
     const tbody = document.getElementById('tabla-det-items');
-    if (o.items.length === 0) {
+    if (!o.items || o.items.length === 0) {
       tbody.innerHTML = `<tr><td colspan="5" class="td-empty">No se han registrado insumos ni servicios en esta orden.</td></tr>`;
     } else {
       tbody.innerHTML = o.items.map(it => {
-        const precio = o.es_garantia ? 0.00 : parseFloat(it.precio_unitario);
-        const subtotal = o.es_garantia ? 0.00 : (it.cantidad * parseFloat(it.precio_unitario));
+        const precio = o.es_garantia ? 0.00 : parseFloat(it.precio_unitario || 0);
+        const cantidad = parseFloat(it.cantidad || 1);
+        const subtotal = o.es_garantia ? 0.00 : (cantidad * precio);
         return `
           <tr>
             <td><strong>${it.descripcion}</strong>${it.repuesto_cod ? `<div style="font-size:10px;color:var(--slate-5);font-family:monospace;">SKU: ${it.repuesto_cod}</div>` : ''}</td>
@@ -3407,7 +3437,8 @@ async function verDetalleOrden(id) {
 
     document.getElementById('modal-detalle').classList.add('active');
   } catch (err) {
-    alert(err.message);
+    console.error('Error al abrir detalle de orden:', err);
+    alert(err.message || 'Error al abrir el expediente de la orden');
   }
 }
 
@@ -3634,6 +3665,13 @@ async function ejecutarTransicionContextual(ordenId, nuevoEstado, extra = {}) {
 
 function cerrarModalDetalle() {
   document.getElementById('modal-detalle').classList.remove('active');
+  try {
+    const url = new URL(window.location.href);
+    if (url.searchParams.has('abrir')) {
+      url.searchParams.delete('abrir');
+      window.history.replaceState({}, '', url.pathname + (url.search ? url.search : ''));
+    }
+  } catch (_) {}
 }
 
 

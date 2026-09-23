@@ -46,18 +46,42 @@ export async function init(container) {
 }
 
 async function cargarDatos() {
-  const [v, c] = await Promise.all([getVehiculos(), getClientes()]);
-  vehiculosList = v;
-  clientesList  = c;
+  // Carga rápida e inmediata de vehículos sin bloquear por clientes
+  vehiculosList = await getVehiculos();
   renderVehiculos(vehiculosList);
+
+  // Carga no bloqueante en segundo plano para el selector del modal de nuevo vehículo
+  getClientes().then(c => {
+    clientesList = c || [];
+    const selectCli = document.getElementById('veh-cliente-id');
+    if (selectCli && clientesList.length > 0) {
+      selectCli.innerHTML = `<option value="">— Seleccionar Cliente —</option>` +
+        clientesList.map(cli => `<option value="${cli.id}">${cli.nombre} (${cli.num_doc})</option>`).join('');
+    }
+  }).catch(() => {});
 
   // Auto-abrir modal si viene ?abrir=ID en la URL (Buscador Predictivo Global - Fase 4)
   const params = new URLSearchParams(window.location.search);
   const abrirId = params.get('abrir');
+  const qParam  = params.get('q');
   if (abrirId) {
     const idNum = parseInt(abrirId, 10);
     if (!isNaN(idNum)) {
-      setTimeout(() => verHistorial(idNum), 100);
+      const targetV = vehiculosList.find(v => v.id === idNum);
+      if (targetV) {
+        const sInput = document.getElementById('search-vehiculos');
+        if (sInput) {
+          sInput.value = targetV.placa;
+          filtrarVehiculos();
+        }
+      }
+      setTimeout(() => verHistorial(idNum), 150);
+    }
+  } else if (qParam) {
+    const sInput = document.getElementById('search-vehiculos');
+    if (sInput) {
+      sInput.value = qParam;
+      filtrarVehiculos();
     }
   }
 }
@@ -1317,7 +1341,7 @@ async function verHistorial(id) {
       tbody.innerHTML = `<tr><td colspan="5" class="td-empty">Este vehículo no tiene órdenes registradas aún.</td></tr>`;
     } else {
       tbody.innerHTML = hist.map(h => {
-        const dateStr = new Date(h.fecha_ingreso).toLocaleDateString('es-PE', { day:'numeric', month:'short', year:'numeric' });
+        const dateStr = h.fecha_ingreso ? new Date(h.fecha_ingreso).toLocaleDateString('es-PE', { day:'numeric', month:'short', year:'numeric' }) : '—';
         return `
           <tr>
             <td>

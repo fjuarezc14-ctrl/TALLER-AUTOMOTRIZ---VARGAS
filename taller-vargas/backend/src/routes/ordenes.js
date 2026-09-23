@@ -72,9 +72,13 @@ router.get("/proceso", async (_req, res) => {
 
 router.get("/:id", async (req, res) => {
   try {
+    const rawId = req.params.id;
+    const cleanId = parseInt(String(rawId).replace(/\D/g, ''), 10);
+    if (isNaN(cleanId)) return res.status(404).json({ error: "Orden no encontrada" });
+
     const [ord, items] = await Promise.all([
-      query("SELECT * FROM v_ordenes_completas WHERE id=$1", [req.params.id]),
-      query("SELECT * FROM v_items_por_orden WHERE orden_id=$1 ORDER BY id", [req.params.id])
+      query("SELECT * FROM v_ordenes_completas WHERE id=$1", [cleanId]),
+      query("SELECT * FROM v_items_por_orden WHERE orden_id=$1 ORDER BY id", [cleanId])
     ]);
     if (!ord.rows.length) return res.status(404).json({ error: "Orden no encontrada" });
     res.json({ ...ord.rows[0], items: items.rows });
