@@ -1,7 +1,9 @@
-import { getArchivos, createArchivo, deleteArchivo, BASE_URL } from '../api.js';
+import { getArchivos, createArchivo, deleteArchivo, getClientes, getVehiculos, BASE_URL } from '../api.js';
 
 let containerElement = null;
 let archivosList     = [];
+let clientesList     = [];
+let vehiculosList    = [];
 
 // Filtros activos
 let filtros = { q: '', tipo: 'todos', fechaInicio: '', fechaFin: '' };
@@ -443,19 +445,39 @@ function renderTableRows(archivos) {
 /* ══════════════════════════════════════════════════════════
    MODAL SUBIR
    ══════════════════════════════════════════════════════════ */
-function abrirModalSubir() {
+async function abrirModalSubir() {
   document.getElementById('form-subir').reset();
   document.getElementById('file-name-display').classList.add('hidden');
+  document.getElementById('modal-subir').classList.add('active');
+
+  // Carga perezosa (Lazy Load) si aún no se han cargado clientes y vehículos
+  if (clientesList.length === 0 || vehiculosList.length === 0) {
+    try {
+      const [clis, vehs] = await Promise.all([getClientes(), getVehiculos()]);
+      clientesList = clis;
+      vehiculosList = vehs;
+      
+      const cliSelect = document.getElementById('arc-cliente');
+      if (cliSelect) {
+        cliSelect.innerHTML = '<option value="">— Sin asociar —</option>' + 
+          clientesList.map(c => `<option value="${c.id}">${c.nombre}</option>`).join('');
+      }
+    } catch (e) {
+      console.warn('Error cargando clientes/vehículos en modal de archivo:', e);
+    }
+  }
+
   // Restaurar lista completa de vehículos al abrir
   const vehSelect = document.getElementById('arc-vehiculo');
-  vehSelect.innerHTML = '<option value="">— Sin asociar —</option>';
-  vehiculosList.forEach(v => {
-    const opt = document.createElement('option');
-    opt.value = v.id;
-    opt.textContent = `${v.placa} — ${v.marca_modelo}`;
-    vehSelect.appendChild(opt);
-  });
-  document.getElementById('modal-subir').classList.add('active');
+  if (vehSelect) {
+    vehSelect.innerHTML = '<option value="">— Sin asociar —</option>';
+    vehiculosList.forEach(v => {
+      const opt = document.createElement('option');
+      opt.value = v.id;
+      opt.textContent = `${v.placa} — ${v.marca_modelo}`;
+      vehSelect.appendChild(opt);
+    });
+  }
 }
 
 function cerrarModalSubir() {
