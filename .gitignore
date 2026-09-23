@@ -4,6 +4,8 @@ migracion_word/CLIENTES - PERSONAS/
 migracion_word/*.docx
 migracion_word/*.html
 migracion_word/Thumbs.db
+**/migracion_word/*.docx
+**/migracion_word/*.html
 
 # Logs y SO
 .DS_Store
