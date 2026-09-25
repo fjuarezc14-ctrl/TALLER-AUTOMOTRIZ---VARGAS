@@ -124,6 +124,8 @@ export const createProducto   = (data)       => request('/almacen', { method: 'P
 export const updateProducto   = (id, data)   => request(`/almacen/${id}`, { method: 'PUT', body: data });
 export const deleteProducto   = (id)         => request(`/almacen/${id}`, { method: 'DELETE' });
 export const ajustarStock     = (id, data)   => request(`/almacen/${id}/stock`, { method: 'PATCH', body: data });
+export const getKardexRepuesto = (id)        => request(`/almacen/${id}/kardex`);
+export const getProveedores   = ()           => request('/almacen/proveedores');
 export const getSolicitudesMecanico = ()     => request('/almacen/solicitudes');
 export const crearSolicitudMecanico = (data) => request('/almacen/solicitudes', { method: 'POST', body: data });
 export const confirmarSolicitudMecanico = (id) => request(`/almacen/solicitudes/${id}/confirmar`, { method: 'PATCH' });

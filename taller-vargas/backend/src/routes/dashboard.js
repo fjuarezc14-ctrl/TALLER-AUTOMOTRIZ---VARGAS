@@ -38,8 +38,22 @@ router.get("/", async (_req, res) => {
           COALESCE(SUM(monto_total) FILTER(WHERE estado = 'Pendiente' AND fecha_emision >= CURRENT_DATE - INTERVAL '90 days'), 0) AS pendientes_total 
         FROM cobros
       `),
-      // 4. Últimas 5 órdenes de servicio
-      query("SELECT id, placa, vehiculo, cliente, estado, total_estimado, fecha_ingreso FROM v_ordenes_completas ORDER BY fecha_ingreso DESC, id DESC LIMIT 5"),
+      // 4. Últimas 5 órdenes de servicio con análisis de costo de repuestos y rentabilidad
+      query(`
+        SELECT 
+          os.id, os.placa, os.vehiculo, os.cliente, os.estado, os.total_estimado, os.fecha_ingreso,
+          COALESCE(SUM(ic.cantidad * COALESCE(a.costo, 0)) FILTER (WHERE ic.tipo = 'almacen'), 0) AS costo_repuestos
+        FROM (
+          SELECT id, placa, vehiculo, cliente, estado, total_estimado, fecha_ingreso 
+          FROM v_ordenes_completas 
+          ORDER BY fecha_ingreso DESC, id DESC 
+          LIMIT 5
+        ) os
+        LEFT JOIN items_costo ic ON os.id = ic.orden_id
+        LEFT JOIN almacen a ON ic.repuesto_cod = a.codigo
+        GROUP BY os.id, os.placa, os.vehiculo, os.cliente, os.estado, os.total_estimado, os.fecha_ingreso
+        ORDER BY os.fecha_ingreso DESC, os.id DESC
+      `),
       // 5. Ticket promedio del mes actual
       query(`
         SELECT 
@@ -114,7 +128,18 @@ router.get("/", async (_req, res) => {
         eficiencia_operativa: parseFloat(eficiencia.rows[0]?.eficiencia || 0)
       },
       alertas_stock: stock.rows,
-      ordenes_recientes: ordenesRecientes.rows,
+      ordenes_recientes: ordenesRecientes.rows.map(o => {
+        const total = parseFloat(o.total_estimado || 0);
+        const costo = parseFloat(o.costo_repuestos || 0);
+        const ganancia = total - costo;
+        const margen = total > 0 ? Math.round(((ganancia / total) * 100) * 10) / 10 : 0;
+        return {
+          ...o,
+          costo_repuestos: costo,
+          ganancia: ganancia,
+          margen_pct: margen
+        };
+      }),
       mecanicos_stats: mecanicosStats.rows,
       top_servicios: topServicios.rows,
       tendencia_mensual: tendencia.rows

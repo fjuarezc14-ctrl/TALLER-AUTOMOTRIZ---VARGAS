@@ -1788,6 +1788,21 @@ function renderModales() {
             <p id="det-total" style="font-size:24px;font-weight:900;font-family:monospace;color:var(--brand);"></p>
           </div>
 
+          <!-- Semáforo de Rentabilidad (Visible solo para Administrador) -->
+          <div id="det-rentabilidad-wrapper" style="display:none;background:#f8fafc;border:1px solid var(--slate-7);border-radius:var(--radius-md);padding:12px 16px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+              <div>
+                <span style="font-size:10px;font-weight:800;color:var(--slate-5);text-transform:uppercase;letter-spacing:.5px;">Análisis de Rentabilidad</span>
+                <div style="display:flex;gap:12px;margin-top:2px;font-size:12px;">
+                  <span>Costo Repuestos: <strong id="det-costo-rep" class="font-mono">S/ 0.00</strong></span>
+                  <span style="color:var(--slate-6);">|</span>
+                  <span>Ganancia Neta: <strong id="det-ganancia" class="font-mono" style="color:#059669;">S/ 0.00</strong></span>
+                </div>
+              </div>
+              <div id="det-semaforo-badge"></div>
+            </div>
+          </div>
+
           <!-- Control de Estado Contextual Guiado -->
           <div id="det-control-estado-wrapper" style="border-top:1px solid var(--slate-8);padding-top:14px;">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
@@ -3426,6 +3441,42 @@ async function verDetalleOrden(id) {
     }
 
     document.getElementById('det-total').textContent = `S/ ${parseFloat(o.total_estimado || 0).toFixed(2)}`;
+
+    // Rentabilidad y Semáforo para Administrador
+    const rentWrapper = document.getElementById('det-rentabilidad-wrapper');
+    if (rentWrapper) {
+      if (window.isAdminAuthorized && window.isAdminAuthorized()) {
+        const total = parseFloat(o.total_estimado || 0);
+        const costoRep = parseFloat(o.costo_repuestos || 0);
+        const ganancia = o.ganancia !== undefined ? parseFloat(o.ganancia) : (total - costoRep);
+        const margen = o.margen_pct !== undefined ? parseFloat(o.margen_pct) : (total > 0 ? ((ganancia / total) * 100) : 0);
+        
+        const elCosto = document.getElementById('det-costo-rep');
+        const elGanancia = document.getElementById('det-ganancia');
+        const elSemaforo = document.getElementById('det-semaforo-badge');
+
+        if (elCosto) elCosto.textContent = `S/ ${costoRep.toFixed(2)}`;
+        if (elGanancia) {
+          elGanancia.textContent = `S/ ${ganancia.toFixed(2)}`;
+          elGanancia.style.color = ganancia >= 0 ? '#059669' : '#dc2626';
+        }
+
+        if (elSemaforo) {
+          if (total === 0) {
+            elSemaforo.innerHTML = `<span class="badge badge-slate" style="font-size:11px;font-weight:800;">⚪ 0% Margen</span>`;
+          } else if (margen >= 35) {
+            elSemaforo.innerHTML = `<span class="badge badge-emerald" style="font-size:11px;font-weight:800;">🟢 ${margen.toFixed(1)}% (Saludable)</span>`;
+          } else if (margen >= 15) {
+            elSemaforo.innerHTML = `<span class="badge badge-amber" style="font-size:11px;font-weight:800;">🟡 ${margen.toFixed(1)}% (Ajustado)</span>`;
+          } else {
+            elSemaforo.innerHTML = `<span class="badge" style="font-size:11px;font-weight:800;background:#fef2f2;color:#dc2626;border:1px solid #fecaca;">🔴 ${margen.toFixed(1)}% (Crítico)</span>`;
+          }
+        }
+        rentWrapper.style.display = 'block';
+      } else {
+        rentWrapper.style.display = 'none';
+      }
+    }
 
     // Asignar eventos de impresión y edición
     document.getElementById('btn-print-nota').onclick = () => imprimirDocumento('nota', o);

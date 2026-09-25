@@ -66,6 +66,27 @@ async function runDbMigrations() {
       CREATE INDEX IF NOT EXISTS idx_almacen_stock ON almacen(stock);
       CREATE INDEX IF NOT EXISTS idx_almacen_stock_min ON almacen(stock_min);
     `);
+    // Tabla para trazabilidad y Kardex de repuestos (Almacén)
+    await query(`
+      CREATE TABLE IF NOT EXISTS movimientos_almacen (
+        id SERIAL PRIMARY KEY,
+        repuesto_id INTEGER REFERENCES almacen(id) ON DELETE CASCADE,
+        tipo VARCHAR(20) NOT NULL CHECK (tipo IN ('INGRESO', 'SALIDA')),
+        cantidad INTEGER NOT NULL CHECK (cantidad > 0),
+        stock_anterior INTEGER NOT NULL,
+        stock_nuevo INTEGER NOT NULL,
+        proveedor VARCHAR(150),
+        costo_unitario DECIMAL(10,2),
+        mecanico_id INTEGER REFERENCES mecanicos(id) ON DELETE SET NULL,
+        orden_id INTEGER REFERENCES ordenes_servicio(id) ON DELETE SET NULL,
+        motivo VARCHAR(255),
+        usuario_id INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_mov_almacen_repuesto ON movimientos_almacen(repuesto_id);
+      CREATE INDEX IF NOT EXISTS idx_mov_almacen_orden ON movimientos_almacen(orden_id);
+      CREATE INDEX IF NOT EXISTS idx_mov_almacen_fecha ON movimientos_almacen(created_at DESC);
+    `);
     await query(`
       CREATE VIEW v_ordenes_completas AS
       SELECT os.id, os.cliente_id, os.vehiculo_id, os.mecanico_id, os.estado, os.kilometraje, os.nivel_combustible, os.falla_reportada,

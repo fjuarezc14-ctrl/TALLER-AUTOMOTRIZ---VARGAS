@@ -1,9 +1,10 @@
 import { 
   getAlmacen, createProducto, updateProducto, 
   deleteProducto, ajustarStock, getMecanicos, crearSolicitudMecanico,
-  getSolicitudesMecanico, confirmarSolicitudMecanico, eliminarSolicitudMecanico
+  getSolicitudesMecanico, confirmarSolicitudMecanico, eliminarSolicitudMecanico,
+  getKardexRepuesto, getProveedores
 } from '../api.js';
-import { safeFormatDate, debounce } from '../utils.js';
+import { safeFormatDate, safeFormatDateTime, debounce, escapeHtml } from '../utils.js';
 
 
 let containerElement = null;
@@ -12,6 +13,7 @@ let productosAdmin = [];
 let productosMecanico = [];
 let mecanicosList = [];
 let solicitudesList = [];
+let proveedoresList = [];
 let knownPendingIds = new Set();
 let pollingInterval = null;
 let almacenLimiteVisible = 50;
@@ -34,15 +36,17 @@ async function cargarDatos() {
     </div>`;
 
   try {
-    const [pAdmin, mecs, sols] = await Promise.all([
+    const [pAdmin, mecs, sols, provs] = await Promise.all([
       getAlmacen(),
       getMecanicos(),
-      getSolicitudesMecanico()
+      getSolicitudesMecanico(),
+      getProveedores().catch(() => [])
     ]);
     productosAdmin = pAdmin;
     productosMecanico = pAdmin.filter(p => p.stock > 0);
     mecanicosList = mecs;
     solicitudesList = sols;
+    proveedoresList = provs || [];
     // Guardar ids ya conocidos para no hacer sonar la campana con los históricos
     sols.filter(s => !s.confirmado).forEach(s => knownPendingIds.add(s.id));
     renderPage();
@@ -184,15 +188,25 @@ function renderPage() {
     document.getElementById('btn-close-prod-x').addEventListener('click', cerrarModalProducto);
     document.getElementById('btn-close-prod-cancel').addEventListener('click', cerrarModalProducto);
     document.getElementById('form-producto').addEventListener('submit', guardarProducto);
+    // Eventos Modal Ajuste de Stock
     document.getElementById('btn-close-stock-x').addEventListener('click', cerrarModalStock);
-    document.getElementById('btn-retirar-stock').addEventListener('click', () => ajustarStockRapido('restar'));
-    document.getElementById('btn-ingresar-stock').addEventListener('click', () => ajustarStockRapido('sumar'));
+    document.getElementById('tab-stock-ingreso')?.addEventListener('click', () => switchStockModalMode('ingreso'));
+    document.getElementById('tab-stock-retiro')?.addEventListener('click', () => switchStockModalMode('retiro'));
+    document.getElementById('btn-submit-ingreso')?.addEventListener('click', () => guardarAjusteStock('sumar'));
+    document.getElementById('btn-submit-retiro')?.addEventListener('click', () => guardarAjusteStock('restar'));
+
+    // Eventos Modal Kardex
+    document.getElementById('btn-close-kardex-x')?.addEventListener('click', cerrarModalKardex);
+    document.getElementById('btn-close-kardex-cancel')?.addEventListener('click', cerrarModalKardex);
+
     document.getElementById('tabla-almacen-body').addEventListener('click', (e) => {
       const editBtn = e.target.closest('.btn-edit-prod');
       const stockBtn = e.target.closest('.btn-adjust-stock');
+      const kardexBtn = e.target.closest('.btn-kardex-prod');
       const delBtn = e.target.closest('.btn-delete-prod');
       if (editBtn) abrirModalProducto(editBtn.dataset.id);
       else if (stockBtn) abrirModalStock(stockBtn.dataset.id);
+      else if (kardexBtn) abrirModalKardex(kardexBtn.dataset.id);
       else if (delBtn) eliminarProd(delBtn.dataset.id);
     });
   } else if (activeTab === 'mecanico') {
@@ -603,6 +617,9 @@ function renderAdminTableRows(productos) {
         ${window.isAdminAuthorized() ? `
           <td class="text-right">
             <div class="flex justify-end gap-1">
+              <button class="btn-icon btn-kardex-prod" data-id="${p.id}" title="Trazabilidad & Kardex" style="color:#6366f1;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+              </button>
               <button class="btn-icon btn-adjust-stock" data-id="${p.id}" title="Ajustar Stock" style="color:#10b981;">
                 <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M12 4v16m8-8H4"/></svg>
               </button>
@@ -755,50 +772,161 @@ function renderModales() {
       </div>
     </div>
 
-    <!-- Modal Ajuste de Stock -->
+    <!-- Modal Ajuste de Stock & Trazabilidad -->
     <div id="modal-stock" class="modal-overlay">
-      <div class="modal modal-sm">
+      <div class="modal modal-md">
         <div class="modal-header">
           <div class="flex items-center gap-3">
-            <div class="modal-header-icon">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M12 4v16m8-8H4"/></svg>
+            <div class="modal-header-icon" style="background:#ecfdf5;color:#059669;">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M12 4v16m8-8H4"/></svg>
             </div>
-            <span class="modal-title">Ajuste Rápido de Stock</span>
+            <span class="modal-title">Ajuste de Stock & Trazabilidad</span>
           </div>
           <button class="modal-close" id="btn-close-stock-x">
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
           </button>
         </div>
-        <div class="modal-body" style="display:flex;flex-direction:column;gap:16px;">
+        <div class="modal-body" style="display:flex;flex-direction:column;gap:14px;">
           <input type="hidden" id="ajuste-id" />
 
-          <div style="background:var(--slate-9);padding:14px;border-radius:var(--radius-md);border:1px solid var(--slate-8);text-align:center;">
-            <p style="font-size:10px;font-weight:700;color:var(--slate-5);text-transform:uppercase;letter-spacing:.5px;">Producto</p>
-            <p id="ajuste-desc" style="font-weight:800;color:var(--dark);margin-top:4px;font-size:14px;"></p>
-            <p id="ajuste-codigo" style="font-family:monospace;font-size:11px;color:var(--brand);margin-top:2px;"></p>
+          <!-- Resumen de Producto y Stock actual -->
+          <div style="background:var(--slate-9);padding:12px 16px;border-radius:var(--radius-md);border:1px solid var(--slate-8);display:flex;justify-content:space-between;align-items:center;">
+            <div>
+              <p style="font-size:10px;font-weight:700;color:var(--slate-5);text-transform:uppercase;letter-spacing:.5px;">Producto</p>
+              <p id="ajuste-desc" style="font-weight:800;color:var(--dark);font-size:13px;margin-top:2px;"></p>
+              <p id="ajuste-codigo" style="font-family:monospace;font-size:11px;color:var(--brand);margin-top:1px;"></p>
+            </div>
+            <div style="text-align:right;">
+              <p style="font-size:10px;font-weight:700;color:var(--slate-5);text-transform:uppercase;">Stock Actual</p>
+              <p id="ajuste-actual" style="font-size:26px;font-weight:900;color:var(--dark);line-height:1;margin-top:2px;"></p>
+              <p style="font-size:10px;color:var(--slate-5);">unidades</p>
+            </div>
           </div>
 
-          <div style="text-align:center;">
-            <p style="font-size:10px;font-weight:700;color:var(--slate-5);text-transform:uppercase;letter-spacing:.5px;">Stock Actual</p>
-            <p id="ajuste-actual" style="font-size:36px;font-weight:900;color:var(--dark);line-height:1.1;margin-top:4px;"></p>
-            <p style="font-size:11px;color:var(--slate-5);">unidades en inventario</p>
-          </div>
-
-          <div class="form-group" style="align-items:center;text-align:center;">
-            <label class="form-label">Cantidad a Ajustar</label>
-            <input type="number" id="ajuste-cantidad" min="1" value="1" class="form-input text-center" style="width:130px;font-size:20px;font-weight:800;margin:0 auto;" />
-          </div>
-
-          <div class="grid grid-cols-2 gap-2 mt-1">
-            <button class="btn-danger" id="btn-retirar-stock" style="justify-content:center;padding:10px;font-weight:800;">
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" style="margin-right:4px;"><path d="M20 12H4"/></svg>
-              Retirar
+          <!-- Selector de Modo: Ingreso / Retiro -->
+          <div style="display:flex;background:var(--slate-8);padding:3px;border-radius:8px;gap:4px;">
+            <button type="button" id="tab-stock-ingreso" class="btn-tab active-tab" style="flex:1;padding:8px;font-size:12px;border:none;border-radius:6px;cursor:pointer;font-weight:800;">
+              📥 Ingresar Mercadería (Compra)
             </button>
-            <button class="btn-success" id="btn-ingresar-stock" style="justify-content:center;padding:10px;font-weight:800;">
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" style="margin-right:4px;"><path d="M12 4v16m8-8H4"/></svg>
-              Ingresar
+            <button type="button" id="tab-stock-retiro" class="btn-tab" style="flex:1;padding:8px;font-size:12px;border:none;border-radius:6px;cursor:pointer;font-weight:800;background:transparent;">
+              📤 Retirar Stock (Taller)
             </button>
           </div>
+
+          <!-- Sección: Ingreso de Mercadería -->
+          <div id="sec-stock-ingreso" style="display:flex;flex-direction:column;gap:12px;">
+            <div class="grid grid-cols-2 gap-3">
+              <div class="form-group">
+                <label class="form-label">Cantidad a Ingresar</label>
+                <input type="number" id="ajuste-ingreso-cant" min="1" value="1" class="form-input text-center font-bold" style="font-size:16px;" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Costo de Compra (S/)</label>
+                <input type="number" id="ajuste-ingreso-costo" step="0.01" min="0" class="form-input text-right font-mono" placeholder="0.00" />
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Proveedor / Distribuidor</label>
+              <input type="text" id="ajuste-ingreso-proveedor" list="datalist-proveedores" class="form-input" placeholder="Escribe el nombre del proveedor..." autocomplete="off" />
+              <datalist id="datalist-proveedores">
+                ${proveedoresList.map(prov => `<option value="${escapeHtml(prov)}"></option>`).join('')}
+              </datalist>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">N° Factura / Guía / Nota (Opcional)</label>
+              <input type="text" id="ajuste-ingreso-motivo" class="form-input" placeholder="Ej: Factura F001-492, Boleta, etc." />
+            </div>
+
+            <button type="button" class="btn-success w-full" id="btn-submit-ingreso" style="justify-content:center;padding:11px;font-weight:800;font-size:13px;margin-top:4px;">
+              📥 Confirmar Ingreso al Inventario
+            </button>
+          </div>
+
+          <!-- Sección: Retiro de Mercadería -->
+          <div id="sec-stock-retiro" style="display:none;flex-direction:column;gap:12px;">
+            <div class="form-group">
+              <label class="form-label">Cantidad a Retirar</label>
+              <input type="number" id="ajuste-retiro-cant" min="1" value="1" class="form-input text-center font-bold" style="font-size:16px;" />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Mecánico Responsable</label>
+              <select id="ajuste-retiro-mecanico" class="form-select">
+                <option value="">-- Seleccionar Mecánico (Opcional) --</option>
+                ${mecanicosList.map(m => `<option value="${m.id}">${escapeHtml(m.nombre)}</option>`).join('')}
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Motivo de Salida (Opcional)</label>
+              <input type="text" id="ajuste-retiro-motivo" class="form-input" placeholder="Ej: Uso interno taller, merma, prueba técnica..." />
+            </div>
+
+            <button type="button" class="btn-danger w-full" id="btn-submit-retiro" style="justify-content:center;padding:11px;font-weight:800;font-size:13px;margin-top:4px;">
+              📤 Confirmar Retiro de Stock
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal Kardex / Trazabilidad -->
+    <div id="modal-kardex" class="modal-overlay">
+      <div class="modal modal-lg">
+        <div class="modal-header">
+          <div class="flex items-center gap-3">
+            <div class="modal-header-icon" style="background:#e0e7ff;color:#4f46e5;">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            </div>
+            <div>
+              <span class="modal-title">Trazabilidad & Kardex de Repuesto</span>
+              <p id="kardex-subtitulo" style="font-size:11px;color:var(--slate-5);margin-top:1px;"></p>
+            </div>
+          </div>
+          <button class="modal-close" id="btn-close-kardex-x">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+          </button>
+        </div>
+        <div class="modal-body" style="display:flex;flex-direction:column;gap:16px;">
+          <!-- KPIs de Movimientos -->
+          <div class="grid grid-cols-3 gap-3">
+            <div style="background:#f8fafc;border:1px solid var(--slate-8);border-radius:var(--radius-md);padding:12px 14px;">
+              <span style="font-size:10px;font-weight:700;color:var(--slate-5);text-transform:uppercase;">Stock Actual</span>
+              <p id="kardex-stock-actual" style="font-size:22px;font-weight:900;color:var(--dark);line-height:1.2;margin-top:2px;">-</p>
+            </div>
+            <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:var(--radius-md);padding:12px 14px;">
+              <span style="font-size:10px;font-weight:700;color:#166534;text-transform:uppercase;">Total Ingresos</span>
+              <p id="kardex-total-ingresos" style="font-size:22px;font-weight:900;color:#15803d;line-height:1.2;margin-top:2px;">-</p>
+            </div>
+            <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:var(--radius-md);padding:12px 14px;">
+              <span style="font-size:10px;font-weight:700;color:#991b1b;text-transform:uppercase;">Total Salidas</span>
+              <p id="kardex-total-salidas" style="font-size:22px;font-weight:900;color:#dc2626;line-height:1.2;margin-top:2px;">-</p>
+            </div>
+          </div>
+
+          <!-- Tabla de Movimientos -->
+          <div style="max-height:380px;overflow-y:auto;border:1px solid var(--slate-8);border-radius:var(--radius-md);">
+            <table class="data-table" style="font-size:12px;margin:0;">
+              <thead>
+                <tr style="position:sticky;top:0;background:var(--white);z-index:1;">
+                  <th>Fecha y Hora</th>
+                  <th>Tipo</th>
+                  <th class="text-center">Cant.</th>
+                  <th>Responsable / Proveedor</th>
+                  <th>Destino / Comprobante</th>
+                  <th class="text-right">Stock Resultante</th>
+                </tr>
+              </thead>
+              <tbody id="tabla-kardex-body">
+                <tr><td colspan="6" class="text-center py-6" style="color:var(--slate-5);">Cargando historial...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="modal-footer" style="justify-content:flex-end;">
+          <button type="button" class="btn-ghost" id="btn-close-kardex-cancel">Cerrar</button>
         </div>
       </div>
     </div>
@@ -868,6 +996,29 @@ async function guardarProducto(e) {
   }
 }
 
+function switchStockModalMode(mode) {
+  const tabIng = document.getElementById('tab-stock-ingreso');
+  const tabRet = document.getElementById('tab-stock-retiro');
+  const secIng = document.getElementById('sec-stock-ingreso');
+  const secRet = document.getElementById('sec-stock-retiro');
+
+  if (mode === 'ingreso') {
+    tabIng?.classList.add('active-tab');
+    if (tabIng) tabIng.style.background = 'var(--white)';
+    tabRet?.classList.remove('active-tab');
+    if (tabRet) tabRet.style.background = 'transparent';
+    if (secIng) secIng.style.display = 'flex';
+    if (secRet) secRet.style.display = 'none';
+  } else {
+    tabRet?.classList.add('active-tab');
+    if (tabRet) tabRet.style.background = 'var(--white)';
+    tabIng?.classList.remove('active-tab');
+    if (tabIng) tabIng.style.background = 'transparent';
+    if (secIng) secIng.style.display = 'none';
+    if (secRet) secRet.style.display = 'flex';
+  }
+}
+
 function abrirModalStock(id) {
   const p = productosAdmin.find(item => item.id == id);
   if (!p) return;
@@ -875,7 +1026,25 @@ function abrirModalStock(id) {
   document.getElementById('ajuste-desc').textContent = p.descripcion;
   document.getElementById('ajuste-codigo').textContent = p.codigo;
   document.getElementById('ajuste-actual').textContent = p.stock;
-  document.getElementById('ajuste-cantidad').value = 1;
+  
+  // Reset fields
+  const elIngCant = document.getElementById('ajuste-ingreso-cant');
+  const elIngCosto = document.getElementById('ajuste-ingreso-costo');
+  const elIngProv = document.getElementById('ajuste-ingreso-proveedor');
+  const elIngMot = document.getElementById('ajuste-ingreso-motivo');
+  if (elIngCant) elIngCant.value = 1;
+  if (elIngCosto) elIngCosto.value = p.costo ? parseFloat(p.costo).toFixed(2) : '';
+  if (elIngProv) elIngProv.value = '';
+  if (elIngMot) elIngMot.value = '';
+
+  const elRetCant = document.getElementById('ajuste-retiro-cant');
+  const elRetMec = document.getElementById('ajuste-retiro-mecanico');
+  const elRetMot = document.getElementById('ajuste-retiro-motivo');
+  if (elRetCant) elRetCant.value = 1;
+  if (elRetMec) elRetMec.value = '';
+  if (elRetMot) elRetMot.value = '';
+
+  switchStockModalMode('ingreso');
   document.getElementById('modal-stock').classList.add('active');
 }
 
@@ -883,18 +1052,127 @@ function cerrarModalStock() {
   document.getElementById('modal-stock').classList.remove('active');
 }
 
-async function ajustarStockRapido(operacion) {
+async function guardarAjusteStock(operacion) {
   const id = document.getElementById('ajuste-id').value;
-  const cantidad = parseInt(document.getElementById('ajuste-cantidad').value) || 0;
-  if (cantidad <= 0) { alert('Ingresa una cantidad válida.'); return; }
-  try {
-    // FIX: usa "operacion: 'sumar'|'restar'" — lo que espera el backend
-    await ajustarStock(id, { operacion, cantidad });
-    cerrarModalStock();
-    await cargarDatos();
-  } catch (err) {
-    alert(err.message);
+  if (!id) return;
+
+  if (operacion === 'sumar') {
+    const cantidad = parseInt(document.getElementById('ajuste-ingreso-cant')?.value, 10) || 0;
+    if (cantidad <= 0) { alert('Ingresa una cantidad mayor a 0 para el ingreso.'); return; }
+    const costo_unitario = parseFloat(document.getElementById('ajuste-ingreso-costo')?.value) || null;
+    const proveedor = (document.getElementById('ajuste-ingreso-proveedor')?.value || '').trim();
+    const motivo = (document.getElementById('ajuste-ingreso-motivo')?.value || '').trim();
+
+    const btn = document.getElementById('btn-submit-ingreso');
+    try {
+      if (btn) { btn.disabled = true; btn.textContent = 'Guardando...'; }
+      await ajustarStock(id, { operacion: 'sumar', cantidad, proveedor, costo_unitario, motivo });
+      cerrarModalStock();
+      await cargarDatos();
+    } catch (err) {
+      alert(err.message || 'Error al registrar ingreso de stock');
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = '📥 Confirmar Ingreso al Inventario'; }
+    }
+  } else {
+    const cantidad = parseInt(document.getElementById('ajuste-retiro-cant')?.value, 10) || 0;
+    if (cantidad <= 0) { alert('Ingresa una cantidad mayor a 0 para el retiro.'); return; }
+    const mecanico_id = document.getElementById('ajuste-retiro-mecanico')?.value || null;
+    const motivo = (document.getElementById('ajuste-retiro-motivo')?.value || '').trim();
+
+    const btn = document.getElementById('btn-submit-retiro');
+    try {
+      if (btn) { btn.disabled = true; btn.textContent = 'Guardando...'; }
+      await ajustarStock(id, { operacion: 'restar', cantidad, mecanico_id, motivo });
+      cerrarModalStock();
+      await cargarDatos();
+    } catch (err) {
+      alert(err.message || 'Error al registrar retiro de stock');
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = '📤 Confirmar Retiro de Stock'; }
+    }
   }
+}
+
+async function abrirModalKardex(id) {
+  const p = productosAdmin.find(item => item.id == id);
+  if (!p) return;
+  
+  const modal = document.getElementById('modal-kardex');
+  document.getElementById('kardex-subtitulo').textContent = `${p.codigo} — ${p.descripcion} (${p.categoria})`;
+  document.getElementById('kardex-stock-actual').textContent = `${p.stock} unid.`;
+  document.getElementById('kardex-total-ingresos').textContent = '...';
+  document.getElementById('kardex-total-salidas').textContent = '...';
+  
+  const tbody = document.getElementById('tabla-kardex-body');
+  tbody.innerHTML = `<tr><td colspan="6" class="text-center py-6" style="color:var(--slate-5);">Cargando trazabilidad...</td></tr>`;
+  modal.classList.add('active');
+
+  try {
+    const movimientos = await getKardexRepuesto(id);
+    if (!movimientos || movimientos.length === 0) {
+      document.getElementById('kardex-total-ingresos').textContent = '0 unid.';
+      document.getElementById('kardex-total-salidas').textContent = '0 unid.';
+      tbody.innerHTML = `<tr><td colspan="6" class="td-empty" style="padding:32px;">No se registran movimientos históricos para este repuesto.</td></tr>`;
+      return;
+    }
+
+    let totIng = 0;
+    let totSal = 0;
+    movimientos.forEach(m => {
+      const q = parseInt(m.cantidad, 10) || 0;
+      if (m.tipo === 'INGRESO') totIng += q;
+      else if (m.tipo === 'SALIDA') totSal += q;
+    });
+
+    document.getElementById('kardex-total-ingresos').textContent = `+${totIng} unid.`;
+    document.getElementById('kardex-total-salidas').textContent = `-${totSal} unid.`;
+
+    tbody.innerHTML = movimientos.map(m => {
+      const isIngreso = m.tipo === 'INGRESO';
+      const tipoIcon = isIngreso ? '📥' : '📤';
+      const sign = isIngreso ? '+' : '-';
+      const fechaStr = safeFormatDateTime(m.created_at);
+
+      let respProv = '—';
+      if (isIngreso) {
+        respProv = m.proveedor ? `🏢 <strong>${escapeHtml(m.proveedor)}</strong>` : '🏢 Proveedor directo';
+      } else {
+        respProv = m.mecanico_nombre ? `🔧 <strong>${escapeHtml(m.mecanico_nombre)}</strong>` : (m.usuario_nombre ? `👤 ${escapeHtml(m.usuario_nombre)}` : '🔧 Taller');
+      }
+
+      let destino = '—';
+      if (m.orden_id) {
+        destino = `<span style="font-weight:700;color:var(--brand);">OS #${m.orden_id}</span> ${m.placa ? `<span class="placa-badge" style="font-size:10px;padding:1px 6px;">${escapeHtml(m.placa)}</span>` : ''}`;
+      } else if (m.motivo) {
+        destino = `<span style="color:var(--slate-4);">${escapeHtml(m.motivo)}</span>`;
+      }
+
+      return `
+        <tr>
+          <td style="white-space:nowrap;font-size:11px;color:var(--slate-5);">${fechaStr}</td>
+          <td>
+            <span class="badge ${isIngreso ? 'badge-emerald' : ''}" style="${isIngreso ? '' : 'background:#fef2f2;color:#dc2626;border:1px solid #fecaca;'}font-weight:800;font-size:10px;">
+              ${tipoIcon} ${m.tipo}
+            </span>
+          </td>
+          <td class="text-center font-mono font-bold" style="color:${isIngreso ? '#059669' : '#dc2626'};font-size:13px;">
+            ${sign}${m.cantidad}
+          </td>
+          <td>${respProv}</td>
+          <td>${destino}</td>
+          <td class="text-right font-mono font-bold">${m.stock_nuevo} <span style="font-size:10px;color:var(--slate-5);font-weight:normal;">unid.</span></td>
+        </tr>
+      `;
+    }).join('');
+
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="6" class="text-center py-4" style="color:#dc2626;">Error al cargar trazabilidad: ${err.message}</td></tr>`;
+  }
+}
+
+function cerrarModalKardex() {
+  document.getElementById('modal-kardex')?.classList.remove('active');
 }
 
 async function eliminarProd(id) {

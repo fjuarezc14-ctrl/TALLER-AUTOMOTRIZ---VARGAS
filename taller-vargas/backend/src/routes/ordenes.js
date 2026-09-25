@@ -87,10 +87,34 @@ router.get("/:id", async (req, res) => {
 
     const [ord, items] = await Promise.all([
       query("SELECT * FROM v_ordenes_completas WHERE id=$1", [cleanId]),
-      query("SELECT * FROM v_items_por_orden WHERE orden_id=$1 ORDER BY id", [cleanId])
+      query(`
+        SELECT v.*, a.costo AS costo_unitario_almacen, a.id AS repuesto_id
+        FROM v_items_por_orden v
+        LEFT JOIN almacen a ON v.repuesto_cod = a.codigo
+        WHERE v.orden_id=$1 ORDER BY v.id
+      `, [cleanId])
     ]);
     if (!ord.rows.length) return res.status(404).json({ error: "Orden no encontrada" });
-    res.json({ ...ord.rows[0], items: items.rows });
+
+    let costoRepuestos = 0;
+    items.rows.forEach(it => {
+      if (it.tipo === 'almacen') {
+        const c = parseFloat(it.costo_unitario_almacen || 0);
+        const q = parseFloat(it.cantidad || 0);
+        costoRepuestos += (c * q);
+      }
+    });
+    const totalEstimado = parseFloat(ord.rows[0].total_estimado || 0);
+    const ganancia = totalEstimado - costoRepuestos;
+    const margenPct = totalEstimado > 0 ? (ganancia / totalEstimado) * 100 : 0;
+
+    res.json({
+      ...ord.rows[0],
+      items: items.rows,
+      costo_repuestos: costoRepuestos,
+      ganancia: ganancia,
+      margen_pct: Math.round(margenPct * 10) / 10
+    });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -395,7 +419,7 @@ router.post("/:id/items", async (req, res) => {
     const item = await client.query("INSERT INTO items_costo (orden_id,tipo,descripcion,cantidad,precio_unitario,repuesto_cod) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *",
       [req.params.id,tipo||"manual",descripcion,cantidad,precio_unitario,repuesto_cod||null]);
     if (tipo==="almacen" && repuesto_cod) {
-      const stockCheck = await client.query("SELECT stock, descripcion FROM almacen WHERE codigo=$1", [repuesto_cod]);
+      const stockCheck = await client.query("SELECT id, stock, descripcion FROM almacen WHERE codigo=$1", [repuesto_cod]);
       if (stockCheck.rows.length > 0 && stockCheck.rows[0].stock < cantidad) {
         await client.query("ROLLBACK");
         client.release();
@@ -403,7 +427,23 @@ router.post("/:id/items", async (req, res) => {
           error: `Stock insuficiente para "${stockCheck.rows[0].descripcion}". Disponible: ${stockCheck.rows[0].stock}, Solicitado: ${cantidad}` 
         });
       }
-      await client.query("UPDATE almacen SET stock=stock-$1 WHERE codigo=$2", [cantidad,repuesto_cod]);
+      if (stockCheck.rows.length > 0) {
+        const prodItem = stockCheck.rows[0];
+        await client.query("UPDATE almacen SET stock=stock-$1 WHERE codigo=$2", [cantidad, repuesto_cod]);
+        await client.query(`
+          INSERT INTO movimientos_almacen 
+            (repuesto_id, tipo, cantidad, stock_anterior, stock_nuevo, orden_id, motivo, usuario_id)
+          VALUES ($1, 'SALIDA', $2, $3, $4, $5, $6, $7)
+        `, [
+          prodItem.id,
+          cantidad,
+          prodItem.stock,
+          prodItem.stock - cantidad,
+          req.params.id,
+          `Asignado a Orden de Servicio #${req.params.id}`,
+          req.user?.id || null
+        ]);
+      }
     }
     const tot = await client.query("SELECT COALESCE(SUM(cantidad*precio_unitario),0) AS t FROM items_costo WHERE orden_id=$1", [req.params.id]);
     let totalVal = parseFloat(tot.rows[0].t);
@@ -438,7 +478,24 @@ router.delete("/:id/items/:itemId", async (req, res) => {
     if (!it.rows.length) { await client.query("ROLLBACK"); return res.status(404).json({ error: "Item no encontrado" }); }
     await client.query("DELETE FROM items_costo WHERE id=$1", [req.params.itemId]);
     if (it.rows[0].tipo==="almacen" && it.rows[0].repuesto_cod) {
-      await client.query("UPDATE almacen SET stock=stock+$1 WHERE codigo=$2", [it.rows[0].cantidad,it.rows[0].repuesto_cod]);
+      const repRes = await client.query("SELECT id, stock FROM almacen WHERE codigo=$1", [it.rows[0].repuesto_cod]);
+      if (repRes.rows.length > 0) {
+        const prodItem = repRes.rows[0];
+        await client.query("UPDATE almacen SET stock=stock+$1 WHERE codigo=$2", [it.rows[0].cantidad, it.rows[0].repuesto_cod]);
+        await client.query(`
+          INSERT INTO movimientos_almacen 
+            (repuesto_id, tipo, cantidad, stock_anterior, stock_nuevo, orden_id, motivo, usuario_id)
+          VALUES ($1, 'INGRESO', $2, $3, $4, $5, $6, $7)
+        `, [
+          prodItem.id,
+          it.rows[0].cantidad,
+          prodItem.stock,
+          prodItem.stock + it.rows[0].cantidad,
+          req.params.id,
+          `Devolución por anulación de ítem en OS #${req.params.id}`,
+          req.user?.id || null
+        ]);
+      }
     }
     const tot = await client.query("SELECT COALESCE(SUM(cantidad*precio_unitario),0) AS t FROM items_costo WHERE orden_id=$1", [req.params.id]);
     let totalVal = parseFloat(tot.rows[0].t);

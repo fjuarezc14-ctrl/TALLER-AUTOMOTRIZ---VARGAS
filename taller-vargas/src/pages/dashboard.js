@@ -704,19 +704,38 @@ function renderDashboard(data) {
                 <th>Vehículo</th>
                 <th>Cliente</th>
                 <th>Estado</th>
-                <th class="text-right">Costo Est.</th>
+                <th class="text-right">Total Est.</th>
+                ${window.isAdminAuthorized() ? '<th class="text-center" style="width:115px;">Rentabilidad</th>' : ''}
               </tr>
             </thead>
             <tbody>
-              ${ordenes_recientes.length ? ordenes_recientes.map(o => `
+              ${ordenes_recientes.length ? ordenes_recientes.map(o => {
+                const total = parseFloat(o.total_estimado || 0);
+                const margen = o.margen_pct !== undefined ? parseFloat(o.margen_pct) : 0;
+                const ganancia = o.ganancia !== undefined ? parseFloat(o.ganancia) : total;
+                let semaforoBadge = '';
+                if (window.isAdminAuthorized()) {
+                  if (total === 0) {
+                    semaforoBadge = `<span class="badge badge-slate" title="Sin costo ni servicios valorizados">0%</span>`;
+                  } else if (margen >= 35) {
+                    semaforoBadge = `<span class="badge badge-emerald" title="Total: S/ ${total.toFixed(2)} | Costo Rep.: S/ ${parseFloat(o.costo_repuestos||0).toFixed(2)} | Ganancia: S/ ${ganancia.toFixed(2)}" style="font-weight:800;">🟢 ${margen}%</span>`;
+                  } else if (margen >= 15) {
+                    semaforoBadge = `<span class="badge badge-amber" title="Total: S/ ${total.toFixed(2)} | Costo Rep.: S/ ${parseFloat(o.costo_repuestos||0).toFixed(2)} | Ganancia: S/ ${ganancia.toFixed(2)}" style="font-weight:800;">🟡 ${margen}%</span>`;
+                  } else {
+                    semaforoBadge = `<span class="badge" title="Total: S/ ${total.toFixed(2)} | Costo Rep.: S/ ${parseFloat(o.costo_repuestos||0).toFixed(2)} | Ganancia: S/ ${ganancia.toFixed(2)}" style="font-weight:800;background:#fef2f2;color:#dc2626;border:1px solid #fecaca;">🔴 ${margen}%</span>`;
+                  }
+                }
+                return `
                 <tr style="cursor:pointer;" onclick="navigate('/ordenes')">
                   <td><span class="placa-badge">${o.placa || '—'}</span></td>
                   <td style="font-weight:700; color:var(--dark);">${o.vehiculo || '—'}</td>
                   <td style="color:var(--slate-5); font-style:italic;">${o.cliente || '—'}</td>
                   <td>${estadoBadge(o.estado)}</td>
-                  <td class="text-right font-bold font-mono">S/ ${parseFloat(o.total_estimado||0).toFixed(2)}</td>
-                </tr>`).join('') 
-              : `<tr><td colspan="5" class="td-empty">No hay órdenes registradas</td></tr>`}
+                  <td class="text-right font-bold font-mono">S/ ${total.toFixed(2)}</td>
+                  ${window.isAdminAuthorized() ? `<td class="text-center">${semaforoBadge}</td>` : ''}
+                </tr>`;
+              }).join('') 
+              : `<tr><td colspan="${window.isAdminAuthorized() ? 6 : 5}" class="td-empty">No hay órdenes registradas</td></tr>`}
             </tbody>
           </table>
         </div>
