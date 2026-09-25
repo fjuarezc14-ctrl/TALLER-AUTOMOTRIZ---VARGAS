@@ -231,6 +231,7 @@ function renderPage() {
       }
       #fact-root .method-bar-fill { height:100%;border-radius:99px;transition:width .6s ease; }
       #fact-root .cobro-row:hover { background:#f8fafc; }
+      .vr-search-item:hover, .vr-search-item.active { background: #ecfdf5 !important; }
 
       /* Tarjeta 3D */
       #fact-root .card-3d-scene { perspective: 800px; width:320px; margin:0 auto 4px; }
@@ -721,33 +722,41 @@ function renderPage() {
               </div>
             </div>
 
-            <!-- Selector de Productos -->
-            <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:var(--radius-md);padding:14px;">
-              <p style="font-size:11px;font-weight:800;color:#166534;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">2. Seleccionar Producto del Almacén</p>
+            <!-- Buscador y Selector de Productos -->
+            <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:var(--radius-md);padding:14px;position:relative;">
+              <p style="font-size:11px;font-weight:800;color:#166534;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">2. Buscar Repuesto o Insumo en Almacén</p>
+              
               <div style="display:flex;flex-direction:column;gap:10px;">
-                <div>
-                  <input type="text" id="vr-search-prod" class="form-input" placeholder="🔍 Filtrar por código, descripción o marca..." style="margin-bottom:6px;background:#fff;font-size:12px;" />
-                  <select id="vr-select-prod" class="form-select" style="background:#fff;font-size:12px;font-weight:600;">
-                    <option value="">-- Selecciona un repuesto / insumo con stock --</option>
-                  </select>
+                <!-- Buscador con resultados flotantes instantáneos -->
+                <div style="position:relative;" id="vr-search-box-wrap">
+                  <div style="display:flex;align-items:center;position:relative;">
+                    <input type="text" id="vr-search-prod" class="form-input" placeholder="🔍 Escribe para buscar repuesto (ej: Aceite, Bujía, Filtro, código...)" autocomplete="off" style="background:#fff;font-size:13px;padding-right:34px;height:42px;font-weight:600;border:1.5px solid #10b981;" />
+                    <button type="button" id="btn-vr-clear-prod" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;color:#94a3b8;cursor:pointer;font-size:16px;display:none;padding:4px;border-radius:50%;line-height:1;" title="Limpiar búsqueda">✕</button>
+                  </div>
+                  <input type="hidden" id="vr-selected-prod-id" value="" />
+                  
+                  <!-- Dropdown flotante tipo Google/Typeahead -->
+                  <div id="vr-search-results" class="hidden" style="position:absolute;left:0;right:0;top:100%;margin-top:4px;background:#fff;border:1.5px solid #10b981;border-radius:8px;box-shadow:0 12px 28px rgba(0,0,0,0.18);max-height:220px;overflow-y:auto;z-index:999;">
+                    <!-- Se llena automáticamente con cada tecla -->
+                  </div>
                 </div>
                 
-                <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:10px;align-items:end;">
+                <div style="display:grid;grid-template-columns:1fr 1fr 1.2fr auto;gap:10px;align-items:end;">
                   <div class="form-group" style="margin:0;">
                     <label class="form-label" style="font-size:11px;color:#166534;">Stock Actual</label>
-                    <input type="text" id="vr-stock-disp" class="form-input font-mono font-bold" readonly style="background:#e2e8f0;color:#334155;text-align:center;" value="—" />
+                    <input type="text" id="vr-stock-disp" class="form-input font-mono font-bold" readonly style="background:#e2e8f0;color:#334155;text-align:center;height:38px;" value="—" />
                   </div>
                   <div class="form-group" style="margin:0;">
                     <label class="form-label" style="font-size:11px;color:#166534;">Cantidad *</label>
-                    <input type="number" id="vr-item-cant" min="1" value="1" class="form-input font-mono font-bold text-center" style="background:#fff;" />
+                    <input type="number" id="vr-item-cant" min="1" value="1" class="form-input font-mono font-bold text-center" style="background:#fff;height:38px;" />
                   </div>
                   <div class="form-group" style="margin:0;">
                     <label class="form-label" style="font-size:11px;color:#166534;">P. Venta Unit. (S/) *</label>
-                    <input type="number" id="vr-item-precio" step="0.01" min="0" class="form-input font-mono font-bold text-right" style="background:#fff;" placeholder="0.00" />
+                    <input type="number" id="vr-item-precio" step="0.01" min="0" class="form-input font-mono font-bold text-right" style="background:#fff;height:38px;" placeholder="0.00" />
                   </div>
-                  <button type="button" id="btn-vr-add-item" class="btn-success flex items-center gap-1" style="height:38px;padding:0 14px;background:#059669;border-color:#047857;font-weight:700;">
+                  <button type="button" id="btn-vr-add-item" class="btn-success flex items-center gap-1" style="height:38px;padding:0 16px;background:#059669;border-color:#047857;font-weight:800;font-size:12px;box-shadow:0 2px 6px rgba(5,150,105,0.3);">
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M12 4v16m8-8H4"/></svg>
-                    Agregar
+                    + Agregar
                   </button>
                 </div>
               </div>
@@ -847,20 +856,86 @@ function renderPage() {
   // Venta Rápida Eventos
   document.getElementById('btn-venta-rapida')?.addEventListener('click', abrirModalVentaRapida);
   document.getElementById('btn-vr-add-item')?.addEventListener('click', agregarItemVentaRapida);
-  document.getElementById('vr-select-prod')?.addEventListener('change', onProductoVRSelected);
-  document.getElementById('vr-search-prod')?.addEventListener('input', (e) => {
-    const q = (e.target.value || '').toLowerCase().trim();
-    if (!q) {
-      poblarSelectProductosVR(productosVentaRapida);
-    } else {
-      const filtrados = productosVentaRapida.filter(p =>
-        (p.descripcion || '').toLowerCase().includes(q) ||
-        (p.codigo || '').toLowerCase().includes(q) ||
-        (p.categoria || '').toLowerCase().includes(q)
-      );
-      poblarSelectProductosVR(filtrados);
+  document.getElementById('btn-vr-clear-prod')?.addEventListener('click', limpiarSeleccionProductoVR);
+
+  const vrSearchInput = document.getElementById('vr-search-prod');
+  const vrResultsBox = document.getElementById('vr-search-results');
+
+  vrSearchInput?.addEventListener('input', (e) => {
+    const val = e.target.value;
+    const clearBtn = document.getElementById('btn-vr-clear-prod');
+    if (clearBtn) clearBtn.style.display = val ? 'block' : 'none';
+    
+    // Si cambia el texto escrito, invalidamos el producto previo seleccionado
+    const idEl = document.getElementById('vr-selected-prod-id');
+    if (idEl) idEl.value = '';
+    
+    const matches = buscarProductosVR(val);
+    mostrarResultadosVR(matches);
+  });
+
+  vrSearchInput?.addEventListener('focus', (e) => {
+    const matches = buscarProductosVR(e.target.value);
+    mostrarResultadosVR(matches);
+  });
+
+  vrSearchInput?.addEventListener('keydown', (e) => {
+    const items = vrResultsBox?.querySelectorAll('.vr-search-item');
+    if (!items || items.length === 0) return;
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      vrActiveResultIdx = (vrActiveResultIdx + 1) % items.length;
+      updateActiveResultItem(items);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      vrActiveResultIdx = (vrActiveResultIdx - 1 + items.length) % items.length;
+      updateActiveResultItem(items);
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      const targetIdx = vrActiveResultIdx >= 0 ? vrActiveResultIdx : 0;
+      const targetItem = items[targetIdx];
+      if (targetItem) {
+        const prodId = parseInt(targetItem.dataset.id, 10);
+        const prod = productosVentaRapida.find(p => p.id === prodId);
+        if (prod) seleccionarProductoVR(prod);
+      }
+    } else if (e.key === 'Escape') {
+      vrResultsBox?.classList.add('hidden');
     }
   });
+
+  vrResultsBox?.addEventListener('click', (e) => {
+    const item = e.target.closest('.vr-search-item');
+    if (item) {
+      const prodId = parseInt(item.dataset.id, 10);
+      const prod = productosVentaRapida.find(p => p.id === prodId);
+      if (prod) seleccionarProductoVR(prod);
+    }
+  });
+
+  // Enter rápido en Cantidad y Precio para agregar al mostrador
+  document.getElementById('vr-item-cant')?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      agregarItemVentaRapida();
+    }
+  });
+  document.getElementById('vr-item-precio')?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      agregarItemVentaRapida();
+    }
+  });
+
+  // Ocultar resultados al hacer clic fuera del buscador
+  document.addEventListener('click', (e) => {
+    const wrap = document.getElementById('vr-search-box-wrap');
+    if (wrap && !wrap.contains(e.target)) {
+      document.getElementById('vr-search-results')?.classList.add('hidden');
+    }
+  });
+
   document.getElementById('vr-items-tbody')?.addEventListener('click', (e) => {
     const btn = e.target.closest('.btn-vr-del');
     if (btn) {
@@ -2409,97 +2484,169 @@ function cerrarModal(id) {
 
 // ── VENTA RÁPIDA (MOSTRADOR) ──────────────────────────────
 
+let vrActiveResultIdx = -1;
+
+function buscarProductosVR(q) {
+  const term = (q || '').toLowerCase().trim();
+  const conStock = productosVentaRapida.filter(p => (parseInt(p.stock, 10) || 0) > 0);
+  
+  if (!term) {
+    return conStock.slice(0, 10);
+  }
+
+  return conStock.filter(p =>
+    (p.descripcion || '').toLowerCase().includes(term) ||
+    (p.codigo || '').toLowerCase().includes(term) ||
+    (p.categoria || '').toLowerCase().includes(term)
+  ).slice(0, 15);
+}
+
+function mostrarResultadosVR(lista) {
+  const box = document.getElementById('vr-search-results');
+  if (!box) return;
+  vrActiveResultIdx = -1;
+
+  if (!lista || lista.length === 0) {
+    box.innerHTML = `
+      <div style="padding:14px;text-align:center;color:var(--slate-5);font-size:12px;">
+        <span>🔍 No se encontraron repuestos con stock para esa búsqueda</span>
+      </div>`;
+    box.classList.remove('hidden');
+    return;
+  }
+
+  box.innerHTML = lista.map((p, idx) => `
+    <div class="vr-search-item" data-id="${p.id}" data-idx="${idx}" style="padding:10px 14px;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;cursor:pointer;transition:background .15s;">
+      <div style="display:flex;flex-direction:column;gap:2px;overflow:hidden;padding-right:12px;">
+        <span style="font-size:13px;font-weight:700;color:var(--dark);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(p.descripcion)}</span>
+        <div style="display:flex;gap:6px;font-size:11px;align-items:center;">
+          <span style="font-family:monospace;background:#f1f5f9;padding:1px 6px;border-radius:4px;color:#334155;font-weight:700;">Cód: ${escapeHtml(p.codigo || 'S/C')}</span>
+          ${p.categoria ? `<span style="background:#e0f2fe;color:#0369a1;padding:1px 6px;border-radius:4px;font-weight:600;">${escapeHtml(p.categoria)}</span>` : ''}
+        </div>
+      </div>
+      <div style="text-align:right;flex-shrink:0;">
+        <span style="font-size:13px;font-weight:900;color:#047857;font-family:monospace;display:block;">S/ ${parseFloat(p.precio_venta || 0).toFixed(2)}</span>
+        <span class="badge" style="background:#dcfce7;color:#15803d;font-size:10px;font-weight:800;padding:2px 6px;margin-top:2px;display:inline-block;">Stock: ${p.stock} u.</span>
+      </div>
+    </div>
+  `).join('');
+
+  box.classList.remove('hidden');
+}
+
+function updateActiveResultItem(items) {
+  items.forEach((it, i) => {
+    if (i === vrActiveResultIdx) {
+      it.classList.add('active');
+      it.style.background = '#ecfdf5';
+      it.scrollIntoView({ block: 'nearest' });
+    } else {
+      it.classList.remove('active');
+      it.style.background = '';
+    }
+  });
+}
+
+function seleccionarProductoVR(prod) {
+  if (!prod) return;
+  const searchEl = document.getElementById('vr-search-prod');
+  const idEl = document.getElementById('vr-selected-prod-id');
+  const stockEl = document.getElementById('vr-stock-disp');
+  const cantEl = document.getElementById('vr-item-cant');
+  const precioEl = document.getElementById('vr-item-precio');
+  const clearBtn = document.getElementById('btn-vr-clear-prod');
+  const resultsEl = document.getElementById('vr-search-results');
+
+  if (idEl) idEl.value = prod.id;
+  if (searchEl) searchEl.value = `[${prod.codigo || 'S/C'}] ${prod.descripcion}`;
+  if (stockEl) stockEl.value = `${prod.stock} u.`;
+  if (precioEl) precioEl.value = parseFloat(prod.precio_venta || 0).toFixed(2);
+  if (cantEl) {
+    cantEl.max = prod.stock;
+    cantEl.value = '1';
+    cantEl.focus();
+    cantEl.select();
+  }
+  if (clearBtn) clearBtn.style.display = 'block';
+  if (resultsEl) {
+    resultsEl.classList.add('hidden');
+    resultsEl.innerHTML = '';
+  }
+}
+
+function limpiarSeleccionProductoVR() {
+  const searchEl = document.getElementById('vr-search-prod');
+  const idEl = document.getElementById('vr-selected-prod-id');
+  const stockEl = document.getElementById('vr-stock-disp');
+  const cantEl = document.getElementById('vr-item-cant');
+  const precioEl = document.getElementById('vr-item-precio');
+  const clearBtn = document.getElementById('btn-vr-clear-prod');
+  const resultsEl = document.getElementById('vr-search-results');
+
+  if (searchEl) {
+    searchEl.value = '';
+    searchEl.focus();
+  }
+  if (idEl) idEl.value = '';
+  if (stockEl) stockEl.value = '—';
+  if (cantEl) cantEl.value = '1';
+  if (precioEl) precioEl.value = '';
+  if (clearBtn) clearBtn.style.display = 'none';
+  if (resultsEl) {
+    resultsEl.classList.add('hidden');
+    resultsEl.innerHTML = '';
+  }
+}
+
 async function abrirModalVentaRapida() {
   itemsVentaRapida = [];
   const elNombre = document.getElementById('vr-cliente-nombre');
   const elDoc = document.getElementById('vr-cliente-doc');
-  const elCant = document.getElementById('vr-item-cant');
-  const elPrecio = document.getElementById('vr-item-precio');
-  const elStock = document.getElementById('vr-stock-disp');
-  const elSearch = document.getElementById('vr-search-prod');
   const elMetodo = document.getElementById('vr-metodo-pago');
   const elComp = document.getElementById('vr-tipo-comprobante');
 
   if (elNombre) elNombre.value = 'Cliente Mostrador';
   if (elDoc) elDoc.value = '';
-  if (elCant) elCant.value = '1';
-  if (elPrecio) elPrecio.value = '';
-  if (elStock) elStock.value = '—';
-  if (elSearch) elSearch.value = '';
   if (elMetodo) elMetodo.value = 'Efectivo';
   if (elComp) elComp.value = 'Recibo Interno';
 
+  limpiarSeleccionProductoVR();
   renderItemsVentaRapida();
 
   try {
     const prods = await getAlmacen();
     productosVentaRapida = Array.isArray(prods) ? prods : [];
-    poblarSelectProductosVR(productosVentaRapida);
   } catch (err) {
     console.error('Error al cargar almacén para venta rápida:', err);
     alert('Error al cargar los repuestos de almacén: ' + err.message);
   }
 
   document.getElementById('modal-venta-rapida')?.classList.add('active');
+  setTimeout(() => {
+    document.getElementById('vr-search-prod')?.focus();
+  }, 100);
 }
 
 function cerrarModalVentaRapida() {
   document.getElementById('modal-venta-rapida')?.classList.remove('active');
-}
-
-function poblarSelectProductosVR(lista) {
-  const sel = document.getElementById('vr-select-prod');
-  if (!sel) return;
-  sel.innerHTML = '<option value="">-- Selecciona un repuesto / insumo con stock --</option>' +
-    lista
-      .filter(p => (parseInt(p.stock, 10) || 0) > 0)
-      .map(p => {
-        const codigo = escapeHtml(p.codigo || 'S/C');
-        const desc = escapeHtml(p.descripcion || '');
-        const precio = parseFloat(p.precio_venta || 0).toFixed(2);
-        return `<option value="${p.id}" data-stock="${p.stock}" data-precio="${p.precio_venta || 0}" data-codigo="${codigo}" data-nombre="${desc}">
-          [${codigo}] ${desc} (Stock: ${p.stock} u. | S/ ${precio})
-        </option>`;
-      })
-      .join('');
-}
-
-function onProductoVRSelected() {
-  const sel = document.getElementById('vr-select-prod');
-  if (!sel) return;
-  const opt = sel.options[sel.selectedIndex];
-  const stockEl = document.getElementById('vr-stock-disp');
-  const precioEl = document.getElementById('vr-item-precio');
-  const cantEl = document.getElementById('vr-item-cant');
-
-  if (!opt || !opt.value) {
-    if (stockEl) stockEl.value = '—';
-    if (precioEl) precioEl.value = '';
-    return;
-  }
-  const stock = opt.getAttribute('data-stock') || '0';
-  const precio = opt.getAttribute('data-precio') || '0';
-  if (stockEl) stockEl.value = `${stock} u.`;
-  if (precioEl) precioEl.value = parseFloat(precio).toFixed(2);
-  if (cantEl) {
-    cantEl.max = stock;
-    cantEl.value = '1';
-  }
+  document.getElementById('vr-search-results')?.classList.add('hidden');
 }
 
 function agregarItemVentaRapida() {
-  const sel = document.getElementById('vr-select-prod');
-  if (!sel) return;
-  const opt = sel.options[sel.selectedIndex];
-  if (!opt || !opt.value) {
-    alert('Por favor selecciona un repuesto o insumo del catálogo.');
+  const prodId = parseInt(document.getElementById('vr-selected-prod-id')?.value, 10);
+  if (!prodId) {
+    alert('Por favor busca y selecciona un repuesto o insumo del catálogo.');
+    document.getElementById('vr-search-prod')?.focus();
     return;
   }
 
-  const id = parseInt(opt.value, 10);
-  const stock = parseInt(opt.getAttribute('data-stock'), 10) || 0;
-  const descripcion = opt.getAttribute('data-nombre');
-  const codigo = opt.getAttribute('data-codigo');
+  const prod = productosVentaRapida.find(p => p.id === prodId);
+  if (!prod) {
+    alert('El producto seleccionado ya no se encuentra en la lista.');
+    return;
+  }
+
+  const stock = parseInt(prod.stock, 10) || 0;
   const cant = parseInt(document.getElementById('vr-item-cant')?.value, 10) || 0;
   const precio = parseFloat(document.getElementById('vr-item-precio')?.value);
 
@@ -2512,7 +2659,7 @@ function agregarItemVentaRapida() {
     return;
   }
 
-  const existente = itemsVentaRapida.find(it => it.repuesto_id === id);
+  const existente = itemsVentaRapida.find(it => it.repuesto_id === prodId);
   const cantTotal = (existente ? existente.cantidad : 0) + cant;
   if (cantTotal > stock) {
     alert(`Stock insuficiente: Disponible ${stock} unidades, intentarías vender ${cantTotal} unidades.`);
@@ -2525,28 +2672,18 @@ function agregarItemVentaRapida() {
     existente.subtotal = existente.cantidad * precio;
   } else {
     itemsVentaRapida.push({
-      repuesto_id: id,
-      codigo,
-      descripcion,
+      repuesto_id: prodId,
+      codigo: prod.codigo || 'S/C',
+      descripcion: prod.descripcion,
       cantidad: cant,
       precio_unitario: precio,
       subtotal: cant * precio
     });
   }
 
-  // Reset inputs
-  sel.value = '';
-  const stockEl = document.getElementById('vr-stock-disp');
-  const precioEl = document.getElementById('vr-item-precio');
-  const cantEl = document.getElementById('vr-item-cant');
-  const searchEl = document.getElementById('vr-search-prod');
-  if (stockEl) stockEl.value = '—';
-  if (precioEl) precioEl.value = '';
-  if (cantEl) cantEl.value = '1';
-  if (searchEl) searchEl.value = '';
-  poblarSelectProductosVR(productosVentaRapida);
-
+  limpiarSeleccionProductoVR();
   renderItemsVentaRapida();
+  document.getElementById('vr-search-prod')?.focus();
 }
 
 function eliminarItemVentaRapida(index) {
