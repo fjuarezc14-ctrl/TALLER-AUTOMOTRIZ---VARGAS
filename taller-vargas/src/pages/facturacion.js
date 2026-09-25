@@ -1,7 +1,8 @@
 import {
-  getCobros, getStatsCobros, registrarCobro, dividirCobro, getOrden, exportarCobrosCSV
+  getCobros, getStatsCobros, registrarCobro, dividirCobro, getOrden, exportarCobrosCSV,
+  crearVentaRapida, getAlmacen
 } from '../api.js';
-import { safeFormatDate, debounce } from '../utils.js';
+import { safeFormatDate, debounce, escapeHtml } from '../utils.js';
 
 
 let containerElement = null;
@@ -11,6 +12,8 @@ let statsData = {};
 let currentCobro = null;
 let activePagadorIndex = 1;
 let currentItems = [];
+let productosVentaRapida = [];
+let itemsVentaRapida = [];
 
 // ─── Paginación y Filtros ─────────────────────────────────────
 let currentPage = 1;
@@ -66,8 +69,9 @@ function getFilteredCobros() {
   return cobrosList.filter(c =>
     c.cliente_nombre?.toLowerCase().includes(q) ||
     c.placa?.toLowerCase().includes(q) ||
+    c.concepto?.toLowerCase().includes(q) ||
     String(c.id).includes(q) ||
-    String(c.orden_numero).includes(q) ||
+    (c.orden_numero && String(c.orden_numero).includes(q)) ||
     c.comprobante_numero?.toLowerCase().includes(q) ||
     c.comprobante2_numero?.toLowerCase().includes(q)
   );
@@ -304,6 +308,10 @@ function renderPage() {
         </div>
       </div>
       <div class="flex gap-2" style="flex-wrap:wrap;">
+        <button id="btn-venta-rapida" class="btn-primary flex items-center gap-2" style="font-size:12px;padding:8px 14px;height:38px;background:#10b981;border-color:#059669;font-weight:800;box-shadow:0 2px 6px rgba(16,185,129,0.3);">
+          <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M12 4v16m8-8H4"/></svg>
+          Venta Rápida
+        </button>
         <button id="btn-ver-cuentas-qr" class="btn-secondary flex items-center gap-2" style="font-size:12px;padding:8px 12px;height:38px;color:#7c3aed;border-color:#d8b4fe;background:#faf5ff;">
           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect width="14" height="20" x="5" y="2" rx="2"/><line x1="12" x2="12.01" y1="18" y2="18"/></svg>
           📱 Cuentas y QR Yape/Plin
@@ -677,6 +685,135 @@ function renderPage() {
         </div>
       </div>
     </div>
+
+    <!-- Modal Venta Rápida (Mostrador) -->
+    <div id="modal-venta-rapida" class="modal-overlay">
+      <div class="modal modal-lg" style="max-width:740px;">
+        <div class="modal-header" style="background:linear-gradient(135deg,#065f46,#047857);color:#fff;border-radius:var(--radius-lg) var(--radius-lg) 0 0;">
+          <div class="flex items-center gap-3">
+            <div style="width:36px;height:36px;background:rgba(255,255,255,0.2);border-radius:10px;display:flex;align-items:center;justify-content:center;">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+            </div>
+            <div>
+              <span style="font-size:15px;font-weight:900;letter-spacing:-0.3px;color:#fff;">Venta Rápida de Mostrador</span>
+              <p style="font-size:11px;color:#d1fae5;margin:0;">Venta directa de repuestos y lubricantes sin Orden de Servicio</p>
+            </div>
+          </div>
+          <button type="button" class="modal-close" id="btn-close-vr-x" style="color:rgba(255,255,255,0.8);">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+          </button>
+        </div>
+
+        <form id="form-venta-rapida">
+          <div class="modal-body" style="display:flex;flex-direction:column;gap:14px;padding:20px;">
+            <!-- Datos del Comprador -->
+            <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:var(--radius-md);padding:14px;">
+              <p style="font-size:11px;font-weight:800;color:var(--slate-5);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">1. Datos del Cliente / Comprador</p>
+              <div class="grid grid-cols-2 gap-3">
+                <div class="form-group" style="margin:0;">
+                  <label class="form-label">Cliente / Razón Social *</label>
+                  <input type="text" id="vr-cliente-nombre" class="form-input" value="Cliente Mostrador" required placeholder="Ej: Cliente Mostrador, Taller Los Amigos..." />
+                </div>
+                <div class="form-group" style="margin:0;">
+                  <label class="form-label">DNI / RUC (Opcional)</label>
+                  <input type="text" id="vr-cliente-doc" class="form-input font-mono" placeholder="Ej: 10458798541 o 20601234567" />
+                </div>
+              </div>
+            </div>
+
+            <!-- Selector de Productos -->
+            <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:var(--radius-md);padding:14px;">
+              <p style="font-size:11px;font-weight:800;color:#166534;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">2. Seleccionar Producto del Almacén</p>
+              <div style="display:flex;flex-direction:column;gap:10px;">
+                <div>
+                  <input type="text" id="vr-search-prod" class="form-input" placeholder="🔍 Filtrar por código, descripción o marca..." style="margin-bottom:6px;background:#fff;font-size:12px;" />
+                  <select id="vr-select-prod" class="form-select" style="background:#fff;font-size:12px;font-weight:600;">
+                    <option value="">-- Selecciona un repuesto / insumo con stock --</option>
+                  </select>
+                </div>
+                
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:10px;align-items:end;">
+                  <div class="form-group" style="margin:0;">
+                    <label class="form-label" style="font-size:11px;color:#166534;">Stock Actual</label>
+                    <input type="text" id="vr-stock-disp" class="form-input font-mono font-bold" readonly style="background:#e2e8f0;color:#334155;text-align:center;" value="—" />
+                  </div>
+                  <div class="form-group" style="margin:0;">
+                    <label class="form-label" style="font-size:11px;color:#166534;">Cantidad *</label>
+                    <input type="number" id="vr-item-cant" min="1" value="1" class="form-input font-mono font-bold text-center" style="background:#fff;" />
+                  </div>
+                  <div class="form-group" style="margin:0;">
+                    <label class="form-label" style="font-size:11px;color:#166534;">P. Venta Unit. (S/) *</label>
+                    <input type="number" id="vr-item-precio" step="0.01" min="0" class="form-input font-mono font-bold text-right" style="background:#fff;" placeholder="0.00" />
+                  </div>
+                  <button type="button" id="btn-vr-add-item" class="btn-success flex items-center gap-1" style="height:38px;padding:0 14px;background:#059669;border-color:#047857;font-weight:700;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M12 4v16m8-8H4"/></svg>
+                    Agregar
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Lista de ítems agregados -->
+            <div style="border:1px solid #e2e8f0;border-radius:var(--radius-md);overflow:hidden;background:#fff;">
+              <div style="padding:8px 12px;background:#f8fafc;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;">
+                <span style="font-size:11px;font-weight:800;color:var(--dark);text-transform:uppercase;">🛒 Productos en el Mostrador</span>
+                <span id="vr-items-count" style="font-size:11px;color:var(--slate-5);font-weight:700;">0 ítems</span>
+              </div>
+              <div style="max-height:160px;overflow-y:auto;">
+                <table style="width:100%;border-collapse:collapse;font-size:12px;">
+                  <thead>
+                    <tr style="background:#f1f5f9;border-bottom:1px solid #e2e8f0;font-size:10px;text-transform:uppercase;color:var(--slate-5);">
+                      <th style="padding:6px 10px;text-align:left;">Producto</th>
+                      <th style="padding:6px 8px;text-align:center;width:60px;">Cant.</th>
+                      <th style="padding:6px 8px;text-align:right;width:80px;">P. Unit</th>
+                      <th style="padding:6px 8px;text-align:right;width:90px;">Subtotal</th>
+                      <th style="padding:6px 8px;text-align:center;width:40px;"></th>
+                    </tr>
+                  </thead>
+                  <tbody id="vr-items-tbody">
+                    <tr><td colspan="5" style="text-align:center;padding:16px;color:var(--slate-5);font-size:11px;">No hay productos agregados a la venta</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Total y Forma de Pago -->
+            <div style="background:#f8fafc;border:1.5px solid #cbd5e1;border-radius:var(--radius-md);padding:14px;">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;border-bottom:1px dashed #cbd5e1;padding-bottom:10px;">
+                <span style="font-size:13px;font-weight:800;color:var(--dark);">TOTAL A COBRAR:</span>
+                <span id="vr-total-display" style="font-size:24px;font-weight:900;color:#047857;font-family:monospace;">S/ 0.00</span>
+              </div>
+              <div class="grid grid-cols-2 gap-3">
+                <div class="form-group" style="margin:0;">
+                  <label class="form-label">Método de Pago *</label>
+                  <select id="vr-metodo-pago" class="form-select" required>
+                    <option value="Efectivo">💵 Efectivo</option>
+                    <option value="Yape/Plin">📱 Yape / Plin</option>
+                    <option value="Tarjeta">💳 Tarjeta de Crédito / Débito</option>
+                    <option value="Transferencia">🏦 Transferencia Bancaria</option>
+                  </select>
+                </div>
+                <div class="form-group" style="margin:0;">
+                  <label class="form-label">Comprobante *</label>
+                  <select id="vr-tipo-comprobante" class="form-select" required>
+                    <option value="Recibo Interno">Recibo Interno (Control de Caja)</option>
+                    <option value="Boleta">Boleta de Venta</option>
+                    <option value="Factura">Factura</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="modal-footer" style="padding:14px 20px;display:flex;justify-content:space-between;align-items:center;">
+            <button type="button" class="btn-ghost" id="btn-close-vr-cancel">Cancelar</button>
+            <button type="submit" id="btn-submit-venta-rapida" class="btn-success flex items-center gap-2" style="font-weight:900;padding:8px 18px;background:#059669;border-color:#047857;font-size:13px;">
+              💳 Cobrar y Entregar Producto
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   `;
 
   // ── Eventos
@@ -704,6 +841,33 @@ function renderPage() {
   document.getElementById('btn-close-portal-x').addEventListener('click', () => cerrarModal('modal-portal-pago'));
   document.getElementById('btn-close-portal-cancel').addEventListener('click', () => cerrarModal('modal-portal-pago'));
   document.getElementById('btn-close-factura-x').addEventListener('click', () => cerrarModal('modal-factura-electronica'));
+  document.getElementById('btn-close-vr-x')?.addEventListener('click', cerrarModalVentaRapida);
+  document.getElementById('btn-close-vr-cancel')?.addEventListener('click', cerrarModalVentaRapida);
+
+  // Venta Rápida Eventos
+  document.getElementById('btn-venta-rapida')?.addEventListener('click', abrirModalVentaRapida);
+  document.getElementById('btn-vr-add-item')?.addEventListener('click', agregarItemVentaRapida);
+  document.getElementById('vr-select-prod')?.addEventListener('change', onProductoVRSelected);
+  document.getElementById('vr-search-prod')?.addEventListener('input', (e) => {
+    const q = (e.target.value || '').toLowerCase().trim();
+    if (!q) {
+      poblarSelectProductosVR(productosVentaRapida);
+    } else {
+      const filtrados = productosVentaRapida.filter(p =>
+        (p.descripcion || '').toLowerCase().includes(q) ||
+        (p.codigo || '').toLowerCase().includes(q) ||
+        (p.categoria || '').toLowerCase().includes(q)
+      );
+      poblarSelectProductosVR(filtrados);
+    }
+  });
+  document.getElementById('vr-items-tbody')?.addEventListener('click', (e) => {
+    const btn = e.target.closest('.btn-vr-del');
+    if (btn) {
+      eliminarItemVentaRapida(parseInt(btn.dataset.idx, 10));
+    }
+  });
+  document.getElementById('form-venta-rapida')?.addEventListener('submit', procesarVentaRapida);
 
   document.getElementById('form-cobro-rapido').addEventListener('submit', procesarCobroRapido);
   document.getElementById('chk-dividir').addEventListener('change', toggleDividido);
@@ -915,7 +1079,11 @@ function enviarComprobantePorWhatsApp() {
             window.imprimirTicketTermico({ ...c, items: [] });
           });
         } else {
-          window.imprimirTicketTermico({ ...c, items: [] });
+          let items = [];
+          try {
+            items = typeof c.detalle_items === 'string' ? JSON.parse(c.detalle_items) : (c.detalle_items || []);
+          } catch(e) {}
+          window.imprimirTicketTermico({ ...c, items });
         }
       }
     }
@@ -1032,12 +1200,17 @@ function renderTableRows(cobros) {
           ${numDocHtml}
         </td>
         <td>
-          <span style="font-family:monospace;font-size:11px;font-weight:800;color:var(--brand);">OT-${String(c.orden_numero).padStart(4,'0')}</span>
-          <div style="font-size:10px;color:var(--slate-5);">${c.placa || '—'}</div>
+          ${c.orden_numero ? `
+            <span style="font-family:monospace;font-size:11px;font-weight:800;color:var(--brand);">OT-${String(c.orden_numero).padStart(4,'0')}</span>
+            <div style="font-size:10px;color:var(--slate-5);">${escapeHtml(c.placa || '—')}</div>
+          ` : `
+            <span class="badge" style="background:#ecfdf5;color:#047857;font-weight:800;font-size:10px;display:inline-flex;align-items:center;gap:3px;">🛒 VENTA DIRECTA</span>
+            <div style="font-size:10px;color:var(--slate-5);max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${escapeHtml(c.concepto || 'Venta de Mostrador')}">${escapeHtml(c.concepto || 'Venta de Mostrador')}</div>
+          `}
         </td>
         <td>
-          <strong style="display:block;font-size:12px;">${c.cliente_nombre || '—'}</strong>
-          <span style="font-size:10px;color:var(--slate-5);font-family:monospace;">${c.tipo_doc}: ${c.num_doc}</span>
+          <strong style="display:block;font-size:12px;">${escapeHtml(c.cliente_nombre || 'Cliente Mostrador')}</strong>
+          <span style="font-size:10px;color:var(--slate-5);font-family:monospace;">${escapeHtml(c.tipo_doc || 'DOC')}: ${escapeHtml(c.num_doc || '—')}</span>
         </td>
         <td style="font-size:11px;color:var(--slate-5);">${dateStr}</td>
         <td class="text-right font-mono" style="font-size:11px;color:var(--slate-5);">S/ ${subNeto.toFixed(2)}</td>
@@ -1561,8 +1734,8 @@ function obtenerFacturaHtmlContent(c, pagadorIndex, items) {
         <div class="factura-details-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px 24px;">
           <div><span style="color:#64748b;">Razón Social / Nombre:</span> <strong style="color:var(--dark);">${receptorNombre}</strong></div>
           <div><span style="color:#64748b;">${receptorDocType}:</span> <strong style="font-family:monospace;color:var(--dark);">${receptorDocNum}</strong></div>
-          <div><span style="color:#64748b;">Orden de Servicio:</span> <strong style="font-family:monospace;font-weight:700;color:var(--brand);">OS-${String(c.orden_numero || c.orden_id).padStart(4,'0')}</strong></div>
-          <div><span style="color:#64748b;">Vehículo:</span> <strong style="color:var(--dark);">${c.placa || '—'}</strong></div>
+          <div><span style="color:#64748b;">Orden de Servicio:</span> <strong style="font-family:monospace;font-weight:700;color:var(--brand);">${c.orden_numero || c.orden_id ? `OS-${String(c.orden_numero || c.orden_id).padStart(4,'0')}` : 'VENTA DIRECTA'}</strong></div>
+          <div><span style="color:#64748b;">Vehículo:</span> <strong style="color:var(--dark);">${c.placa || 'VENTA DIRECTA'}</strong></div>
         </div>
       </div>
 
@@ -1699,13 +1872,17 @@ async function abrirFactura(id) {
   if (!c) return;
 
   const doc = document.getElementById('factura-doc-content');
-  doc.innerHTML = `<div style="padding:40px;text-align:center;color:var(--slate-5);font-size:13px;">Cargando ítems de la orden...</div>`;
+  doc.innerHTML = `<div style="padding:40px;text-align:center;color:var(--slate-5);font-size:13px;">Cargando ítems...</div>`;
   document.getElementById('modal-factura-electronica').classList.add('active');
 
   let items = [];
   try {
-    const orden = await getOrden(c.orden_id);
-    items = orden.items || [];
+    if (c.orden_id) {
+      const orden = await getOrden(c.orden_id);
+      items = orden.items || [];
+    } else {
+      items = typeof c.detalle_items === 'string' ? JSON.parse(c.detalle_items) : (c.detalle_items || []);
+    }
   } catch (_) { items = []; }
 
   renderFacturaDocument(c, 1, items);
@@ -2230,4 +2407,364 @@ function cerrarModal(id) {
   if (m) m.classList.remove('active');
 }
 
+// ── VENTA RÁPIDA (MOSTRADOR) ──────────────────────────────
+
+async function abrirModalVentaRapida() {
+  itemsVentaRapida = [];
+  const elNombre = document.getElementById('vr-cliente-nombre');
+  const elDoc = document.getElementById('vr-cliente-doc');
+  const elCant = document.getElementById('vr-item-cant');
+  const elPrecio = document.getElementById('vr-item-precio');
+  const elStock = document.getElementById('vr-stock-disp');
+  const elSearch = document.getElementById('vr-search-prod');
+  const elMetodo = document.getElementById('vr-metodo-pago');
+  const elComp = document.getElementById('vr-tipo-comprobante');
+
+  if (elNombre) elNombre.value = 'Cliente Mostrador';
+  if (elDoc) elDoc.value = '';
+  if (elCant) elCant.value = '1';
+  if (elPrecio) elPrecio.value = '';
+  if (elStock) elStock.value = '—';
+  if (elSearch) elSearch.value = '';
+  if (elMetodo) elMetodo.value = 'Efectivo';
+  if (elComp) elComp.value = 'Recibo Interno';
+
+  renderItemsVentaRapida();
+
+  try {
+    const prods = await getAlmacen();
+    productosVentaRapida = Array.isArray(prods) ? prods : [];
+    poblarSelectProductosVR(productosVentaRapida);
+  } catch (err) {
+    console.error('Error al cargar almacén para venta rápida:', err);
+    alert('Error al cargar los repuestos de almacén: ' + err.message);
+  }
+
+  document.getElementById('modal-venta-rapida')?.classList.add('active');
+}
+
+function cerrarModalVentaRapida() {
+  document.getElementById('modal-venta-rapida')?.classList.remove('active');
+}
+
+function poblarSelectProductosVR(lista) {
+  const sel = document.getElementById('vr-select-prod');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">-- Selecciona un repuesto / insumo con stock --</option>' +
+    lista
+      .filter(p => (parseInt(p.stock, 10) || 0) > 0)
+      .map(p => {
+        const codigo = escapeHtml(p.codigo || 'S/C');
+        const desc = escapeHtml(p.descripcion || '');
+        const precio = parseFloat(p.precio_venta || 0).toFixed(2);
+        return `<option value="${p.id}" data-stock="${p.stock}" data-precio="${p.precio_venta || 0}" data-codigo="${codigo}" data-nombre="${desc}">
+          [${codigo}] ${desc} (Stock: ${p.stock} u. | S/ ${precio})
+        </option>`;
+      })
+      .join('');
+}
+
+function onProductoVRSelected() {
+  const sel = document.getElementById('vr-select-prod');
+  if (!sel) return;
+  const opt = sel.options[sel.selectedIndex];
+  const stockEl = document.getElementById('vr-stock-disp');
+  const precioEl = document.getElementById('vr-item-precio');
+  const cantEl = document.getElementById('vr-item-cant');
+
+  if (!opt || !opt.value) {
+    if (stockEl) stockEl.value = '—';
+    if (precioEl) precioEl.value = '';
+    return;
+  }
+  const stock = opt.getAttribute('data-stock') || '0';
+  const precio = opt.getAttribute('data-precio') || '0';
+  if (stockEl) stockEl.value = `${stock} u.`;
+  if (precioEl) precioEl.value = parseFloat(precio).toFixed(2);
+  if (cantEl) {
+    cantEl.max = stock;
+    cantEl.value = '1';
+  }
+}
+
+function agregarItemVentaRapida() {
+  const sel = document.getElementById('vr-select-prod');
+  if (!sel) return;
+  const opt = sel.options[sel.selectedIndex];
+  if (!opt || !opt.value) {
+    alert('Por favor selecciona un repuesto o insumo del catálogo.');
+    return;
+  }
+
+  const id = parseInt(opt.value, 10);
+  const stock = parseInt(opt.getAttribute('data-stock'), 10) || 0;
+  const descripcion = opt.getAttribute('data-nombre');
+  const codigo = opt.getAttribute('data-codigo');
+  const cant = parseInt(document.getElementById('vr-item-cant')?.value, 10) || 0;
+  const precio = parseFloat(document.getElementById('vr-item-precio')?.value);
+
+  if (cant <= 0) {
+    alert('La cantidad debe ser al menos 1 unidad.');
+    return;
+  }
+  if (isNaN(precio) || precio < 0) {
+    alert('Ingresa un precio de venta unitario válido.');
+    return;
+  }
+
+  const existente = itemsVentaRapida.find(it => it.repuesto_id === id);
+  const cantTotal = (existente ? existente.cantidad : 0) + cant;
+  if (cantTotal > stock) {
+    alert(`Stock insuficiente: Disponible ${stock} unidades, intentarías vender ${cantTotal} unidades.`);
+    return;
+  }
+
+  if (existente) {
+    existente.cantidad += cant;
+    existente.precio_unitario = precio;
+    existente.subtotal = existente.cantidad * precio;
+  } else {
+    itemsVentaRapida.push({
+      repuesto_id: id,
+      codigo,
+      descripcion,
+      cantidad: cant,
+      precio_unitario: precio,
+      subtotal: cant * precio
+    });
+  }
+
+  // Reset inputs
+  sel.value = '';
+  const stockEl = document.getElementById('vr-stock-disp');
+  const precioEl = document.getElementById('vr-item-precio');
+  const cantEl = document.getElementById('vr-item-cant');
+  const searchEl = document.getElementById('vr-search-prod');
+  if (stockEl) stockEl.value = '—';
+  if (precioEl) precioEl.value = '';
+  if (cantEl) cantEl.value = '1';
+  if (searchEl) searchEl.value = '';
+  poblarSelectProductosVR(productosVentaRapida);
+
+  renderItemsVentaRapida();
+}
+
+function eliminarItemVentaRapida(index) {
+  if (index >= 0 && index < itemsVentaRapida.length) {
+    itemsVentaRapida.splice(index, 1);
+    renderItemsVentaRapida();
+  }
+}
+
+function renderItemsVentaRapida() {
+  const tbody = document.getElementById('vr-items-tbody');
+  const countEl = document.getElementById('vr-items-count');
+  const totalEl = document.getElementById('vr-total-display');
+  if (!tbody) return;
+
+  if (itemsVentaRapida.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:16px;color:var(--slate-5);font-size:11px;">No hay productos agregados a la venta</td></tr>';
+    if (countEl) countEl.textContent = '0 ítems';
+    if (totalEl) totalEl.textContent = 'S/ 0.00';
+    return;
+  }
+
+  let total = 0;
+  tbody.innerHTML = itemsVentaRapida.map((it, idx) => {
+    total += it.subtotal;
+    return `
+      <tr style="border-bottom:1px solid #f1f5f9;">
+        <td style="padding:6px 10px;">
+          <strong style="color:var(--dark);">${escapeHtml(it.descripcion)}</strong>
+          ${it.codigo ? `<div style="font-size:9.5px;color:var(--slate-5);font-family:monospace;">${escapeHtml(it.codigo)}</div>` : ''}
+        </td>
+        <td style="padding:6px 8px;text-align:center;font-weight:700;font-family:monospace;">${it.cantidad}</td>
+        <td style="padding:6px 8px;text-align:right;font-family:monospace;">S/ ${it.precio_unitario.toFixed(2)}</td>
+        <td style="padding:6px 8px;text-align:right;font-family:monospace;font-weight:800;color:#047857;">S/ ${it.subtotal.toFixed(2)}</td>
+        <td style="padding:6px 8px;text-align:center;">
+          <button type="button" class="btn-vr-del" data-idx="${idx}" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:14px;padding:2px 4px;" title="Eliminar ítem">✕</button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  if (countEl) countEl.textContent = `${itemsVentaRapida.length} ítem${itemsVentaRapida.length !== 1 ? 's' : ''}`;
+  if (totalEl) totalEl.textContent = `S/ ${total.toFixed(2)}`;
+}
+
+async function procesarVentaRapida(e) {
+  e.preventDefault();
+  if (itemsVentaRapida.length === 0) {
+    alert('Debes agregar al menos un producto a la venta rápida.');
+    return;
+  }
+
+  const cliente_nombre = document.getElementById('vr-cliente-nombre')?.value.trim() || 'Cliente Mostrador';
+  const cliente_doc = document.getElementById('vr-cliente-doc')?.value.trim() || null;
+  const metodo_pago = document.getElementById('vr-metodo-pago')?.value || 'Efectivo';
+  const tipo_comprobante = document.getElementById('vr-tipo-comprobante')?.value || 'Recibo Interno';
+
+  const btnSubmit = document.getElementById('btn-submit-venta-rapida');
+  if (btnSubmit) {
+    btnSubmit.disabled = true;
+    btnSubmit.innerHTML = '⏳ Procesando venta y descontando stock...';
+  }
+
+  try {
+    const res = await crearVentaRapida({
+      cliente_nombre,
+      cliente_doc,
+      metodo_pago,
+      tipo_comprobante,
+      items: itemsVentaRapida
+    });
+
+    cerrarModalVentaRapida();
+    await cargarDatos();
+
+    if (window.showToast) {
+      window.showToast('✅ Venta rápida registrada y cobrada exitosamente', 'success');
+    }
+
+    const cobroCreado = res.cobro;
+    if (cobroCreado) {
+      const quiereTicket = confirm('¿Deseas imprimir el Ticket de comprobante ahora?');
+      if (quiereTicket && window.imprimirTicketTermico) {
+        window.imprimirTicketTermico({
+          ...cobroCreado,
+          items: cobroCreado.detalle_items || itemsVentaRapida
+        });
+      }
+    }
+  } catch (err) {
+    console.error('Error al procesar venta rápida:', err);
+    alert('Error al registrar venta rápida: ' + err.message);
+  } finally {
+    if (btnSubmit) {
+      btnSubmit.disabled = false;
+      btnSubmit.innerHTML = '💳 Cobrar y Entregar Producto';
+    }
+  }
+}
+
+// ── TICKET TÉRMICO 80MM ───────────────────────────────────
+
+window.imprimirTicketTermico = function(c) {
+  if (!c) return;
+  const printArea = document.getElementById('print-area');
+  if (!printArea) {
+    window.print();
+    return;
+  }
+
+  let items = c.items || [];
+  if (typeof items === 'string') {
+    try { items = JSON.parse(items); } catch (_) { items = []; }
+  }
+
+  const total = parseFloat(c.monto_neto !== null && c.monto_neto !== undefined ? c.monto_neto : c.monto_total || 0);
+  const igv = total * 0.18 / 1.18;
+  const sub = total - igv;
+
+  const compTipo = c.tipo_comprobante || 'Recibo Interno';
+  const compNum = c.comprobante_numero || `REC-${c.id}`;
+  const clienteNom = c.cliente_nombre || c.cliente_nombre_libre || 'Cliente Mostrador';
+  const clienteDoc = c.num_doc || c.cliente_doc_libre || '—';
+  const placa = c.placa && c.placa !== 'VENTA DIRECTA' ? c.placa : null;
+  const ordenRef = c.orden_numero || c.orden_id ? `OT-${String(c.orden_numero || c.orden_id).padStart(4, '0')}` : 'VENTA DIRECTA';
+  const fechaStr = safeFormatDate(c.fecha_cobro || c.fecha_emision || new Date(), { day: '2-digit', month: '2-digit', year: 'numeric' });
+
+  printArea.innerHTML = `
+    <div style="width: 78mm; max-width: 78mm; margin: 0 auto; font-family: 'Courier New', Courier, monospace; font-size: 11px; line-height: 1.25; color: #000; padding: 4px;">
+      <div style="text-align: center; margin-bottom: 8px;">
+        <h2 style="font-size: 13px; font-weight: 900; margin: 0; text-transform: uppercase;">INVERSIONES Y SERVICIOS VARGAS E.I.R.L.</h2>
+        <p style="font-size: 10px; margin: 2px 0;">RUC: 20608226066</p>
+        <p style="font-size: 9px; margin: 1px 0;">Jr. Reyna Farge N° 648 - Cajamarca</p>
+        <p style="font-size: 9px; margin: 1px 0;">Tel: 931 163 369 / 976 864 137</p>
+        <div style="border-top: 1px dashed #000; margin: 6px 0;"></div>
+        <h3 style="font-size: 12px; font-weight: 900; margin: 2px 0; text-transform: uppercase;">${escapeHtml(compTipo)}</h3>
+        <p style="font-size: 12px; font-weight: 800; margin: 1px 0;">${escapeHtml(compNum)}</p>
+        <div style="border-top: 1px dashed #000; margin: 6px 0;"></div>
+      </div>
+
+      <div style="font-size: 10.5px; margin-bottom: 8px;">
+        <div><strong>Fecha:</strong> ${fechaStr}</div>
+        <div><strong>Cliente:</strong> ${escapeHtml(clienteNom)}</div>
+        <div><strong>DNI/RUC:</strong> ${escapeHtml(clienteDoc)}</div>
+        <div><strong>Ref:</strong> ${escapeHtml(ordenRef)}${placa ? ` | Placa: ${escapeHtml(placa)}` : ''}</div>
+      </div>
+
+      <div style="border-top: 1px dashed #000; border-bottom: 1px dashed #000; padding: 4px 0; margin-bottom: 6px;">
+        <div style="display: flex; justify-content: space-between; font-weight: 800; font-size: 10px;">
+          <span style="width: 15%;">CANT</span>
+          <span style="width: 50%;">DESCRIPCIÓN</span>
+          <span style="width: 15%; text-align: right;">P.U.</span>
+          <span style="width: 20%; text-align: right;">TOTAL</span>
+        </div>
+      </div>
+
+      <div style="margin-bottom: 8px;">
+        ${items.length > 0 ? items.map(it => {
+          const cant = it.cantidad || 1;
+          const pu = parseFloat(it.precio_unitario || 0);
+          const st = cant * pu;
+          const desc = it.descripcion || it.nombre || 'Producto / Repuesto';
+          return `
+            <div style="display: flex; justify-content: space-between; font-size: 10px; margin-bottom: 3px;">
+              <span style="width: 15%;">${cant}</span>
+              <span style="width: 50%; word-break: break-word;">${escapeHtml(desc)}</span>
+              <span style="width: 15%; text-align: right;">${pu.toFixed(2)}</span>
+              <span style="width: 20%; text-align: right;">${st.toFixed(2)}</span>
+            </div>
+          `;
+        }).join('') : `
+          <div style="display: flex; justify-content: space-between; font-size: 10px;">
+            <span style="width: 15%;">1</span>
+            <span style="width: 50%;">${escapeHtml(c.concepto || 'Venta / Servicio')}</span>
+            <span style="width: 15%; text-align: right;">${total.toFixed(2)}</span>
+            <span style="width: 20%; text-align: right;">${total.toFixed(2)}</span>
+          </div>
+        `}
+      </div>
+
+      <div style="border-top: 1px dashed #000; padding-top: 6px; margin-bottom: 8px;">
+        ${compTipo !== 'Recibo Interno' ? `
+          <div style="display: flex; justify-content: space-between; font-size: 10px;">
+            <span>Op. Gravada:</span>
+            <span>S/ ${sub.toFixed(2)}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; font-size: 10px;">
+            <span>I.G.V. (18%):</span>
+            <span>S/ ${igv.toFixed(2)}</span>
+          </div>
+        ` : ''}
+        <div style="display: flex; justify-content: space-between; font-size: 12px; font-weight: 900; margin-top: 2px;">
+          <span>TOTAL:</span>
+          <span>S/ ${total.toFixed(2)}</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; font-size: 10px; margin-top: 3px;">
+          <span>Medio de Pago:</span>
+          <span>${escapeHtml(c.metodo_pago || 'Efectivo')}</span>
+        </div>
+      </div>
+
+      <div style="border-top: 1px dashed #000; margin-top: 8px; padding-top: 8px; text-align: center; font-size: 9.5px;">
+        <p style="margin: 2px 0;">¡Gracias por su preferencia!</p>
+        <p style="margin: 2px 0; font-size: 8.5px; color: #555;">Documento de Control Interno</p>
+      </div>
+    </div>
+  `;
+
+  const onAfter = () => {
+    printArea.innerHTML = '';
+    window.removeEventListener('afterprint', onAfter);
+  };
+  window.addEventListener('afterprint', onAfter);
+  setTimeout(() => {
+    window.print();
+    setTimeout(() => { printArea.innerHTML = ''; }, 2500);
+  }, 150);
+};
+
 export function destroy() {}
+

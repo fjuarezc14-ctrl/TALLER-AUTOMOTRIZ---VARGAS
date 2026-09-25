@@ -136,6 +136,7 @@ export const getCobros    = ()         => request('/cobros');
 export const getStatsCobros = ()       => request('/cobros/stats');
 export const registrarCobro = (id, d)  => request(`/cobros/${id}/cobrar`, { method: 'PATCH', body: d });
 export const dividirCobro   = (id, d)  => request(`/cobros/${id}/dividir`, { method: 'PATCH', body: d });
+export const crearVentaRapida = (data) => request('/cobros/venta-rapida', { method: 'POST', body: data });
 export const exportarCobrosCSV = async () => {
   const token = localStorage.getItem('vargas_token');
   const headers = { 'Cache-Control': 'no-cache' };

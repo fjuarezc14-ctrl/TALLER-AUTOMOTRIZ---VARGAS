@@ -38,8 +38,13 @@ async function runDbMigrations() {
       ALTER TABLE ordenes_servicio ADD COLUMN IF NOT EXISTS garantia_motivo TEXT;
       ALTER TABLE ordenes_servicio ADD COLUMN IF NOT EXISTS mecanico_negligente_id INTEGER;
     `);
-    // Migrar columnas de la tabla cobros para descuentos y comprobante_numero
+    // Migrar columnas de la tabla cobros para descuentos, comprobante_numero y ventas directas/rápidas
     await query(`
+      ALTER TABLE cobros ALTER COLUMN orden_id DROP NOT NULL;
+      ALTER TABLE cobros ADD COLUMN IF NOT EXISTS concepto VARCHAR(255);
+      ALTER TABLE cobros ADD COLUMN IF NOT EXISTS cliente_nombre_libre VARCHAR(255);
+      ALTER TABLE cobros ADD COLUMN IF NOT EXISTS cliente_doc_libre VARCHAR(50);
+      ALTER TABLE cobros ADD COLUMN IF NOT EXISTS detalle_items JSONB;
       ALTER TABLE cobros ADD COLUMN IF NOT EXISTS descuento_tipo VARCHAR(20) DEFAULT NULL;
       ALTER TABLE cobros ADD COLUMN IF NOT EXISTS descuento_valor DECIMAL(10,2) DEFAULT 0;
       ALTER TABLE cobros ADD COLUMN IF NOT EXISTS descuento_realizado DECIMAL(10,2) DEFAULT 0;
